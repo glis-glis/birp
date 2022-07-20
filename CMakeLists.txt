@@ -9,7 +9,7 @@ if (POLICY CMP0048)
 endif (POLICY CMP0048)
 
 # Project
-project(empty LANGUAGES CXX)
+project(birp LANGUAGES CXX)
 
 # Needed for Language Server Protocol
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -23,6 +23,22 @@ FetchContent_Declare(coretools
         )
 FetchContent_MakeAvailable(coretools)
 
+include(FetchContent)
+FetchContent_Declare(stattools
+        GIT_REPOSITORY    https://bitbucket.org/wegmannlab/stattools.git
+        GIT_TAG           master
+        SOURCE_DIR        "${CMAKE_SOURCE_DIR}/stattools"
+        )
+FetchContent_MakeAvailable(stattools)
+
+include(FetchContent)
+FetchContent_Declare(genometools
+        GIT_REPOSITORY    https://bitbucket.org/wegmannlab/genometools.git
+        GIT_TAG           master
+        SOURCE_DIR        "${CMAKE_SOURCE_DIR}/genometools"
+        )
+FetchContent_MakeAvailable(genometools)
+
 #######################
 # Create core library
 #######################
@@ -34,7 +50,7 @@ add_library(coreLib STATIC ${CORE_SOURCES})
 
 target_sources(coreLib PRIVATE ${CORE_SOURCES})
 target_include_directories(coreLib PRIVATE core SYSTEM INTERFACE core)
-target_link_libraries(coreLib PUBLIC coretools)
+target_link_libraries(coreLib PUBLIC coretools stattools genometools)
 target_compile_features(coreLib PUBLIC cxx_std_17)
 set_target_properties(coreLib PROPERTIES CXX_EXTENSIONS OFF)
 target_compile_options(coreLib PRIVATE -Wall -Wextra)

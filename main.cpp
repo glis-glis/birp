@@ -3,35 +3,22 @@
  */
 
 #include "TMain.h"
-
-//---------------------------------------------------------------------------
-// Includes for tasks
-//---------------------------------------------------------------------------
-
-#include "TExample.h"
+#include "TBirpCore.h"
 
 //---------------------------------------------------------------------------
 // Existing Tasks
 //---------------------------------------------------------------------------
 
 void addTaks(coretools::TMain &main) {
-	// Tasks consist of a name and a pointer to a TTask object.
-	// Use main.addRegularTask() to add a regular task (shown in
-	// list of available tasks) Use main.addDebugTask() to add a
-	// debug task (not shown in list of available tasks)
-
-	main.addRegularTask("example", new TTask_example());
-};
+	main.addRegularTask("simulate", new TTask_simulate());
+	main.addRegularTask("infer", new TTask_infer());
+}
 
 //---------------------------------------------------------------------------
 // Existing Integration tests
 //---------------------------------------------------------------------------
 
-void addTests(coretools::TMain &){
-	// Use main.addTest to add integration tests
-
-	// Use main.addTestSuite to add test suites
-};
+void addTests(coretools::TMain &){}
 
 //---------------------------------------------------------------------------
 // Main function
@@ -40,9 +27,9 @@ void addTests(coretools::TMain &){
 int main(int argc, char *argv[]) {
 	// Create main by providing a program name, a version, an
 	// affiliation, link to repo and contact email
-	coretools::TMain main("EMPTY", "0.1", "University of Fribourg",
-			      "https://bitbucket.org/wegmannlab/empty",
-			      "daniel.wegmann@unifr.ch");
+	coretools::TMain main("Birp", "0.1", "University of Fribourg",
+			      "https://bitbucket.org/wegmannlab/birp_cpp2",
+			      "liam.singer@unifr.ch");
 
 	// add existing tasks and tests
 	addTaks(main);
@@ -50,4 +37,4 @@ int main(int argc, char *argv[]) {
 
 	// now run program
 	return main.run(argc, argv);
-};
+}
