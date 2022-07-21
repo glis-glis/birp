@@ -28,6 +28,7 @@ private:
 
 	// simulate values
 	void _simulateUnderPrior(Storage *Data) override;
+    void _fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times);
 
 public:
 	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TObservationTyped<TypeEffort, 2> *Effort,

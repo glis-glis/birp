@@ -13,6 +13,13 @@ TBirpPrior::TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 
 std::string TBirpPrior::name() const { return "birp"; }
 
+void TBirpPrior::_fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times){
+    _numEpochs = TimesOfChange.size() + 1;
+    _rhos.zeros(Times.size(),_numEpochs);
+    _rhos(0,0) = 1;
+}
+
+
 void TBirpPrior::initializeStorageOfPriorParameters() {}
 
 void TBirpPrior::estimateInitialPriorParameters() {}
