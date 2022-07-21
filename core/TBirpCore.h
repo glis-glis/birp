@@ -25,17 +25,17 @@ class TBirpModel {
 private:
 	// all parameters of model (including prior parameters)
 	stattools::TParameterTyped<TypeGamma, 1> _gamma;
-	stattools::TParameterTyped<TypeEffort, 1> _effort;
+	stattools::TObservationTyped<TypeEffort, 1> _effort;
 
 	// data
-	stattools::TObservationTyped<TypeCounts, 2> _observation; // TODO: what are the dimensions of the counts?
+	stattools::TObservationTyped<TypeCounts, 2> _counts;
 
 public:
 	// constructor for inference
 	TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);
 	// constructor for simulation
 	TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, size_t Dimensions);
-}
+};
 
 //--------------------------------------
 // TBirpCore

@@ -7,6 +7,7 @@
 
 #include "BirpTypes.h"
 #include "TParameterTyped.h"
+#include "TObservationTyped.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
@@ -15,13 +16,13 @@ private:
 
 	// Birp parameters
 	stattools::TParameterTyped<TypeGamma, 1> *_gamma   = nullptr;
-	stattools::TParameterTyped<TypeEffort, 1> *_effort = nullptr;
+	stattools::TObservationTyped<TypeEffort, 1> *_effort = nullptr;
 
 	// simulate values
 	void _simulateUnderPrior(Storage *Data) override;
 
 public:
-	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeEffort, 1> *Effort);
+	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TObservationTyped<TypeEffort, 1> *Effort);
 	~TBirpPrior() override = default;
 
 	[[nodiscard]] std::string name() const override;

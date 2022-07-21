@@ -21,19 +21,19 @@ using namespace stattools::prior;
 TBirpModel::TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
     // constructor for inference
     : _gamma("gamma", std::make_shared<TUniformFixed<TParameterBase, TypeGamma, 1>>(), {Filename}),
-      _effort("effort", std::make_shared<TUniformFixed<TParameterBase, TypeGamma, 1>>(), {Filename}),
-      _observation("counts", std::make_shared<TBirpPrior>(&_gamma, &_effort), {}) {
+      _effort("effort", std::make_shared<TUniformFixed<TObservationBase, TypeGamma, 1>>(), {Filename}),
+      _counts("counts", std::make_shared<TBirpPrior>(&_gamma, &_effort), {}) {
 
 	DAGBuilder.addToDAG(_gamma);
 	DAGBuilder.addToDAG(_effort);
-	DAGBuilder.addToDAG(_observation);
+	DAGBuilder.addToDAG(_counts);
 }
 
 TBirpModel::TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, size_t Dimensions)
     : TBirpModel(Filename, DAGBuilder) {
 	// constructor for simulation
-	_observation.getDefinition().setDimensions({Dimensions, Dimensions});
-	_observation.getDefinition().setSimulationFile(Filename);
+	_counts.getDefinition().setDimensions({Dimensions, Dimensions});
+	_counts.getDefinition().setSimulationFile(Filename);
 }
 
 //--------------------------------------

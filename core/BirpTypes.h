@@ -14,8 +14,8 @@
 //-------------------------------
 
 // types of parameters/observations
-typedef coretools::UnsignedInt<uint32_t> TypeCounts;
+typedef coretools::UnsignedInt<uint16_t> TypeCounts;
 typedef coretools::WeakType<double> TypeGamma;
-typedef coretools::WeakType<double> TypeEffort;
+typedef coretools::Positive<double> TypeEffort;
 
 #endif // BIRPTYPES_H
