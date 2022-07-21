@@ -37,7 +37,8 @@ private:
 		logfile().done();
 
 		// report
-		logfile().list("Read ", Storage.dimensions()[0], " methods and ", Storage.dimensions()[1], " time points.");
+		logfile().conclude("Detected ", Storage.dimensions()[0], " methods and ", Storage.dimensions()[1],
+		                   " time points.");
 	}
 
 	template<typename T>
@@ -53,8 +54,7 @@ private:
 	}
 
 	static bool _shouldResizeEffort(size_t NumTimePointsCounts, size_t NumTimePointsEfforts);
-	static void _resizeEffort(size_t NumTimePointsCounts, size_t NumMethods,
-	                          coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts,
+	static void _resizeEffort(size_t NumTimePointsCounts, coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts,
 	                          const std::shared_ptr<coretools::TNamesEmpty> &NamesTimePoints);
 	static void _checkDimensions_Methods(size_t NumMethodsCounts, size_t NumMethodsEfforts);
 	static void _checkDimensions_TimePoints(size_t NumTimePointsCounts, size_t NumTimePointsEfforts,

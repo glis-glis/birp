@@ -10,21 +10,24 @@ bool TData::_shouldResizeEffort(size_t NumTimePointsCounts, size_t NumTimePoints
 	return NumTimePointsCounts > 1 && NumTimePointsEfforts == 1;
 }
 
-void TData::_resizeEffort(size_t NumTimePointsCounts, size_t NumMethods,
+void TData::_resizeEffort(size_t NumTimePointsCounts,
                           coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts,
                           const std::shared_ptr<coretools::TNamesEmpty> &NamesTimePoints) {
 	// expand effort to match dimensions of counts
+	const size_t numMethods = Efforts.dimensions()[0];
 	coretools::TMultiDimensionalStorage<TypeEffort, 2> newEffort;
-	newEffort.prepareFillData(NumMethods, {NumTimePointsCounts});
+	newEffort.prepareFillData(numMethods, {NumTimePointsCounts});
 
-	for (size_t i = 0; i < NumMethods; i++) {
+	for (size_t i = 0; i < numMethods; i++) {
 		for (size_t j = 0; j < NumTimePointsCounts; j++) { newEffort.emplace_back(Efforts(i, 0)); }
 	}
 
 	newEffort.finalizeFillData();
+	auto namesMethods = Efforts.getDimensionName(0);
 	Efforts = newEffort;
 
-	// set time point names from data
+	// set dimensions names
+	Efforts.setDimensionName(namesMethods, 0);
 	Efforts.setDimensionName(NamesTimePoints, 1);
 }
 
@@ -43,7 +46,8 @@ void TData::_checkDimensions_TimePoints(size_t NumTimePointsCounts, size_t NumTi
 	if (NumTimePointsCounts != NumTimePointsEfforts) {
 		if (_shouldResizeEffort(NumTimePointsCounts, NumTimePointsEfforts)) {
 			// Counts were measured at >1 time points, but effort is constant across all time points -> resize effort
-			_resizeEffort(NumTimePointsCounts, NumTimePointsEfforts, Efforts, NamesTimePoints);
+			_resizeEffort(NumTimePointsCounts, Efforts, NamesTimePoints);
+			coretools::instances::logfile().list("Assuming constant efforts across all time points.");
 		} else {
 			UERROR("Detected a different number of time points in counts file (", NumTimePointsCounts,
 			       ") than in efforts file (", NumTimePointsEfforts, ")!");

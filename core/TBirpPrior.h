@@ -6,9 +6,9 @@
 #define TBIRPPRIOR_H
 
 #include "BirpTypes.h"
+#include "TMatrix.h"
 #include "TObservationTyped.h"
 #include "TParameterTyped.h"
-#include "TMatrix.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
@@ -23,11 +23,15 @@ private:
 	size_t _numEpochs = 0;
 	coretools::TMatrix<double> _rhos;
 
+	// other stuff
+	std::string _filename;
+
 	// simulate values
 	void _simulateUnderPrior(Storage *Data) override;
 
 public:
-	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TObservationTyped<TypeEffort, 2> *Effort);
+	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TObservationTyped<TypeEffort, 2> *Effort,
+	           const std::string &Filename);
 	~TBirpPrior() override = default;
 
 	[[nodiscard]] std::string name() const override;

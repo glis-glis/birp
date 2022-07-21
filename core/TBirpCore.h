@@ -11,6 +11,7 @@
 #include "BirpTypes.h"
 #include "TBirpPrior.h"
 #include "TDAGBuilder.h"
+#include "TData.h"
 #include "TObservationTyped.h"
 #include "TParameterTyped.h"
 #include "TParameters.h"
@@ -31,15 +32,16 @@ private:
 	stattools::TObservationTyped<TypeEffort, 2> _effort;
 	stattools::TObservationTyped<TypeCounts, 2> _counts;
 
+	void _addToDAG(stattools::TDAGBuilder &DAGBuilder);
+
 public:
-	TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);
 	// constructor for inference
 	TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder,
 	           coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,
 	           coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts);
 	// constructor for simulation
 	TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, size_t NumberOfMethods,
-	           size_t NumberOfTimePoints);
+	           size_t NumberOfTimePoints, double LambdaEffort);
 };
 
 //--------------------------------------
