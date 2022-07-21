@@ -14,6 +14,7 @@
 #include "TObservationTyped.h"
 #include "TParameterTyped.h"
 #include "TParameters.h"
+#include "TPriorExponential.h"
 #include "TPriorUniform.h"
 #include "TTask.h"
 
@@ -25,16 +26,20 @@ class TBirpModel {
 private:
 	// all parameters of model (including prior parameters)
 	stattools::TParameterTyped<TypeGamma, 1> _gamma;
-	stattools::TObservationTyped<TypeEffort, 1> _effort;
 
 	// data
+	stattools::TObservationTyped<TypeEffort, 2> _effort;
 	stattools::TObservationTyped<TypeCounts, 2> _counts;
 
 public:
-	// constructor for inference
 	TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);
+	// constructor for inference
+	TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder,
+	           coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,
+	           coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts);
 	// constructor for simulation
-	TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, size_t Dimensions);
+	TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, size_t NumberOfMethods,
+	           size_t NumberOfTimePoints);
 };
 
 //--------------------------------------
@@ -45,7 +50,7 @@ class TBirpCore {
 private:
 	std::string _filename;
 
-	void _readCommandLineParameters();
+	void _readCommandLineArgs();
 
 public:
 	// main tasks

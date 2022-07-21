@@ -5,7 +5,10 @@
 #include "TBirpPrior.h"
 
 TBirpPrior::TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                       stattools::TParameterTyped<TypeEffort, 1> *Effort) {}
+                       stattools::TObservationTyped<TypeEffort, 2> *Effort)
+    : _gamma(Gamma), _effort(Effort) {
+	addPriorParameter({_gamma, _effort});
+}
 
 std::string TBirpPrior::name() const { return "birp"; }
 
