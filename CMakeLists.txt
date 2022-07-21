@@ -26,7 +26,7 @@ FetchContent_MakeAvailable(coretools)
 include(FetchContent)
 FetchContent_Declare(stattools
         GIT_REPOSITORY    https://bitbucket.org/wegmannlab/stattools.git
-        GIT_TAG           rmSharedPtr
+        GIT_TAG           master
         SOURCE_DIR        "${CMAKE_SOURCE_DIR}/stattools"
         )
 FetchContent_MakeAvailable(stattools)
