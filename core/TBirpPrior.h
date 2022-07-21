@@ -26,9 +26,13 @@ private:
 	// other stuff
 	std::string _filename;
 
+protected:
 	// simulate values
 	void _simulateUnderPrior(Storage *Data) override;
-    void _fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times);
+
+	// initialization
+	void _fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times);
+	void _readTimesOfChange();
 
 public:
 	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TObservationTyped<TypeEffort, 2> *Effort,
@@ -48,6 +52,9 @@ public:
 
 	// update all parameters
 	void updateParams() override;
+
+	// getters
+	double rho(size_t Time, size_t Epoch);
 };
 
 #endif // TBIRPPRIOR_H
