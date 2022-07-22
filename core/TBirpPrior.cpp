@@ -57,7 +57,8 @@ void TBirpPrior::estimateInitialPriorParameters() {
 	// TODO: implement
 
 	// intitialize oldLL
-	_oldLL = _calculateLL(_storageBelow[0]);
+	_oldLL           = _calculateLL(_storageBelow[0]);
+	_oldLogJeffPrior = _calculateLogJeffreysPrior();
 }
 
 double TBirpPrior::_calculatePhi_k(size_t k) const {
@@ -105,15 +106,23 @@ double TBirpPrior::_calculateLL(Storage *Counts) const {
 	return LL;
 }
 
-void TBirpPrior::_evaluateUpdateGamma(size_t m, Storage *Counts) {
-	const double newLL      = _calculateLL(Counts);
-	const double LLRatio    = newLL - _oldLL;
-	const double priorRatio = _gamma->getLogPriorRatio(m);
+double TBirpPrior::_calculateLogJeffreysPrior() const {
+	// TODO: implement
+	return 0.0;
+}
 
-	const double logH = LLRatio + priorRatio;
+void TBirpPrior::_evaluateUpdateGamma(size_t m, Storage *Counts) {
+	const double newLL   = _calculateLL(Counts);
+	const double LLRatio = newLL - _oldLL;
+
+	const double newLogJeffPrior = _calculateLogJeffreysPrior();
+	const double logPriorRatio   = newLogJeffPrior - _oldLogJeffPrior;
+
+	const double logH = LLRatio + logPriorRatio;
 	if (_gamma->acceptOrReject(m, logH)) {
-		// accepted -> update LL
-		_oldLL = newLL;
+		// accepted -> update LL and jeffrey's Prior
+		_oldLL           = newLL;
+		_oldLogJeffPrior = newLogJeffPrior;
 	}
 }
 

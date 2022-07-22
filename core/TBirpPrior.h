@@ -28,7 +28,8 @@ private:
 	coretools::TMatrix<double> _rho;
 
 	// temporary variables, for speed
-	double _oldLL = 0.0;
+	double _oldLL           = 0.0;
+	double _oldLogJeffPrior = 0.0;
 
 	// other stuff
 	std::string _filename;
@@ -41,13 +42,18 @@ protected:
 	void _fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times);
 	void _readTimesOfChange();
 
-	// MCMC updates
+	// likelihood
 	double _calculatePhi_k(size_t k) const;
 	std::vector<double> _calculatePhi() const;
 	double _calculateSigma_ik(size_t i, size_t k, double Phi_k) const;
 	coretools::TMatrix<double> _calculateP() const;
-	void _evaluateUpdateGamma(size_t m, Storage *Counts);
 	double _calculateLL(Storage *Counts) const;
+
+	// Jeffrey's prior
+	double _calculateLogJeffreysPrior() const;
+
+	// MCMC updates
+	void _evaluateUpdateGamma(size_t m, Storage *Counts);
 
 public:
 	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TObservationTyped<TypeEffort, 2> *Effort,

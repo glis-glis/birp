@@ -55,6 +55,8 @@ TEST_F(TBirpPriorTest, _fillRho) {
 	// cases )empty vector), only one vector, ...
 	std::vector<size_t> timesOfChange = {1, 2, 3};
 	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+	coretools::instances::parameters().addParameter("timesOfChange",
+	                                                coretools::str::concatenateString(timesOfChange, ","));
 
 	// call function
 	birpPrior->_fillRho(timesOfChange, times);
