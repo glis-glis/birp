@@ -31,6 +31,7 @@ protected:
 	void _simulateUnderPrior(Storage *Data) override;
 
 	// initialization
+    std::vector<double> _getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times); //return start of each epoch, including for a hypothetical epoch after the last epoch
 	void _fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times);
 	void _readTimesOfChange();
 

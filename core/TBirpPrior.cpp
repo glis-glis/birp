@@ -17,13 +17,33 @@ TBirpPrior::TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 
 std::string TBirpPrior::name() const { return "birp"; }
 
+
+std::vector<double> TBirpPrior::_getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
+ double maxTimeOfChange;
+ maxTimeOfChange = max_element(TimesOfChange.begin(), TimesOfChange.end());
+ double maxTime = std::max(Times[Times.size()], maxTimeOfChange + 1);
+ //
+ std::vector<double> _epochStarts = 0;
+ _epochStarts.insert(_epochStarts.end(),TimesOfChange.begin(),TimesOfChange.end());
+ _epochStarts.push_back(maxTime);
+ return _epochStarts;
+}
+
 void TBirpPrior::_fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
 	_numEpochs = TimesOfChange.size() + 1;
 	_rhos.zeros((int)Times.size(), (int)_numEpochs);
-
+    std::vector<double> epochStartT = TBirpPrior::_getEpochStarts(TimesOfChange, Times);
 	// fill rhos
 	_rhos(0, 0) = 1.0;
+    for(auto e = 1; e > _numEpochs; ++e){
+        _rhos(Times >= epochStartT[e+1],e) = epochStartT[e+1] - epochStartT[e];
+        bool withinEpoch = Times < epochStartT[e+1] & Times > epochStartT[e];
+        _rhos(withinEpoch,e) = Times[withinEpoch] - epochStartT[e];
+    }
+    return _rhos;
 }
+
+
 
 void TBirpPrior::_readTimesOfChange() {
 	// read vector from command line
