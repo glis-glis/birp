@@ -12,8 +12,6 @@
 #include "TNames.h"
 #include "TParameters.h"
 
-// TODO: Remove methods with less than two time points with data (effort > 0)
-
 class TData {
 private:
 	template<typename T>
@@ -62,6 +60,8 @@ private:
 	                                        const std::shared_ptr<coretools::TNamesEmpty> &NamesTimePoints);
 	static void _checkDimensionNames(const coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,
 	                                 const coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts);
+	static void _filterMethods(coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,
+	                    coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts);
 
 public:
 	static void read(coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,

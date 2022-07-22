@@ -10,8 +10,7 @@ bool TData::_shouldResizeEffort(size_t NumTimePointsCounts, size_t NumTimePoints
 	return NumTimePointsCounts > 1 && NumTimePointsEfforts == 1;
 }
 
-void TData::_resizeEffort(size_t NumTimePointsCounts,
-                          coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts,
+void TData::_resizeEffort(size_t NumTimePointsCounts, coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts,
                           const std::shared_ptr<coretools::TNamesEmpty> &NamesTimePoints) {
 	// expand effort to match dimensions of counts
 	const size_t numMethods = Efforts.dimensions()[0];
@@ -24,7 +23,7 @@ void TData::_resizeEffort(size_t NumTimePointsCounts,
 
 	newEffort.finalizeFillData();
 	auto namesMethods = Efforts.getDimensionName(0);
-	Efforts = newEffort;
+	Efforts           = newEffort;
 
 	// set dimensions names
 	Efforts.setDimensionName(namesMethods, 0);
@@ -65,6 +64,56 @@ void TData::_checkDimensionNames(const coretools::TMultiDimensionalStorage<TypeC
 	}
 }
 
+void TData::_filterMethods(coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,
+                           coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts) {
+	// prepare new storage
+	coretools::TMultiDimensionalStorage<TypeCounts, 2> filteredCounts;
+	coretools::TMultiDimensionalStorage<TypeEffort, 2> filteredEfforts;
+	filteredCounts.prepareFillData(Counts.dimensions()[0], {Counts.dimensions()[1]});
+	filteredEfforts.prepareFillData(Efforts.dimensions()[0], {Efforts.dimensions()[1]});
+	auto filteredMethodNames = std::make_shared<coretools::TNamesStrings>();
+
+	for (size_t i = 0; i < Counts.dimensions()[0]; i++) {
+		size_t hasEffort = 0;
+		for (size_t k = 0; k < Counts.dimensions()[1]; k++) {
+			if (Efforts(i, k) > 0.0) {
+				hasEffort++;
+			} else if (Efforts(i, k) == 0.0 && Counts(i, k) > 0) {
+				UERROR("Invalid data for method ", (*Counts.getDimensionName(0))[i], " and time point ",
+				       (*Counts.getDimensionName(1))[k], ": Counts can not be > 0 if effort is zero!");
+			}
+		}
+		if (hasEffort >= 2) {
+			// keep method counts and efforts
+			filteredMethodNames->addName({(*Counts.getDimensionName(0))[i]});
+			for (size_t k = 0; k < Counts.dimensions()[1]; k++) {
+				filteredCounts.emplace_back(Counts(i, k));
+				filteredEfforts.emplace_back(Efforts(i, k));
+			}
+		} else {
+			logfile().warning("Removing method ", (*Counts.getDimensionName(0))[i],
+			                  " because less than two time points have effort > 0!");
+		}
+	}
+
+	filteredCounts.finalizeFillData();
+	filteredEfforts.finalizeFillData();
+
+	// check if any data are left
+	if (filteredEfforts.dimensions()[0] == 0) { UERROR("No data set with sufficient effort!"); }
+
+	// set dimension names
+	filteredCounts.setDimensionName(filteredMethodNames, 0);
+	filteredEfforts.setDimensionName(filteredMethodNames, 0);
+
+	filteredCounts.setDimensionName(Counts.getDimensionName(1), 1);
+	filteredEfforts.setDimensionName(Efforts.getDimensionName(1), 1);
+
+	// overwrite storage
+	Counts  = filteredCounts;
+	Efforts = filteredEfforts;
+}
+
 void TData::read(coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,
                  coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts) {
 	// read counts
@@ -74,7 +123,7 @@ void TData::read(coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,
 	const size_t numTimePointsCounts = Counts.dimensions()[1];
 
 	// read efforts
-	std::string filenameEff = parameters().getParameterFilename("effort");
+	std::string filenameEff = parameters().getParameterFilename("efforts");
 	_read(Efforts, filenameEff, "efforts");
 	const size_t numMethodsEfforts    = Efforts.dimensions()[0];
 	const size_t numTimePointsEfforts = Efforts.dimensions()[1];
@@ -85,6 +134,9 @@ void TData::read(coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,
 
 	// check if dimension names match (i.e. same names for methods and time points)
 	_checkDimensionNames(Counts, Efforts);
+
+	// finally remove methods where < 2 time points have data
+	_filterMethods(Counts, Efforts);
 }
 
 void TData::write(const std::string &Prefix, coretools::TMultiDimensionalStorage<TypeCounts, 2> &Counts,
