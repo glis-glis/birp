@@ -50,7 +50,7 @@ public:
 	}
 };
 
-TEST_F(TBirpPriorTest, _fillRho) {
+TEST_F(TBirpPriorTest, _fillRho_CASE) {
 	// vector definieren mit times of change und dann vector mit times. --> werte geben (Sinnvoll). also test border
 	// cases )empty vector), only one vector, ...
 	std::vector<size_t> timesOfChange = {1, 2, 3};
@@ -67,4 +67,5 @@ TEST_F(TBirpPriorTest, _fillRho) {
 			EXPECT_EQ(birpPrior->rho(i, j), 0.214);
 		} // todo: test against values from R!
 	}
+
 }

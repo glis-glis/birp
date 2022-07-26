@@ -25,7 +25,7 @@ private:
 
 	// epochs, rho
 	size_t _numEpochs = 0;
-	coretools::TMatrix<double> _rho;
+	coretools::TMatrix<size_t> _rho;
 
 	// temporary variables, for speed
 	double _oldLL           = 0.0;
@@ -39,7 +39,7 @@ protected:
 	void _simulateUnderPrior(Storage *Data) override;
 
 	// initialization
-    std::vector<double> _getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times); //return start of each epoch, including for a hypothetical epoch after the last epoch
+    std::vector<size_t> _getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times); //return start of each epoch, including for a hypothetical epoch after the last epoch
 	void _fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times);
 	void _readTimesOfChange();
 
