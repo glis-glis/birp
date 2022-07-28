@@ -17,9 +17,9 @@ using namespace stattools::prior;
 //--------------------------------------
 
 void TBirpModel::_addToDAG(stattools::TDAGBuilder &DAGBuilder) {
-	DAGBuilder.addToDAG(_gamma);
-	DAGBuilder.addToDAG(_effort);
-	DAGBuilder.addToDAG(_counts);
+	DAGBuilder.addToDAG(&_gamma);
+	DAGBuilder.addToDAG(&_effort);
+	DAGBuilder.addToDAG(&_counts);
 	DAGBuilder.buildDAG();
 }
 
@@ -28,11 +28,9 @@ TBirpModel::TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGB
                        coretools::TMultiDimensionalStorage<TypeEffort, 2> &Efforts)
     // constructor for inference: set storage of counts and efforts
     : _gamma("gamma", std::make_shared<TUniformFixed<TParameterBase, TypeGamma, 1>>(), {Filename}),
-      _effort("effort", std::make_shared<TUniformFixed<TObservationBase, TypeEffort, 2>>(), {}),
-      _counts("counts", std::make_shared<TBirpPrior>(&_gamma, &_effort, Filename), {}) {
+      _effort("effort", std::make_shared<TUniformFixed<TObservationBase, TypeEffort, 2>>(), Efforts, {}),
+      _counts("counts", std::make_shared<TBirpPrior>(&_gamma, &_effort, Filename), Counts, {}) {
 
-	_counts.storage() = Counts;
-	_effort.storage() = Efforts;
 	_addToDAG(DAGBuilder);
 }
 
@@ -42,9 +40,10 @@ TBirpModel::TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGB
     // additionally set exponential prior on efforts
     : _gamma("gamma", std::make_shared<TUniformFixed<TParameterBase, TypeGamma, 1>>(), {Filename}),
       _effort("effort", std::make_shared<TExponentialFixed<TObservationBase, TypeEffort, 2>>(),
-              {Filename, {NumberOfMethods, NumberOfTimePoints}, coretools::str::toString(LambdaEffort)}),
+              coretools::TMultiDimensionalStorage<TypeEffort, 2>({NumberOfMethods, NumberOfTimePoints}),
+              {Filename, coretools::str::toString(LambdaEffort)}),
       _counts("counts", std::make_shared<TBirpPrior>(&_gamma, &_effort, Filename),
-              {Filename, {NumberOfMethods, NumberOfTimePoints}}) {
+              coretools::TMultiDimensionalStorage<TypeCounts, 2>({NumberOfMethods, NumberOfTimePoints}), {Filename}) {
 
 	_addToDAG(DAGBuilder);
 }
