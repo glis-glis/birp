@@ -55,7 +55,7 @@ protected:
 	double _calculateLogJeffreysPrior() const;
 
 	// MCMC updates
-	void _evaluateUpdateGamma(size_t m, Storage *Counts);
+	void _evaluateUpdateGamma(size_t m);
 
 public:
 	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TObservationTyped<TypeEffort, 2> *Effort,

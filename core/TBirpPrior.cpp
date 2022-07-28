@@ -140,7 +140,7 @@ double TBirpPrior::_calculateLogJeffreysPrior() const {
 	return 0.0;
 }
 
-void TBirpPrior::_evaluateUpdateGamma(size_t m, Storage *Counts) {
+void TBirpPrior::_evaluateUpdateGamma(size_t m) {
 	const double newLL   = _calculateLL();
 	const double LLRatio = newLL - _oldLL;
 
@@ -156,11 +156,9 @@ void TBirpPrior::_evaluateUpdateGamma(size_t m, Storage *Counts) {
 }
 
 void TBirpPrior::updateParams() {
-	auto counts = this->_storageBelow[0];
-
 	for (size_t m = 0; m < _numEpochs; m++) {
 		_gamma->updateSpecificIndex(m);
-		_evaluateUpdateGamma(m, counts);
+		_evaluateUpdateGamma(m);
 	}
 }
 
