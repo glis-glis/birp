@@ -27,6 +27,7 @@ private:
 	size_t _numEpochs = 0;
 	coretools::TMatrix<size_t> _rho;
 
+
 	// temporary variables, for speed
 	double _oldLL           = 0.0;
 	double _oldLogJeffPrior = 0.0;
@@ -44,11 +45,11 @@ protected:
 	void _readTimesOfChange();
 
 	// likelihood
-	double _calculatePhi_k(size_t k) const;
+	double _calculateLogPhi_k(size_t k) const;
 	std::vector<double> _calculatePhi() const;
 	double _calculateSigma_ik(size_t i, size_t k, double Phi_k) const;
 	coretools::TMatrix<double> _calculateP() const;
-	double _calculateLL(Storage *Counts) const;
+	double _calculateLL() const;
 
 	// Jeffrey's prior
 	double _calculateLogJeffreysPrior() const;

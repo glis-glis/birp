@@ -82,19 +82,22 @@ void TBirpPrior::estimateInitialPriorParameters() {
 	// TODO: implement
 
 	// intitialize oldLL
-	_oldLL           = _calculateLL(_storageBelow[0]);
+	_oldLL           = _calculateLL();
 	_oldLogJeffPrior = _calculateLogJeffreysPrior();
 }
 
-double TBirpPrior::_calculatePhi_k(size_t k) const {
-	// TODO: implement eq (1) (for a specific time point k)
-	return 1.0;
+double TBirpPrior::_calculateLogPhi_k(size_t k) const {
+	double sum = 0.0;
+	for (size_t m = 0; m < _numEpochs; m++) { sum += (double)_rho(k, m) * _gamma->value(m); }
+	return sum;
 }
 
 std::vector<double> TBirpPrior::_calculatePhi() const {
-	std::vector<double> phi(_numTimePoints);
-	for (size_t k = 0; k < _numTimePoints; k++) { phi[k] = _calculatePhi_k(k); }
-	return phi;
+	std::vector<double> logPhi(_numTimePoints);
+	for (size_t k = 0; k < _numTimePoints; k++) { logPhi[k] = _calculateLogPhi_k(k); }
+	coretools::normalize(logPhi);
+	for (auto &p : logPhi) { p = exp(p); }
+	return logPhi;
 }
 
 double TBirpPrior::_calculateSigma_ik(size_t i, size_t k, double Phi_k) const {
@@ -119,13 +122,14 @@ coretools::TMatrix<double> TBirpPrior::_calculateP() const {
 	return p;
 }
 
-double TBirpPrior::_calculateLL(Storage *Counts) const {
+double TBirpPrior::_calculateLL() const {
+	auto counts = _storageBelow[0];
 	// calculate probabilities p for new gamma
 	coretools::TMatrix<double> p = _calculateP();
 
 	double LL = 0.0;
 	for (size_t i = 0; i < _numMethods; i++) {
-		for (size_t k = 0; k < _numTimePoints; k++) { LL += (*Counts)(i, k) * log(p(i, k)); }
+		for (size_t k = 0; k < _numTimePoints; k++) { LL += (*counts)(i, k) * log(p(i, k)); }
 	}
 
 	return LL;
@@ -137,7 +141,7 @@ double TBirpPrior::_calculateLogJeffreysPrior() const {
 }
 
 void TBirpPrior::_evaluateUpdateGamma(size_t m, Storage *Counts) {
-	const double newLL   = _calculateLL(Counts);
+	const double newLL   = _calculateLL();
 	const double LLRatio = newLL - _oldLL;
 
 	const double newLogJeffPrior = _calculateLogJeffreysPrior();
@@ -162,7 +166,7 @@ void TBirpPrior::updateParams() {
 
 double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 	// LL is defined on all gamma jointly -> just return LL
-	return _calculateLL(_storageBelow[0]);
+	return _calculateLL();
 }
 
 void TBirpPrior::_simulateUnderPrior(Storage *Counts) {
