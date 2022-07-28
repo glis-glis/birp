@@ -15,17 +15,23 @@ TBirpPrior::TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 
 std::string TBirpPrior::name() const { return "birp"; }
 
-std::vector<size_t> TBirpPrior::_getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
-	 size_t maxTimeOfChange = *max_element(TimesOfChange.begin(), TimesOfChange.end());
-	 size_t maxTime = std::max(Times.back(), maxTimeOfChange + 1);
-    //
-    std::vector<size_t> epochStarts ={0};
-    epochStarts.insert(epochStarts.end(), TimesOfChange.begin(), TimesOfChange.end());
-    epochStarts.push_back(maxTime);
-    return epochStarts;
+std::vector<size_t> TBirpPrior::_getEpochStarts(const std::vector<size_t> &TimesOfChange,
+                                                const std::vector<size_t> &Times) {
+	assert(!Times.empty());
+	std::vector<size_t> epochStarts = {0};
+	if (!TimesOfChange.empty()) {
+		size_t maxTimeOfChange = *max_element(TimesOfChange.begin(), TimesOfChange.end());
+		size_t maxTime         = std::max(Times.back(), maxTimeOfChange + 1);
+		//
+		epochStarts.insert(epochStarts.end(), TimesOfChange.begin(), TimesOfChange.end());
+		epochStarts.push_back(maxTime);
+	} else {
+		epochStarts.push_back(*max_element(Times.begin(), Times.end()));
+	}
+	return epochStarts;
 }
 
- void TBirpPrior::initializeStorageOfPriorParameters() {
+void TBirpPrior::initializeStorageOfPriorParameters() {
 	// read times of change and fill rho
 	_readTimesOfChange();
 	const auto counts = _storageBelow[0];
@@ -38,17 +44,17 @@ std::vector<size_t> TBirpPrior::_getEpochStarts(const std::vector<size_t> &Times
 
 void TBirpPrior::_fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
 	std::vector<size_t> epochStarts = _getEpochStarts(TimesOfChange, Times);
-	_numEpochs = TimesOfChange.size() + 1;
+	_numEpochs                      = TimesOfChange.size() + 1;
 	_rho.zeros((int)Times.size(), (int)_numEpochs);
 	// fill rhos
-    for(size_t t = 0; t < _numTimePoints; ++t) {
-		for (size_t e = 1; e <= _numEpochs; ++e) {
-			if(Times[t] <= epochStarts[e-1]) {
-				_rho(t,e) = 0;
-			} else if (epochStarts[e-1] < Times[t] < epochStarts[e]) {
-				_rho(t,e) = Times[t] - epochStarts[e-1];
+	for (size_t t = 0; t < Times.size(); ++t) {
+		for (size_t e = 1; e < epochStarts.size(); ++e) {
+			if (Times[t] <= epochStarts[e - 1]) {
+				_rho(t, e - 1) = 0;
+			} else if (epochStarts[e - 1] < Times[t] && Times[t] < epochStarts[e]) {
+				_rho(t, e - 1) = Times[t] - epochStarts[e - 1];
 			} else {
-				_rho(t, e) = epochStarts[e] - epochStarts[e - 1];
+				_rho(t, e - 1) = epochStarts[e] - epochStarts[e - 1];
 			}
 		}
 	}
@@ -166,4 +172,5 @@ void TBirpPrior::_simulateUnderPrior(Storage *Counts) {
 	TData::write(_filename, *Counts, _effort->storage());
 }
 
-double TBirpPrior::rho(size_t Time, size_t Epoch) { return _rho(Time, Epoch); }
+double TBirpPrior::rho(size_t Time, size_t Epoch) const { return _rho(Time, Epoch); }
+coretools::TMatrix<size_t> TBirpPrior::rhoMat() const { return _rho; }

@@ -76,7 +76,8 @@ public:
 	void updateParams() override;
 
 	// getters
-	double rho(size_t Time, size_t Epoch);
+	double rho(size_t Time, size_t Epoch) const;
+	coretools::TMatrix<size_t> rhoMat() const;
 };
 
 #endif // TBIRPPRIOR_H

@@ -14,8 +14,8 @@ public:
 	void _fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
 		TBirpPrior::_fillRho(TimesOfChange, Times);
 	}
-    void _getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
-        TBirpPrior::_getEpochStarts(TimesOfChange, Times);
+	std::vector<size_t> _getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
+        return TBirpPrior::_getEpochStarts(TimesOfChange, Times);
     }
 };
 
@@ -64,6 +64,7 @@ TEST_F(TBirpPriorTest, _fillRho_easy1) {
 
 	// call function
 	birpPrior->_fillRho(timesOfChange, times);
+
 
     // define expected 1D output vector (rows are columns)
     std::vector<std::vector<size_t>> outExp = {
@@ -132,24 +133,22 @@ TEST_F(TBirpPriorTest, _fillRho_TimesOfChange_same_as_times) {
 
 }
 
-TEST_F(TBirpPriorTest, _fillRho_Times_empty) {
-    std::vector<size_t> timesOfChange = {2, 5, 9};
-    std::vector<size_t> times         = {};
-    coretools::instances::parameters().addParameter("timesOfChange",
-                                                    coretools::str::concatenateString(timesOfChange, ","));
-
-    // throw error if times vector is empty
-    EXPECT_ANY_THROW(birpPrior->_fillRho(timesOfChange, times));
-}
-
 TEST_F(TBirpPriorTest, _fillRho_TimesOfChange_empty) {
     std::vector<size_t> timesOfChange = {};
-    std::vector<size_t> times         = {1,2,3,4,5,6,7,8,9,10};
+    std::vector<size_t> times         = {1,2,3};
     coretools::instances::parameters().addParameter("timesOfChange",
                                                     coretools::str::concatenateString(timesOfChange, ","));
 
-    // throw error if timesOfChange vector is empty
-    EXPECT_ANY_THROW(birpPrior->_fillRho(timesOfChange, times));
+	// call function
+	birpPrior->_fillRho(timesOfChange, times);
+
+	// define expected 1D output vector (rows are columns)
+	std::vector<size_t> outExp = {1,2,3};
+
+	// test if result is as expected
+	for (size_t i = 0; i < times.size(); i++) {
+			EXPECT_EQ(birpPrior->rho(i,0), outExp.at(i));
+	}
 }
 
 // testing _getEpochStarts
@@ -159,14 +158,14 @@ TEST_F(TBirpPriorTest, _getEpochStarts_easy1) {
     coretools::instances::parameters().addParameter("timesOfChange",
                                                     coretools::str::concatenateString(timesOfChange, ","));
     // call function
-    birpPrior->_getEpochStarts(timesOfChange, times);
+    auto result = birpPrior->_getEpochStarts(timesOfChange, times);
 
     // define expected 1D output vector (rows are columns)
     std::vector<size_t> outExp = {0,3,8,10};
 
     // test if result is as expected
     for (size_t i = 0; i < timesOfChange.size() + 2; i++) {
-            EXPECT_EQ(birpPrior->epochStarts[i], outExp.at(i));
+            EXPECT_EQ(result.at(i), outExp.at(i));
     }
 
 }
@@ -177,14 +176,32 @@ TEST_F(TBirpPriorTest, _getEpochStarts_easy2) {
     coretools::instances::parameters().addParameter("timesOfChange",
                                                     coretools::str::concatenateString(timesOfChange, ","));
     // call function
-    birpPrior->_getEpochStarts(timesOfChange, times);
+	auto result = birpPrior->_getEpochStarts(timesOfChange, times);
 
     // define expected 1D output vector (rows are columns)
-    std::vector<size_t> outExp = {0,3,8,11};
+    std::vector<size_t> outExp = {0,3,10,11};
 
     // test if result is as expected
     for (size_t i = 0; i < timesOfChange.size() + 2; i++) {
-        EXPECT_EQ(birpPrior->epochStarts[i], outExp.at(i));
+        EXPECT_EQ(result.at(i), outExp.at(i));
     }
+
+}
+
+TEST_F(TBirpPriorTest, _getEpochStarts_TimesOfChangeEmpty) {
+	std::vector<size_t> timesOfChange = {};
+	std::vector<size_t> times         = {1,2,3,4,5,6,7,8,9,10};
+	coretools::instances::parameters().addParameter("timesOfChange",
+	                                                coretools::str::concatenateString(timesOfChange, ","));
+	// call function
+	auto result = birpPrior->_getEpochStarts(timesOfChange, times);
+
+	// define expected 1D output vector (rows are columns)
+	std::vector<size_t> outExp = {0,10};
+
+	// test if result is as expected
+	for (size_t i = 0; i < timesOfChange.size() + 2; i++) {
+		EXPECT_EQ(result.at(i), outExp.at(i));
+	}
 
 }
