@@ -31,7 +31,7 @@ std::vector<size_t> TBirpPrior::_getEpochStarts(const std::vector<size_t> &Times
 	return epochStarts;
 }
 
-void TBirpPrior::initializeStorageOfPriorParameters() {
+void TBirpPrior::initializeInferred() {
 	// read times of change and fill rho
 	_readTimesOfChange();
 	const auto counts = _storageBelow[0];
@@ -39,7 +39,7 @@ void TBirpPrior::initializeStorageOfPriorParameters() {
 	_numTimePoints    = counts->dimensions()[1];
 
 	// initialize gamma accordingly
-	_gamma->initializeStorageBasedOnPrior({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
+	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
 }
 
 void TBirpPrior::_fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {

@@ -65,7 +65,7 @@ public:
 	[[nodiscard]] std::string name() const override;
 
 	// initialization
-	void initializeStorageOfPriorParameters() override;
+	void initializeInferred() override;
 
 	// estimate initial values
 	void estimateInitialPriorParameters() override;
