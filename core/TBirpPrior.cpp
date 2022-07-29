@@ -97,7 +97,7 @@ std::vector<double> TBirpPrior::_calculatePhi() const {
 	for (size_t k = 0; k < _numTimePoints; k++) { logPhi[k] = _calculateLogPhi_k(k); }
 	coretools::standardizeZeroMean(logPhi);
 	for (auto &p : logPhi) { p = exp(p); }
-	return logPhi;
+	return logPhi; // is not logPhi anymore due to exp() on line above
 }
 
 double TBirpPrior::_calculateSigma_ik(size_t i, size_t k, double Phi_k) const {

@@ -183,7 +183,7 @@ TEST_F(TBirpPriorTest, _getEpochStarts_TimesOfChangeEmpty) {
 }
 
 // testing _calculateLL
-TEST_F(TBirpPriorTest, _calculateLL) {
+TEST_F(TBirpPriorTest, _calculateLL_oneDataset) {
 	// define values for parameters: used to test functions
 	std::vector<double> oldGamma      = {0.1, 0.9};
 	std::vector<double> newGamma      = {0.2, -0.1};
@@ -195,5 +195,22 @@ TEST_F(TBirpPriorTest, _calculateLL) {
 	initialize(1, times, timesOfChange, newGamma, oldGamma, valuesEffort, valuesCounts);
 
 	// call function
-	EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -467.4725); // not the same as in R due to normalization constant
+	EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -467.4725); // not the same as in R due to normalization constant not calculated here
+}
+
+
+// testing _calculateLL
+TEST_F(TBirpPriorTest, _calculateLL_twoDatasets) {
+	// define values for parameters: used to test functions
+	std::vector<double> oldGamma      = {0.1, 0.9};
+	std::vector<double> newGamma      = {0.8, -0.3};
+	std::vector<size_t> valuesEffort  = {1,2,3,4,5,6,7,8,9,10, 11, 12, 13, 14, 15, 16, 17, 18, 19,20};
+	std::vector<size_t> valuesCounts  = {1, 9, 32, 95, 259, 236, 217, 179, 154, 137, 14, 66, 155, 349, 829, 675, 541, 335, 315, 265};
+	std::vector<size_t> timesOfChange = {5};
+	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+	initialize(2, times, timesOfChange, newGamma, oldGamma, valuesEffort, valuesCounts);
+
+	// call function
+	EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -9867.187); // not the same as in R due to normalization constant not calculated here
 }
