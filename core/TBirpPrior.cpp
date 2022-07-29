@@ -95,7 +95,7 @@ double TBirpPrior::_calculateLogPhi_k(size_t k) const {
 std::vector<double> TBirpPrior::_calculatePhi() const {
 	std::vector<double> logPhi(_numTimePoints);
 	for (size_t k = 0; k < _numTimePoints; k++) { logPhi[k] = _calculateLogPhi_k(k); }
-	coretools::normalize(logPhi);
+	coretools::standardizeZeroMean(logPhi);
 	for (auto &p : logPhi) { p = exp(p); }
 	return logPhi;
 }
@@ -123,13 +123,13 @@ coretools::TMatrix<double> TBirpPrior::_calculateP() const {
 }
 
 double TBirpPrior::_calculateLL() const {
-	auto counts = _storageBelow[0];
+	auto counts                  = _storageBelow[0];
 	// calculate probabilities p for new gamma
 	coretools::TMatrix<double> p = _calculateP();
 
 	double LL = 0.0;
 	for (size_t i = 0; i < _numMethods; i++) {
-		for (size_t k = 0; k < _numTimePoints; k++) { LL += (*counts)(i, k) * log(p(i, k)); }
+		for (size_t k = 0; k < _numTimePoints; k++) { LL += (double)(*counts)(i, k) * log(p(i, k)); }
 	}
 
 	return LL;

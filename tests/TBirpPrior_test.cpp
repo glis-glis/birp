@@ -195,5 +195,5 @@ TEST_F(TBirpPriorTest, _calculateLL) {
 	initialize(1, times, timesOfChange, newGamma, oldGamma, valuesEffort, valuesCounts);
 
 	// call function
-	EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -24.04967);
+	EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -467.4725); // not the same as in R due to normalization constant
 }
