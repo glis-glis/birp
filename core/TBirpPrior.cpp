@@ -14,7 +14,7 @@ TBirpPrior::TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 
 	//calculate nu
 	_nu.resize(_numMethods);
-	const auto& counts = _storageBelow[0];
+	const auto& counts = *_storageBelow[0];
 	for(size_t i = 0; i < _numMethods; ++i){
 		_nu[i] = 0.0;
 		for (size_t k = 0; k < _numTimePoints; k++) {
@@ -92,8 +92,8 @@ void TBirpPrior::estimateInitialPriorParameters() {
 	// TODO: implement
 
 	// intitialize oldLL
-	_oldLL           = _calculateLL();
-	_oldLogJeffPrior = _calculateLogJeffreysPrior();
+	//_oldLL           = _calculateLL();
+	//_oldLogJeffPrior = _calculateLogJeffreysPrior();
 }
 
 double TBirpPrior::_calculateLogPhi_k(size_t k) const {
@@ -145,6 +145,11 @@ double TBirpPrior::_calculateLL(const coretools::TMatrix<double> & p) const {
 	return LL;
 }
 
+double TBirpPrior::_calculateLL() const {
+	coretools::TMatrix<double> p = _calculateP();
+	_calculateLL(p);
+}
+
 double TBirpPrior::_calculateLogJeffreysPrior(const coretools::TMatrix<double> & p) const {
 	// TODO: implement
 
@@ -180,7 +185,7 @@ void TBirpPrior::updateParams() {
 
 double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 	// LL is defined on all gamma jointly -> just return LL
-	return _calculateLL();
+	return _calculateLL(); //or return oldLL?
 }
 
 void TBirpPrior::_simulateUnderPrior(Storage *Counts) {

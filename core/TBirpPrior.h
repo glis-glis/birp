@@ -51,6 +51,7 @@ protected:
 	double _calculateSigma_ik(size_t i, size_t k, double Phi_k) const;
 	coretools::TMatrix<double> _calculateP() const;
 	double _calculateLL(const coretools::TMatrix<double> & p) const;
+	double _calculateLL() const;
 
 	// Jeffrey's prior
 	double _calculateLogJeffreysPrior(const coretools::TMatrix<double> & p) const;
