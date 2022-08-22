@@ -12,6 +12,8 @@ using namespace coretools::instances;
 using namespace stattools;
 using namespace stattools::prior;
 
+#include "strongTypes.h"
+
 //--------------------------------------
 // TBirpModel
 //--------------------------------------
@@ -52,14 +54,19 @@ TBirpModel::TBirpModel(const std::string &Filename, stattools::TDAGBuilder &DAGB
 // TBirpCore
 //--------------------------------------
 
-void TBirpCore::_readCommandLineArgs() {
+TBirpCore::TBirpCore(){
 	using namespace coretools::instances;
-	_filename = parameters().getParameterWithDefault<std::string>("out", "birp");
+	if(parameters().parameterExists("out")){
+		_outname = parameters().getParameter<std::string>("out");
+		logfile().list("Will write files with prefix '", _outname, "'. (parameter 'out')");
+	} else {
+		_outname = "birp";
+		logfile().list("Will write files with default prefix '", _outname, "'. (set with 'out')");
+	}
 }
 
-void TBirpCore::infer() {
-	_readCommandLineArgs();
 
+void TBirpCore::infer() {
 	// read data
 	coretools::TMultiDimensionalStorage<TypeCounts, 2> storageCounts;
 	coretools::TMultiDimensionalStorage<TypeEffort, 2> storageEfforts;
@@ -67,25 +74,24 @@ void TBirpCore::infer() {
 
 	// create model
 	stattools::TDAGBuilder dagBuilder;
-	TBirpModel model(_filename, dagBuilder, storageCounts, storageEfforts);
+	TBirpModel model(_outname, dagBuilder, storageCounts, storageEfforts);
 
 	// run MCMC
 	stattools::TMCMC mcmc;
-	mcmc.runMCMC(_filename, &dagBuilder);
+	mcmc.runMCMC(_outname, &dagBuilder);
 }
 
 void TBirpCore::simulate() {
 	// read command line arguments
-	_readCommandLineArgs();
 	size_t numTimePoints = parameters().getParameterWithDefault("numTimePoints", 2);
 	size_t numMethods    = parameters().getParameterWithDefault("numMethods", 2);
 	double lambdaEffort  = parameters().getParameterWithDefault("lambdaEffort", 1.0);
 
 	// create model
 	stattools::TDAGBuilder dagBuilder;
-	TBirpModel model(_filename, dagBuilder, numMethods, numTimePoints, lambdaEffort);
+	TBirpModel model(_outname, dagBuilder, numMethods, numTimePoints, lambdaEffort);
 
 	// run MCMC
 	stattools::TSimulator simulator;
-	simulator.simulate(_filename, &dagBuilder);
+	simulator.simulate(_outname, &dagBuilder);
 }

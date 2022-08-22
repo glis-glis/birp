@@ -50,11 +50,13 @@ public:
 
 class TBirpCore {
 private:
-	std::string _filename;
+	std::string _outname;
 
 	void _readCommandLineArgs();
 
 public:
+	TBirpCore();
+
 	// main tasks
 	void infer();
 	void simulate();

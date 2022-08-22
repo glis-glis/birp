@@ -11,6 +11,16 @@ TBirpPrior::TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TObservationTyped<TypeEffort, 2> *Effort, const std::string &Filename)
     : _gamma(Gamma), _effort(Effort), _filename(Filename) {
 	addPriorParameter({_gamma, _effort});
+
+	//calculate nu
+	_nu.resize(_numMethods);
+	const auto& counts = _storageBelow[0];
+	for(size_t i = 0; i < _numMethods; ++i){
+		_nu[i] = 0.0;
+		for (size_t k = 0; k < _numTimePoints; k++) {
+			_nu[i] += (counts)(i, k);
+		}
+	}
 }
 
 std::string TBirpPrior::name() const { return "birp"; }
@@ -101,7 +111,7 @@ std::vector<double> TBirpPrior::_calculatePhi() const {
 }
 
 double TBirpPrior::_calculateSigma_ik(size_t i, size_t k, double Phi_k) const {
-	return Phi_k * _effort->value(_effort->getIndex({i, k}));
+	return Phi_k * _effort->value({i, k});
 }
 
 coretools::TMatrix<double> TBirpPrior::_calculateP() const {
@@ -122,29 +132,35 @@ coretools::TMatrix<double> TBirpPrior::_calculateP() const {
 	return p;
 }
 
-double TBirpPrior::_calculateLL() const {
-	auto counts                  = _storageBelow[0];
-	// calculate probabilities p for new gamma
-	coretools::TMatrix<double> p = _calculateP();
+double TBirpPrior::_calculateLL(const coretools::TMatrix<double> & p) const {
+	const auto& counts = *_storageBelow[0];
 
 	double LL = 0.0;
-	for (size_t i = 0; i < _numMethods; i++) {
-		for (size_t k = 0; k < _numTimePoints; k++) { LL += (double)(*counts)(i, k) * log(p(i, k)); }
+	for (size_t k = 0; k < _numTimePoints; k++) {
+		for (size_t i = 0; i < _numMethods; i++) {
+			LL += (double)(counts)(i, k) * log(p(i, k));
+		}
 	}
 
 	return LL;
 }
 
-double TBirpPrior::_calculateLogJeffreysPrior() const {
+double TBirpPrior::_calculateLogJeffreysPrior(const coretools::TMatrix<double> & p) const {
 	// TODO: implement
+
+
 	return 0.0;
 }
 
 void TBirpPrior::_evaluateUpdateGamma(size_t m) {
-	const double newLL   = _calculateLL();
+	// calculate probabilities p for new gamma
+	coretools::TMatrix<double> p = _calculateP();
+
+
+	const double newLL   = _calculateLL(p);
 	const double LLRatio = newLL - _oldLL;
 
-	const double newLogJeffPrior = _calculateLogJeffreysPrior();
+	const double newLogJeffPrior = _calculateLogJeffreysPrior(p);
 	const double logPriorRatio   = newLogJeffPrior - _oldLogJeffPrior;
 
 	const double logH = LLRatio + logPriorRatio;

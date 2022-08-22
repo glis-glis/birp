@@ -26,6 +26,7 @@ private:
 	// epochs, rho
 	size_t _numEpochs = 0;
 	coretools::TMatrix<size_t> _rho;
+	std::vector<TypeCounts> _nu; // sums of counts at one location and method (ij) across all time points (k)
 
 
 	// temporary variables, for speed
@@ -49,10 +50,10 @@ protected:
 	std::vector<double> _calculatePhi() const;
 	double _calculateSigma_ik(size_t i, size_t k, double Phi_k) const;
 	coretools::TMatrix<double> _calculateP() const;
-	double _calculateLL() const;
+	double _calculateLL(const coretools::TMatrix<double> & p) const;
 
 	// Jeffrey's prior
-	double _calculateLogJeffreysPrior() const;
+	double _calculateLogJeffreysPrior(const coretools::TMatrix<double> & p) const;
 
 	// MCMC updates
 	void _evaluateUpdateGamma(size_t m);
