@@ -40,16 +40,7 @@ protected:
 	// simulate values
 	void _simulateUnderPrior(Storage *Data) override;
 
-	// initialization
-    std::vector<size_t> _getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times); //return start of each epoch, including for a hypothetical epoch after the last epoch
-	void _fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times);
-	void _readTimesOfChange();
-
 	// likelihood
-	double _calculateLogPhi_k(size_t k) const;
-	std::vector<double> _calculatePhi() const;
-	double _calculateSigma_ik(size_t i, size_t k, double Phi_k) const;
-	coretools::TMatrix<double> _calculateP() const;
 	double _calculateLL(const coretools::TMatrix<double> & p) const;
 	double _calculateLL() const;
 
