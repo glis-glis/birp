@@ -10,7 +10,7 @@ using namespace coretools::instances;
 TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                          stattools::TObservationTyped<TypeEffort, 2> *Effort, const std::string &Filename)
         : _gamma(Gamma), _effort(Effort), _filename(Filename) {
-    addPriorParameter({_gamma, _effort});
+    addPriorParameter({_gamma, _timesOfChange});
 }
 
 std::vector<size_t> TEpochModel::_getEpochStarts(const std::vector<size_t> &TimesOfChange,
@@ -87,8 +87,6 @@ double TEpochModel::_calculateSigma_ik(size_t i, size_t k, double Phi_k) const {
 }
 
 coretools::TMatrix<double> TEpochModel::_calculateP() const {
-    std::vector<double> phi = _calculatePhi();
-
     coretools::TMatrix<double> p((int)_numMethods, (int)_numTimePoints);
     for (size_t i = 0; i < _numMethods; i++) {
         double sum = 0.0;
@@ -103,4 +101,69 @@ coretools::TMatrix<double> TEpochModel::_calculateP() const {
     }
     return p;
 }
+
+namespace /*anonymous*/ {
+	class Sums{
+	private:
+		double LL{};
+		TypeCounts sumN{};
+		double sumSigma{};
+		TypeIndex location{};
+		TypeIndex method{};
+
+		void _setIndex(const TDataPoint & D){
+			location = D.location;
+			method = D.method;
+		}
+
+		void _initSums(const TDataPoint& D, const std::vector<double> & Phi){
+			double sigma = Phi[D.timepoint] * D.effort;
+			sumSigma = sigma;
+			sumN = D.counts;
+			LL += D.counts * log(sigma);
+		}
+
+		void _addToSums(const TDataPoint& D, const std::vector<double> & Phi){
+			double sigma = Phi[D.timepoint] * D.effort;
+			sumSigma += sigma;
+			sumN += D.counts;
+			LL += D.counts * log(sigma);
+			_setIndex(D);
+		}
+
+		void _normalize(const TDataPoint& D, const std::vector<double> & Phi){
+			LL -= sumN * log(sumSigma);
+			_initSums(D, Phi);
+		}
+
+	public:
+		Sums(const TDataPoint& D, const std::vector<double> & Phi){
+			LL = 0.0;
+			_initSums(D, Phi);
+			_setIndex(D);
+		}
+
+		void add(const TDataPoint& D, const std::vector<double> & Phi){
+			if(D.location != location || D.method != method){
+				_normalize(D, Phi);
+			} else {
+				_addToSums(D, Phi);
+			}
+		}
+
+		double getLL(){
+			return LL;
+		}
+	};
+}
+
+double TEpochModel::calculateLL(const TData & Data){
+	auto d = Data.cbegin();
+	Sums sums(*d, _phi);
+	for(; d != Data.cend(); ++d){
+		sums.add(*d, _phi);
+	}
+	return sums.getLL();
+}
+
 
