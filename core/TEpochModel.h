@@ -1,3 +1,4 @@
+/*
 //
 // Created by Liam on 23/08/22.
 //
@@ -9,7 +10,7 @@
 #include "TMatrix.h"
 #include "TObservationTyped.h"
 #include "TParameterTyped.h"
-#include "TSpecies.h";
+#include "TSpecies.h"
 #include <vector>
 
 
@@ -39,7 +40,7 @@ private:
 public:
     TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TObservationTyped<TypeEffort, 2> *Effort,
     const std::string &Filename);
-    ~TEpochModel() override = default;
+    ~TEpochModel() = default;
 
     // initialization
     std::vector<size_t> _getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times); //return start of each epoch, including for a hypothetical epoch after the last epoch
@@ -51,3 +52,4 @@ public:
 };
 
 #endif // BIRP_TEPOCHMODEL_H
+*/

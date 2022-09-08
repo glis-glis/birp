@@ -29,7 +29,7 @@ std::string TBirpPrior::name() const { return "birp"; }
 
 void TBirpPrior::initializeInferred() {
 	// read times of change and fill rho
-    TEpochModel::_readTimesOfChange();
+    //TEpochModel::_readTimesOfChange();
 	const auto counts = _storageBelow[0];
 	_numMethods       = counts->dimensions()[0];
 	_numTimePoints    = counts->dimensions()[1];
@@ -65,7 +65,7 @@ double TBirpPrior::_calculateLL(const coretools::TMatrix<double> & p) const {
 }
 
 double TBirpPrior::_calculateLL() const {
-	coretools::TMatrix<double> p = _calculateP();
+	coretools::TMatrix<double> p; // = _calculateP();
 	_calculateLL(p);
 }
 
@@ -78,7 +78,7 @@ double TBirpPrior::_calculateLogJeffreysPrior(const coretools::TMatrix<double> &
 
 void TBirpPrior::_evaluateUpdateGamma(size_t m) {
 	// calculate probabilities p for new gamma
-	coretools::TMatrix<double> p = _calculateP();
+	coretools::TMatrix<double> p; // = _calculateP();
 
 
 	const double newLL   = _calculateLL(p);

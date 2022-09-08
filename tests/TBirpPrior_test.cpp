@@ -1,3 +1,4 @@
+/*
 #include "../stattools/tests/commonTestingFunctions.h"
 #include "TBirpCore.h"
 #include "TBirpPrior.h"
@@ -213,4 +214,4 @@ TEST_F(TBirpPriorTest, _calculateLL_twoDatasets) {
 
 	// call function
 	EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -9867.187); // not the same as in R due to normalization constant not calculated here
-}
+}*/

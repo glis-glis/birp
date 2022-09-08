@@ -1,3 +1,4 @@
+/*
 //
 // Created by Liam on 23/08/22.
 //
@@ -8,9 +9,9 @@
 using namespace coretools::instances;
 
 TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                         stattools::TObservationTyped<TypeEffort, 2> *Effort, const std::string &Filename)
-        : _gamma(Gamma), _effort(Effort), _filename(Filename) {
-    addPriorParameter({_gamma, _timesOfChange});
+                        const std::string &Filename)
+        : _gamma(Gamma), _filename(Filename) {
+
 }
 
 std::vector<size_t> TEpochModel::_getEpochStarts(const std::vector<size_t> &TimesOfChange,
@@ -102,7 +103,9 @@ coretools::TMatrix<double> TEpochModel::_calculateP() const {
     return p;
 }
 
-namespace /*anonymous*/ {
+namespace */
+/*anonymous*//*
+ {
 	class Sums{
 	private:
 		double LL{};
@@ -167,3 +170,4 @@ double TEpochModel::calculateLL(const TData & Data){
 }
 
 
+*/
