@@ -116,3 +116,12 @@ void TBirpPrior::_simulateUnderPrior(Storage *Counts) {
 
 double TBirpPrior::rho(size_t Time, size_t Epoch) const { return _rho(Time, Epoch); }
 coretools::TMatrix<size_t> TBirpPrior::rhoMat() const { return _rho; }
+
+///
+
+void TUniqueContainer::add(std::vector<_locationNames>, std::string value) {
+	if (std::find(_locationNames.begin(), _locationNames.end(),value)!=_locationNames.end()){
+	} else {
+		_locationNames.push_back(value);
+	}
+}

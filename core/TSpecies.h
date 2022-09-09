@@ -12,7 +12,8 @@
 #include <algorithm>
 #include <vector>
 
-struct TDataPoint {
+class TDataPoint {
+private:
 	TypeIndex timepoint;
 	TypeCounts counts;
 	TypeEffort effort;
@@ -34,8 +35,8 @@ public:
 
 class TSpecies {
 private:
-	TData _data;
-
+	TDataSeries _data;
+	std::string _name;
 public:
 };
 

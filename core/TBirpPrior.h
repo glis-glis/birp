@@ -9,6 +9,7 @@
 #include "TMatrix.h"
 #include "TObservationTyped.h"
 #include "TParameterTyped.h"
+#include "TSpecies.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
@@ -73,5 +74,40 @@ public:
 	double rho(size_t Time, size_t Epoch) const;
 	coretools::TMatrix<size_t> rhoMat() const;
 };
+
+
+class TUniqueContainer{
+private:
+	std::vector<std::string> _locationNames;
+public:
+	void add(std::vector<_locationNames>, std::string value)
+	int getIndex()
+
+};
+
+
+
+// not needed anymore
+class TLocations {
+private:
+	std::vector<std::string> _names;
+	size_t _size;
+public:
+};
+
+class TTimePoints {
+private:
+	std::vector<size_t> _timepoints;
+	size_t _size;
+public:
+};
+
+class TMethods {
+private:
+	std::vector<std::string> _names;
+	size_t _size;
+public:
+};
+
 
 #endif // TBIRPPRIOR_H
