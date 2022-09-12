@@ -1,9 +1,6 @@
-/*
- * TSpecies.h
- *
- *  Created on: Aug 25, 2022
- *      Author: phaentu
- */
+//
+// Created by liam on 12/09/22.
+//
 
 #ifndef CORE_TSPECIES_H_
 #define CORE_TSPECIES_H_

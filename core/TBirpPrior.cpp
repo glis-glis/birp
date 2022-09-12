@@ -119,9 +119,5 @@ coretools::TMatrix<size_t> TBirpPrior::rhoMat() const { return _rho; }
 
 ///
 
-void TUniqueContainer::add(std::vector<_locationNames>, std::string value) {
-	if (std::find(_locationNames.begin(), _locationNames.end(),value)!=_locationNames.end()){
-	} else {
-		_locationNames.push_back(value);
-	}
-}
+
+

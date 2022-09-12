@@ -11,6 +11,38 @@
 #include "TParameterTyped.h"
 #include "TSpecies.h"
 
+template<typename T>
+class TUniqueContainer{
+private:
+	std::vector<T> _names;
+public:
+	bool exists(const T &Value) const {
+		return std::find(_names.begin(), _names.end(),Value)!=_names.end();
+	}
+	void add(const T &Value){
+		if (!exists(Value)) {
+			_names.push_back(Value);
+		}
+	}
+	size_t getIndex(const T &Value) const {
+		auto it = std::find(_names.begin(), _names.end(), Value);
+		if (it != _names.end()) {
+			return  it - _names.begin();
+		}
+		DEVERROR("Value ",Value, " not found in location-vector. This should not happen.");
+	}
+
+	size_t size() const {
+		return _names.size();
+	}
+
+	const T &operator[](size_t Index) const { return _names[Index]; }
+	typename std::vector<T>::const_iterator cbegin() const { return _names.cbegin(); }
+	typename std::vector<T>::const_iterator cend() const { return _names.cend(); }
+
+};
+
+
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
 	using typename stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2>::Storage;
@@ -29,6 +61,10 @@ private:
 	coretools::TMatrix<size_t> _rho;
 	std::vector<TypeCounts> _nu; // sums of counts at one location and method (ij) across all time points (k)
 
+	// names
+	TUniqueContainer<std::string> _locations;
+	TUniqueContainer<std::string> _methods;
+	TUniqueContainer<size_t> _timepoints;
 
 	// temporary variables, for speed
 	double _oldLL           = 0.0;
@@ -76,18 +112,10 @@ public:
 };
 
 
-class TUniqueContainer{
-private:
-	std::vector<std::string> _locationNames;
-public:
-	void add(std::vector<_locationNames>, std::string value)
-	int getIndex()
-
-};
 
 
 
-// not needed anymore
+/*// not needed anymore
 class TLocations {
 private:
 	std::vector<std::string> _names;
@@ -107,7 +135,7 @@ private:
 	std::vector<std::string> _names;
 	size_t _size;
 public:
-};
+};*/
 
 
 #endif // TBIRPPRIOR_H
