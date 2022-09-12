@@ -1,8 +1,10 @@
-/*
+
 #include "../stattools/tests/commonTestingFunctions.h"
 #include "TBirpCore.h"
 #include "TBirpPrior.h"
 #include "gtest/gtest.h"
+
+/*
 
 class TBirpPriorBridge : public TBirpPrior {
 	// Dummy class inheriting from TBirpPrior: allows for testing protected functions
@@ -215,3 +217,14 @@ TEST_F(TBirpPriorTest, _calculateLL_twoDatasets) {
 	// call function
 	EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -9867.187); // not the same as in R due to normalization constant not calculated here
 }*/
+
+TEST(Dummy,dummy){
+	TUniqueContainer<std::string> _locations;
+	_locations.add("im Bach");
+	_locations.add("Ufem Bärg");
+	_locations.add("ir Höhli");
+	std::cout << _locations.size() << std::endl;;
+	_locations.add("im Bach");
+	std::cout << _locations.size() << std::endl;
+	std::cout << _locations.getIndex("im Bach") << std::endl;
+}
