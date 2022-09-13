@@ -105,6 +105,7 @@ void TBirpPrior::_simulateUnderPrior(Storage *Counts) {
 double TBirpPrior::rho(size_t Time, size_t Epoch) const { return _rho(Time, Epoch); }
 coretools::TMatrix<size_t> TBirpPrior::rhoMat() const { return _rho; }
 
+//
 bool TBirpPrior::_checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title) {
 	return Infile.headerAt(index) == Title;
 }
@@ -118,8 +119,25 @@ void TBirpPrior::_checkHeader(const coretools::TInputFile &Infile) {
 		}
 	}
 }
-void TBirpPrior::_readFile(const coretools::TInputFile &Infile) {
-	
+void TBirpPrior::_readFile() {
+	std::string filenameCounts = parameters().getParameterFilename("counts");
+	coretools::TInputFile infile(filenameCounts,coretools::TFile_Filetype::header);
+	_checkHeader(infile);
+	std::vector<std::string> vec;
+	while (infile.read(vec)) {
+		size_t locationIndex  = _locations.add(vec[1]);
+		size_t methodIndex    = _methods.add(vec[2]);
+		size_t timepointIndex = _timepoints.add(coretools::str::convertStringCheck<size_t>(vec[3]));
+		TDataPoint pt(timepointIndex, coretools::str::convertStringCheck<size_t>(vec[4]),
+		              coretools::str::convertStringCheck<double>(vec[5]));
+		// loop over all species and check if it already exists
+		for (size_t sp = 0; sp < _species.size(); sp++) {
+			if (_species[sp].name() == vec[0]) { // did find it
+				_species[sp].add(pt, locationIndex, methodIndex);
+			} else { // did not find it
+				_species.emplace_back(vec[0], pt, locationIndex, methodIndex);
+			}
+		}
+	}
 }
 
-///

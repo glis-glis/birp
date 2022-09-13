@@ -36,7 +36,6 @@ private:
 	TUniqueContainer<std::string> _locations;
 	TUniqueContainer<std::string> _methods;
 	TUniqueContainer<size_t> _timepoints;
-	TUniqueContainer<std::string> _speciesNames;
 	std::vector<TSpecies> _species;
 
 	// temporary variables, for speed
@@ -63,7 +62,7 @@ protected:
 	// check header and read file
 	void _checkHeader(const coretools::TInputFile &Infile);
 	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title);
-	void _readFile(const coretools::TInputFile &Infile);
+	void _readFile();
 
 public:
 	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TObservationTyped<TypeEffort, 2> *Effort,
