@@ -1,0 +1,9 @@
+species	location	method	time	counts	effort
+monkey	beach	loud_yelling	2010	17	1.5
+wolf	river	cameraTrap	2015	5	3
+wolf	mountain	tracks	1017	4	1
+snake	beach	tracks	2014	23	11
+snake	river	cameraTrap	2012	6	32
+monkey	beach	loud_yelling	2015	36	2.6
+snake	beach	tracks	2029	20	8
+wolf	river	cameraTrap	2020	55	32

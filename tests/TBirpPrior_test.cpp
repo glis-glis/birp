@@ -16,7 +16,7 @@ TEST(TBirpPriorTest, readFile){
 	// construct birp prior
 	TBirpPriorBridge bPrior;
 
-	bPrior._readFile("test_counts.txt");
+	bPrior._readFile("../tests/test_files/test_counts.txt");
 
 	const auto locations = bPrior.locations();
 	EXPECT_EQ(locations[0], "Im Bach");

@@ -46,7 +46,7 @@ bool TBirpPrior::_checkHeaderPlacement(const coretools::TInputFile &Infile, size
 }
 
 void TBirpPrior::_checkHeader(const coretools::TInputFile &Infile) {
-	std::vector<std::string> headerVec{"species", "location", "method", "time", "counts", "efforts"};
+	std::vector<std::string> headerVec{"species", "location", "method", "time", "counts", "effort"};
 	for (size_t i = 0; i < headerVec.size(); i++) {
 		if (!_checkHeaderPlacement(Infile, i, headerVec[i])) {
 			UERROR("Error in header of file", Infile.name(), " , please make sure header at column ", i + 1, " is ",
