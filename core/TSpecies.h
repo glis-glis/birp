@@ -86,6 +86,7 @@ public:
 	explicit TSpecies(const std::string &Name) { _name = Name; }
 	explicit TSpecies(const std::string &Name, const TDataPoint &pt, size_t LocationIndex, size_t MethodIndex) {
 		_name = Name;
+		add(pt, LocationIndex, MethodIndex);
 	}
 
 	std::string name() const { return _name; }

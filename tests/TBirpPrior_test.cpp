@@ -4,72 +4,53 @@
 #include "TBirpPrior.h"
 #include "gtest/gtest.h"
 
-/*
-
 class TBirpPriorBridge : public TBirpPrior {
 	// Dummy class inheriting from TBirpPrior: allows for testing protected functions
 public:
-	TBirpPriorBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	                 stattools::TObservationTyped<TypeEffort, 2> *Effort, const std::string &Filename)
-	    : TBirpPrior(Gamma, Effort, Filename){};
-
-	// make protected functions public
-	void _fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
-		TBirpPrior::_fillRho(TimesOfChange, Times);
-	}
-	std::vector<size_t> _getEpochStarts(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
-		return TBirpPrior::_getEpochStarts(TimesOfChange, Times);
-	}
-	double _calculateLL() const { return TBirpPrior::_calculateLL(); }
-};
-
-class TBirpPriorTest : public testing::Test {
-	// class for google test suite: define variables needed for testing TBirpPrior
-public:
-	// define parameters for test
-	std::unique_ptr<stattools::TParameterTyped<TypeGamma, 1>> gamma;
-	std::unique_ptr<stattools::TObservationTyped<TypeEffort, 2>> effort;
-	std::unique_ptr<stattools::TObservationTyped<TypeCounts, 2>> counts;
-
-	std::shared_ptr<TBirpPriorBridge> birpPrior;
-
-	void initialize(size_t NumMethods, const std::vector<size_t> &TimePoints, const std::vector<size_t> &TimesOfChange,
-	                std::vector<double> NewGamma = {}, std::vector<double> OldGamma = {},
-	                std::vector<size_t> ValuesEffort = {}, std::vector<size_t> ValuesCount = {}) {
-		// this function is always called whenever a test is called TEST_F(TBirpPriorTest, ...)
-		using namespace stattools::prior;
-
-		const size_t numTimePoints = TimePoints.size();
-		const size_t numEpochs     = TimesOfChange.size() + 1;
-
-		// add times of change to command line
-		coretools::instances::parameters().addParameter("timesOfChange",
-		                                                coretools::str::concatenateString(TimesOfChange, ","));
-
-		// create a gamma
-		if (OldGamma.empty()) { OldGamma.resize(numEpochs, 0.0); }
-		if (NewGamma.empty()) { NewGamma.resize(numEpochs, 0.0); }
-		testing::initializeStorageParameter(gamma, "gamma", {numEpochs}, OldGamma, NewGamma);
-
-		// create dimension names
-		auto timeNames = std::make_shared<coretools::TNamesStrings>();
-		for (size_t t = 0; t < numTimePoints; t++) { timeNames->addName({coretools::str::toString(TimePoints[t])}); }
-		auto methodNames = std::make_shared<coretools::TNamesIndices>(NumMethods);
-
-		// create efforts
-		if (ValuesEffort.empty()) { ValuesEffort.resize(NumMethods * numTimePoints); }
-		auto priorEffort = std::make_shared<TUniformFixed<stattools::TObservationBase, TypeEffort, 2>>();
-		testing::initializeStorageObservation(effort, priorEffort, "effort", {NumMethods, numTimePoints}, ValuesEffort,
-		                                      {methodNames, timeNames});
-
-		// create counts
-		if (ValuesCount.empty()) { ValuesCount.resize(NumMethods * numTimePoints); }
-		birpPrior = std::make_shared<TBirpPriorBridge>(gamma.get(), effort.get(), "birp");
-		testing::initializeStorageObservation(counts, birpPrior, "counts", {NumMethods, numTimePoints}, ValuesCount,
-		                                      {methodNames, timeNames});
+	void _readFile(const std::string &Filename){
+		return TBirpPrior::_readFile(Filename);
 	}
 };
 
+TEST(TBirpPriorTest, readFile){
+	// construct birp prior
+	TBirpPriorBridge bPrior;
+
+	bPrior._readFile("test_counts.txt");
+
+	const auto locations = bPrior.locations();
+	EXPECT_EQ(locations[0], "Im Bach");
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
 TEST_F(TBirpPriorTest, _fillRho_easy1) {
 	std::vector<size_t> timesOfChange = {2, 5, 9};
 	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
@@ -216,15 +197,5 @@ TEST_F(TBirpPriorTest, _calculateLL_twoDatasets) {
 
 	// call function
 	EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -9867.187); // not the same as in R due to normalization constant not calculated here
-}*/
-
-TEST(Dummy,dummy){
-	TUniqueContainer<std::string> _locations;
-	_locations.add("im Bach");
-	_locations.add("Ufem Bärg");
-	_locations.add("ir Höhli");
-	std::cout << _locations.size() << std::endl;;
-	_locations.add("im Bach");
-	std::cout << _locations.size() << std::endl;
-	std::cout << _locations.getIndex("im Bach") << std::endl;
 }
+*/
