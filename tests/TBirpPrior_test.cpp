@@ -12,15 +12,34 @@ public:
 	}
 };
 
-TEST(TBirpPriorTest, readFile){
+TEST(TBirpPriorTest, readFile1){
 	// construct birp prior
 	TBirpPriorBridge bPrior;
-
 	bPrior._readFile("../tests/test_files/test_counts.txt");
-
-	const auto locations = bPrior.locations();
-	EXPECT_EQ(locations[0], "Im Bach");
-
+	// test locations
+    const auto locations = bPrior.locations();
+	EXPECT_EQ(locations[0], "beach");
+    EXPECT_EQ(locations[1], "river");
+    EXPECT_EQ(locations[2], "mountain");
+    // test species
+    const auto species = bPrior.species() ;
+    EXPECT_EQ(species[0].name(), "monkey");
+    EXPECT_EQ(species[1].name(), "wolf");
+    EXPECT_EQ(species[2].name(), "snake");
+    // test method
+    const auto method = bPrior.methods();
+    EXPECT_EQ(method[0], "loud_yelling");
+    EXPECT_EQ(method[1], "cameraTrap");
+    EXPECT_EQ(method[2], "tracks");
+    // test timepoints
+    const auto times = bPrior.timepoints();
+    EXPECT_EQ(times[0],2010);
+    EXPECT_EQ(times[1],2015);
+    EXPECT_EQ(times[2],1017);
+    EXPECT_EQ(times[3],2014);
+    EXPECT_EQ(times[4],2012);
+    EXPECT_EQ(times[5],2029);
+    EXPECT_EQ(times[6],2020);
 }
 
 

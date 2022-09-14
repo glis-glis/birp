@@ -53,7 +53,11 @@ public:
 	void updateParams() override;
 
 	// getters for locations, methods, timepoints, species for tests
-	const TUniqueContainer<std::string> &locations() const { return _locations; }
+	const TUniqueContainer<std::string>& locations() const;
+    const TUniqueContainer<std::string>& methods() const;
+    const TUniqueContainer<size_t>& timepoints() const;
+    const std::vector<TSpecies>& species() const;
+
 };
 
 #endif // TBIRPPRIOR_H
