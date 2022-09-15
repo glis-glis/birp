@@ -91,6 +91,19 @@ void TBirpPrior::_sortTimepoints() {
 	}
 }
 
+void TBirpPrior::_writeFile(const std::string &Filename, const std::vector<std::string> &Header) {
+	coretools::TOutputFile outfile(Filename, Header);
+	outfile.writeHeader(Header);
+	// write file line by line
+	for(size_t sp=0; sp<_species.size();sp++){
+		for(auto ts=_species[sp].begin(); ts!=_species[sp].end(); ts++){
+			// third loop over all individual time points
+			outfile.write(_species[sp].name() << _species[sp].);
+		}
+	}
+}
+
+
 
 
 

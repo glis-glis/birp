@@ -34,6 +34,9 @@ protected:
 	void _readFile(const std::string &Filename);
 	void _sortTimepoints();
 
+	// write output file
+	void _writeFile(const std::string &Filename, const std::vector<std::string> &Header);
+
 public:
 	TBirpPrior() = default;
 	TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma);
