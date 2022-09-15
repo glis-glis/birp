@@ -32,12 +32,16 @@ public:
     }
 
     size_t size() const { return _names.size(); }
+	void resize(size_t size){
+		_names.resize(size);
+	}
 
     const T &operator[](size_t Index) const { return _names[Index]; }
 
     typename std::vector<T>::const_iterator cbegin() const { return _names.cbegin(); }
-
+	typename std::vector<T>::iterator begin() { return _names.begin(); }
     typename std::vector<T>::const_iterator cend() const { return _names.cend(); }
+	typename std::vector<T>::iterator end() { return _names.end(); }
 };
 
 class TDataPoint {
@@ -51,8 +55,11 @@ public:
         counts = Counts;
         effort = Effort;
     }
+	TDataPoint() = default;
 
     bool operator<(const TDataPoint &other) const { return timepoint_id < other.timepoint_id; }
+
+
 };
 
 class TDataSeries {
@@ -82,12 +89,31 @@ public:
     const TDataPoint &operator[](const size_t index) const { return _dataPoints[index]; }
 
     std::vector<TDataPoint>::const_iterator cbegin() const { return _dataPoints.cbegin(); }
-
+	std::vector<TDataPoint>::iterator begin() { return _dataPoints.begin(); }
     std::vector<TDataPoint>::const_iterator cend() const { return _dataPoints.cend(); }
+	std::vector<TDataPoint>::iterator end() { return _dataPoints.end(); }
 
     size_t location_id() const { return _location_id; }
 
     size_t method_id() const { return _method_id; }
+
+	void sorttimes(const std::vector<size_t> &index) {
+		std::vector<size_t> positionOfTimepointIds;
+		for (size_t i = 0; i < _dataPoints.size(); i++) {
+			auto it    = std::find(index.begin(), index.end(), _dataPoints[i].timepoint_id);
+			size_t pos = it - index.begin();
+			positionOfTimepointIds.push_back(pos);
+		}
+		// sort the newly found positions of timepoints using ranksort()
+		std::vector<size_t> sortingIndex = coretools::rankSort(positionOfTimepointIds);
+		// sort _dataPoints
+		_dataPoints                      = coretools::sortContainerByRank(_dataPoints, sortingIndex);
+		// now sort positionOfTimepointIds
+		positionOfTimepointIds           = coretools::sortContainerByRank(positionOfTimepointIds, sortingIndex);
+		// now set timepoint_id
+		for (size_t i = 0; i < _dataPoints.size(); i++) { _dataPoints[i].timepoint_id = positionOfTimepointIds[i]; }
+	}
+
 };
 
 class TSpecies {
@@ -118,6 +144,20 @@ public:
             _data.emplace_back(pt, LocationIndex, MethodIndex);
         }
     }
+
+	void sorttimes(const std::vector<size_t> &index){
+		for(size_t ds=0;ds<_data.size();ds++){
+			_data[ds].sorttimes(index);
+		}
+	}
+
+	std::vector<TDataSeries>::const_iterator cbegin() const { return _data.cbegin(); }
+	std::vector<TDataSeries>::iterator begin() { return _data.begin(); }
+	std::vector<TDataSeries>::const_iterator cend() const { return _data.cend(); }
+	std::vector<TDataSeries>::iterator end() { return _data.end(); }
+
+
+
 };
 
 #endif /* CORE_TSPECIES_H_ */

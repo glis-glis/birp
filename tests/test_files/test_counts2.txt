@@ -1,0 +1,13 @@
+species	location	method	time	counts	effort
+lion	basecamp	looking	2020	1	1
+lion	jungle	looking	2020	2	2
+lion	Thierrys_office	listening	2020	3	3
+lion	basecamp	listening	2020	4	4
+giraffe	jungle	listening	2020	5	5
+giraffe	jungle	listening	2020	6	6
+giraffe	basecamp	dancing	2020	7	7
+giraffe	basecamp	dancing	2020	8	8
+zebra	Thierrys_office	dancing	2020	9	9
+zebra	Thierrys_office	dancing	2020	10	10
+zebra	basecamp	looking	2020	11	11
+zebra	basecamp	looking	2020	12	12

@@ -1,0 +1,11 @@
+species	location	method	time	counts	effort
+lion	basecamp	ct	2020	1	1
+lion	basecamp	ct	2001	2	2
+lion	basecamp	ct	2005	3	3
+lion	basecamp	ct	2022	4	4
+giraffe	basecamp	ct	2020	5	5
+giraffe	basecamp	ct	2005	6	6
+zebra	basecamp	ct	2001	9	9
+zebra	basecamp	ct	2005	10	10
+zebra	basecamp	ct	2020	11	11
+

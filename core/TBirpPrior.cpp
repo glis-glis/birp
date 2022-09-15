@@ -81,6 +81,19 @@ void TBirpPrior::_readFile(const std::string &Filename) {
     }
 }
 
+
+// sort timepoints and corresponding dataseries for every species
+void TBirpPrior::_sortTimepoints() {
+	std::vector<size_t> sortingIndex = coretools::rankSort(_timepoints);
+	_timepoints = coretools::sortContainerByRank(_timepoints, sortingIndex);
+	for(size_t sp=0; sp<_species.size();sp++){
+		_species[sp].sorttimes(sortingIndex);
+	}
+}
+
+
+
+
 // getters for test functions
 const TUniqueContainer<std::string> &TBirpPrior::locations() const {
     return _locations;

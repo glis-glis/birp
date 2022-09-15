@@ -32,6 +32,7 @@ protected:
 	void _checkHeader(const coretools::TInputFile &Infile);
 	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title);
 	void _readFile(const std::string &Filename);
+	void _sortTimepoints();
 
 public:
 	TBirpPrior() = default;
