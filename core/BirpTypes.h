@@ -5,8 +5,8 @@
 #ifndef BIRPTYPES_H
 #define BIRPTYPES_H
 
-#include "commonWeakTypes.h"
-#include "probability.h"
+#include "coretools/Types/commonWeakTypes.h"
+#include "coretools/Types/probability.h"
 #include <cstdint>
 
 //-------------------------------
@@ -18,6 +18,6 @@ typedef coretools::UnsignedInt<uint16_t> TypeCounts;
 typedef coretools::UnsignedInt<uint16_t> TypeIndex;
 typedef coretools::WeakType<double> TypeGamma;
 typedef coretools::Positive<double> TypeEffort;
-typedef double TypeTime;
+typedef coretools::UnsignedInt<uint16_t> TypeTime;
 
 #endif // BIRPTYPES_H

@@ -6,9 +6,8 @@
 #define TBIRPPRIOR_H
 
 #include "BirpTypes.h"
-#include "TMatrix.h"
-#include "TObservationTyped.h"
-#include "TParameterTyped.h"
+#include "stattools/ParametersObservations/TObservationTyped.h"
+#include "stattools/ParametersObservations/TObservationTyped.h"
 #include "TSpecies.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {

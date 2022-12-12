@@ -10,13 +10,13 @@
 
 #include "BirpTypes.h"
 #include "TBirpPrior.h"
-#include "TDAGBuilder.h"
-#include "TObservationTyped.h"
-#include "TParameterTyped.h"
-#include "TParameters.h"
-#include "TPriorExponential.h"
-#include "TPriorUniform.h"
-#include "TTask.h"
+#include "stattools/DAG/TDAGBuilder.h"
+#include "stattools/ParametersObservations/TObservationTyped.h"
+#include "stattools/ParametersObservations/TParameterTyped.h"
+#include "coretools/Main/TParameters.h"
+#include "stattools/Priors/TPriorExponential.h"
+#include "stattools/Priors/TPriorUniform.h"
+#include "coretools/Main/TTask.h"
 
 //------------------------------------------
 // TBirpModel

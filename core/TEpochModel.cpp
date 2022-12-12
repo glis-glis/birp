@@ -1,49 +1,56 @@
-/*
+
 //
 // Created by Liam on 23/08/22.
 //
 
 #include "TEpochModel.h"
-#include "TData.h"
 
 using namespace coretools::instances;
 
-TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1>* TimesOfChange,
                         const std::string &Filename)
-        : _gamma(Gamma), _filename(Filename) {
+        : _gamma(Gamma), _timesOfChange(TimesOfChange), _filename(Filename) {
 
-        _gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
+
 
 }
 
-std::vector<size_t> TEpochModel::_getEpochStarts(const std::vector<size_t> &TimesOfChange,
-                                                const std::vector<size_t> &Times) {
-    assert(!Times.empty());
+void TEpochModel::initialize() {
+    if (!_timesOfChange->hasFixedInitialValue()){  // if user did not set initial values
+		UERROR("Please provide times of change!");
+	}
+	_numEpochs = _timesOfChange->totalSize() + 1;
+	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
+}
+
+
+std::vector<size_t> TEpochModel::_getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const {
+    assert(!Timepoints.empty());
     std::vector<size_t> epochStarts = {0};
-    if (!TimesOfChange.empty()) {
-        size_t maxTimeOfChange = *max_element(TimesOfChange.begin(), TimesOfChange.end());
-        size_t maxTime         = std::max(Times.back(), maxTimeOfChange + 1);
-        //
-        epochStarts.insert(epochStarts.end(), TimesOfChange.begin(), TimesOfChange.end());
+    if (_timesOfChange->totalSize()!=0) {
+        size_t maxTimeOfChange = _timesOfChange->max_value();
+        size_t maxTime         = std::max(*Timepoints.cend(), maxTimeOfChange + 1);
+		for (size_t i = 0; i < _timesOfChange->totalSize(); i++){
+			epochStarts.push_back(_timesOfChange->value());
+		}
         epochStarts.push_back(maxTime);
     } else {
-        epochStarts.push_back(*max_element(Times.begin(), Times.end()));
+        epochStarts.push_back(*max_element(Timepoints.cbegin(), Timepoints.cend()));
     }
     return epochStarts;
 }
 
 
-void TEpochModel::_fillRho(const std::vector<size_t> &TimesOfChange, const std::vector<size_t> &Times) {
-    std::vector<size_t> epochStarts = _getEpochStarts(TimesOfChange, Times);
-    _numEpochs                      = TimesOfChange.size() + 1;
-    _rho.zeros((int)Times.size(), (int)_numEpochs);
+void TEpochModel::_fillRho(const TUniqueContainer<size_t> &Timepoints) {
+    std::vector<size_t> epochStarts = _getEpochStarts(Timepoints);
+    _rho.zeros((int)Timepoints.size(), (int)_numEpochs);
     // fill rhos
-    for (size_t t = 0; t < Times.size(); ++t) {
+    for (size_t t = 0; t < Timepoints.size(); ++t) {
         for (size_t e = 1; e < epochStarts.size(); ++e) {
-            if (Times[t] <= epochStarts[e - 1]) {
+            if (Timepoints[t] <= epochStarts[e - 1]) {
                 _rho(t, e - 1) = 0;
-            } else if (epochStarts[e - 1] < Times[t] && Times[t] < epochStarts[e]) {
-                _rho(t, e - 1) = Times[t] - epochStarts[e - 1];
+            } else if (epochStarts[e - 1] < Timepoints[t] && Timepoints[t] < epochStarts[e]) {
+                _rho(t, e - 1) = Timepoints[t] - epochStarts[e - 1];
             } else {
                 _rho(t, e - 1) = epochStarts[e] - epochStarts[e - 1];
             }
@@ -51,23 +58,7 @@ void TEpochModel::_fillRho(const std::vector<size_t> &TimesOfChange, const std::
     }
 }
 
-void TEpochModel::_readTimesOfChange() {
-    // read vector from command line
-    std::vector<size_t> timesOfChange;
-    parameters().fillParameterIntoContainer("timesOfChange", timesOfChange, ',');
-    logfile().list("Will consider the following times of change: ",
-                   coretools::str::concatenateString(timesOfChange, ","));
 
-    // convert time points (strings, because they were read from file) into size_t
-    const size_t numTimePoints = _effort->getDimensionName(1)->size();
-    std::vector<size_t> times(numTimePoints);
-    for (size_t t = 0; t < numTimePoints; t++) {
-        times[t] = coretools::str::convertString<size_t>((*_effort->getDimensionName(1))[t]);
-    }
-
-    // now fill rho!
-    _fillRho(timesOfChange, times);
-}
 
 
 double TEpochModel::_calculateLogPhi_k(size_t k) const {

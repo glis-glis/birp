@@ -63,9 +63,9 @@ void TBirpPrior::_readFile(const std::string &Filename) {
     while (infile.read(vec)) {
         size_t locationIndex = _locations.add(vec[1]);
         size_t methodIndex = _methods.add(vec[2]);
-        size_t timepointIndex = _timepoints.add(coretools::str::convertStringCheck<size_t>(vec[3]));
-        TDataPoint pt(timepointIndex, coretools::str::convertStringCheck<size_t>(vec[4]),
-                      coretools::str::convertStringCheck<double>(vec[5]));
+        size_t timepointIndex = _timepoints.add(coretools::str::fromStringCheck<size_t>(vec[3]));
+        TDataPoint pt(timepointIndex, coretools::str::fromStringCheck<size_t>(vec[4]),
+                      coretools::str::fromStringCheck<double>(vec[5]));
         // loop over all species and check if it already exists
         bool speciesExists = false;
         for (size_t sp = 0; sp < _species.size(); sp++) {
