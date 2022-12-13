@@ -121,6 +121,15 @@ void TEpochModel::updateGamma(){
 }
  }
 
+
+ // getters for test functions
+ const  coretools::TMatrix<size_t>& TEpochModel::rho(size_t row, size_t col) const {
+	return _rho(row,col);
+ }
+
+
+
+
 namespace */
 /*anonymous*/ /*
   {

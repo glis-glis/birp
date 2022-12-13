@@ -2,16 +2,41 @@
 // Created by liam on 12/12/22.
 //
 
+#include "../stattools/tests/commonTestingFunctions.h"
 #include "TBirpPrior.h"
-#include "gtest/gtest.h"
 #include "TEpochModel.h"
+#include "gtest/gtest.h"
+
+
+class TBirpPriorBridge : public TBirpPrior {
+	// Dummy class inheriting from TBirpPrior: allows for testing protected functions
+public:
+	void _readFile(const std::string &Filename){
+		return TBirpPrior::_readFile(Filename);
+	}
+	auto gettimes(){
+		return _timepoints;
+	}
+
+};
+
+class TEpochModelBridge : public TEpochModel {
+	// Dummy class inheriting from TEpochModel: allows for testing protected functions
+public:
+	TEpochModelBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1>* TimesOfChange, const std::string &Filename): TEpochModel(Gamma, TimesOfChange, Filename){}
+
+	void _fillRho(const TUniqueContainer<size_t> &Timepoints) {
+		return TEpochModel::_fillRho(Timepoints);
+	}
+
+};
 
 class TEpochModelTest : public testing::Test {
 	// class for google test suite: define variables needed for testing TBirpPrior
 public:
 	// define parameters for test
 	std::unique_ptr<stattools::TParameterTyped<TypeGamma, 1>> gamma;
-	std::shared_ptr<TEpochModel> epochModel;
+	std::shared_ptr<TEpochModelBridge> epochModel;
 	std::unique_ptr<stattools::TParameterTyped<TypeTime,1>> timesOfChange;
 
 	void initialize(const std::vector<size_t> &TimesOfChange,
@@ -27,50 +52,52 @@ public:
 		testing::initializeStorageParameter(gamma, "gamma", {numEpochs}, OldGamma, NewGamma);
 		testing::initializeStorageParameter(timesOfChange, "timesOfChange", {numEpochs-1}, TimesOfChange, TimesOfChange);
 
-		epochModel = std::make_shared<TEpochModel>(gamma.get(), timesOfChange.get(), "out");
+		epochModel = std::make_shared<TEpochModelBridge>(gamma.get(), timesOfChange.get(), "out");  // get(): unique pointer gets raw pointer
 	}
 };
 
 
 
 TEST_F(TEpochModelTest, _fillRho_easy1) {
-	std::vector<size_t> timesOfChange = {2, 5, 9};
-	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};  // write into input file
+	TBirpPriorBridge test;
+	test._readFile("../tests/test_files/test_epochModel1.txt");
+	auto times = test.gettimes();
+	std::vector<size_t> timesOfChange = {2013, 2018};
 	initialize(timesOfChange);
-
 	// call function
-	birpPrior->_fillRho(timesOfChange, times);
+	epochModel->_fillRho(times);
 
 	// define expected 1D output vector (rows are columns)
-	std::vector<std::vector<size_t>> outExp = {{1, 2, 2, 2, 2, 2, 2, 2, 2, 2},
-	                                           {0, 0, 1, 2, 3, 3, 3, 3, 3, 3},
-	                                           {0, 0, 0, 0, 0, 1, 2, 3, 4, 4},
-	                                           {0, 0, 0, 0, 0, 0, 0, 0, 0, 1}};
-
+	std::vector<std::vector<size_t>> outExp = {{2010,2012,2013,2013,2013,2013,2013},
+	                                           {0,0,1,2,4,5,5},
+	                                           {0,0,0,0,0,2,11}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
-		for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(birpPrior->rho(i, j), outExp.at(j).at(i)); }
+		for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
 	}
 }
 
-TEST_F(TBirpPriorTest, _fillRho_easy2) {
-	std::vector<size_t> timesOfChange = {2, 3};
-	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6};
-	initialize(1, times, timesOfChange);
 
+TEST_F(TEpochModelTest, _fillRho_easy2) {
+	TBirpPriorBridge test;
+	test._readFile("../tests/test_files/test_epochModel2.txt");
+	auto times = test.gettimes();
+	std::vector<size_t> timesOfChange = {2013, 2018};
+	initialize(timesOfChange);
 	// call function
-	birpPrior->_fillRho(timesOfChange, times);
+	epochModel->_fillRho(times);
 
 	// define expected 1D output vector (rows are columns)
-	std::vector<std::vector<size_t>> outExp = {{1, 2, 2, 2, 2, 2}, {0, 0, 1, 1, 1, 1}, {0, 0, 0, 1, 2, 3}};
-
+	std::vector<std::vector<size_t>> outExp = {{2010,2012,2013,2013,2013,2013,2013},
+	                                           {0,0,1,2,4,5,5},
+	                                           {0,0,0,0,0,2,11}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
-		for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(birpPrior->rho(i, j), outExp.at(j).at(i)); }
+		for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
 	}
 }
 
-TEST_F(TBirpPriorTest, _fillRho_TimesOfChange_same_as_times) {
+TEST_F(TEpochModelTest, _fillRho_TimesOfChange_same_as_times) {
 	std::vector<size_t> timesOfChange = {1, 2};
 	std::vector<size_t> times         = {1, 2};
 	initialize(1, times, timesOfChange);
@@ -87,7 +114,7 @@ TEST_F(TBirpPriorTest, _fillRho_TimesOfChange_same_as_times) {
 	}
 }
 
-TEST_F(TBirpPriorTest, _fillRho_TimesOfChange_empty) {
+TEST_F(TEpochModelTest, _fillRho_TimesOfChange_empty) {
 	std::vector<size_t> timesOfChange = {};
 	std::vector<size_t> times         = {1, 2, 3};
 	initialize(1, times, timesOfChange);
@@ -103,7 +130,7 @@ TEST_F(TBirpPriorTest, _fillRho_TimesOfChange_empty) {
 }
 
 // testing _getEpochStarts
-TEST_F(TBirpPriorTest, _getEpochStarts_easy1) {
+TEST_F(TEpochModelTest, _getEpochStarts_easy1) {
 	std::vector<size_t> timesOfChange = {3, 8};
 	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 	initialize(1, times, timesOfChange);
@@ -118,7 +145,7 @@ TEST_F(TBirpPriorTest, _getEpochStarts_easy1) {
 	for (size_t i = 0; i < timesOfChange.size() + 2; i++) { EXPECT_EQ(result.at(i), outExp.at(i)); }
 }
 
-TEST_F(TBirpPriorTest, _getEpochStarts_easy2) {
+TEST_F(TEpochModelTest, _getEpochStarts_easy2) {
 	std::vector<size_t> timesOfChange = {3, 10};
 	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 	initialize(1, times, timesOfChange);
@@ -133,7 +160,7 @@ TEST_F(TBirpPriorTest, _getEpochStarts_easy2) {
 	for (size_t i = 0; i < timesOfChange.size() + 2; i++) { EXPECT_EQ(result.at(i), outExp.at(i)); }
 }
 
-TEST_F(TBirpPriorTest, _getEpochStarts_TimesOfChangeEmpty) {
+TEST_F(TEpochModelTest, _getEpochStarts_TimesOfChangeEmpty) {
 	std::vector<size_t> timesOfChange = {};
 	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 	initialize(1, times, timesOfChange);

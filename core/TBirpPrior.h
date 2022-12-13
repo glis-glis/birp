@@ -15,6 +15,8 @@ private:
 	using typename stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2>::Storage;
 	using typename stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2>::UpdatedStorage;
 
+
+protected:
 	// data
 	std::vector<TSpecies> _species;
 
@@ -23,7 +25,7 @@ private:
 	TUniqueContainer<std::string> _methods;
 	TUniqueContainer<size_t> _timepoints;
 
-protected:
+
 	// simulate values
 	void _simulateUnderPrior(Storage *Data) override;
 

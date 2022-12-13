@@ -14,7 +14,7 @@
 #include <vector>
 
 class TEpochModel {
-private:
+protected:
 	// Birp parameters and co-variates
 	stattools::TParameterTyped<TypeGamma, 1>* _gamma = nullptr;
 	stattools::TParameterTyped<TypeTime, 1>* _timesOfChange  = nullptr;
@@ -35,6 +35,9 @@ private:
     double _calculateSigma_ik(size_t i, size_t k, double Phi_k) const;
     coretools::TMatrix<double> _calculateP() const;
 
+	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
+
+
 public:
     TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1>* TimesOfChange, const std::string &Filename);
     ~TEpochModel() = default;
@@ -43,10 +46,14 @@ public:
 
     // initialization
     std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const; //return start of each epoch, including for a hypothetical epoch after the last epoch
-    void _fillRho(const TUniqueContainer<size_t> &Timepoints);
     static void _readTimesOfChange();
 
     double calculateLL(const TData & Data);
+
+	// getter for rho for tests
+	const  coretools::TMatrix<size_t>& rho(size_t row, size_t col) const;
+
+
 
 };
 
