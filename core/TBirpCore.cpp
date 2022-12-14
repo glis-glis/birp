@@ -6,13 +6,13 @@
  */
 
 #include "TBirpCore.h"
-#include "TMCMC.h"
+#include "stattools/MCMC/TMCMC.h"
 
 using namespace coretools::instances;
 using namespace stattools;
 using namespace stattools::prior;
 
-#include "strongTypes.h"
+#include "coretools/Types/strongTypes.h"
 
 //--------------------------------------
 // TBirpModel

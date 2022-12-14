@@ -31,9 +31,9 @@ protected:
 
     // likelihood
     [[nodiscard]] double _calculateLogPhi_k(size_t k) const;
-    [[nodiscard]] std::vector<double> _calculatePhi() const;
+    [[nodiscard]] std::vector<double> _calculatePhi(size_t numTimepoints) const;
     double _calculateSigma_ik(size_t i, size_t k, double Phi_k) const;
-    coretools::TMatrix<double> _calculateP() const;
+    coretools::TMatrix<double> _calculateP(size_t numTimepoints, size_t numMethods, const TDataSeries &Data) const;
 
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 
@@ -45,14 +45,15 @@ public:
 	void initialize();
 
     // initialization
-    std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const; //return start of each epoch, including for a hypothetical epoch after the last epoch
-    static void _readTimesOfChange();
+    [[nodiscard]] std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const; //return start of each epoch, including for a hypothetical epoch after the last epoch
 
-    double calculateLL(const TData & Data);
+    // static void _readTimesOfChange(); already done in readFile?
+
+    double calculateLL(const TDataSeries &Data);
 
 	// getter for rho for tests
-	const  coretools::TMatrix<size_t>& rho(size_t row, size_t col) const;
-
+	size_t rho(size_t row, size_t col) const;
+    // const  std::vector<size_t>& epochStarts() const;
 
 
 };

@@ -29,6 +29,11 @@ public:
 		return TEpochModel::_fillRho(Timepoints);
 	}
 
+    std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) {
+        return TEpochModel::_getEpochStarts(Timepoints);
+    }
+
+
 };
 
 class TEpochModelTest : public testing::Test {
@@ -67,7 +72,7 @@ TEST_F(TEpochModelTest, _fillRho_easy1) {
 	// call function
 	epochModel->_fillRho(times);
 
-	// define expected 1D output vector (rows are columns)
+	// define expected 1D output vector (one row is one epoch)
 	std::vector<std::vector<size_t>> outExp = {{2010,2012,2013,2013,2013,2013,2013},
 	                                           {0,0,1,2,4,5,5},
 	                                           {0,0,0,0,0,2,11}};
@@ -82,15 +87,14 @@ TEST_F(TEpochModelTest, _fillRho_easy2) {
 	TBirpPriorBridge test;
 	test._readFile("../tests/test_files/test_epochModel2.txt");
 	auto times = test.gettimes();
-	std::vector<size_t> timesOfChange = {2013, 2018};
+	std::vector<size_t> timesOfChange = {2};
 	initialize(timesOfChange);
 	// call function
 	epochModel->_fillRho(times);
 
-	// define expected 1D output vector (rows are columns)
-	std::vector<std::vector<size_t>> outExp = {{2010,2012,2013,2013,2013,2013,2013},
-	                                           {0,0,1,2,4,5,5},
-	                                           {0,0,0,0,0,2,11}};
+	// define expected 1D output vector (one row is one epoch)
+	std::vector<std::vector<size_t>> outExp = {{2,1,2,1,2,2,1,2,2},
+	                                           {1,0,0,0,1,1,0,1,0}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
 		for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
@@ -98,84 +102,57 @@ TEST_F(TEpochModelTest, _fillRho_easy2) {
 }
 
 TEST_F(TEpochModelTest, _fillRho_TimesOfChange_same_as_times) {
-	std::vector<size_t> timesOfChange = {1, 2};
-	std::vector<size_t> times         = {1, 2};
-	initialize(1, times, timesOfChange);
+    TBirpPriorBridge test;
+    test._readFile("../tests/test_files/test_epochModel2_TOC_same_as_times.txt");
+    auto times = test.gettimes();
+    std::vector<size_t> timesOfChange = {1,2};
+    initialize(timesOfChange);
+    // call function
+    epochModel->_fillRho(times);
 
-	// call function
-	birpPrior->_fillRho(timesOfChange, times);
-
-	// define expected 1D output vector (rows are columns)
-	std::vector<std::vector<size_t>> outExp = {{1, 1}, {0, 1}, {0, 0}};
-
-	// test if result is as expected
-	for (size_t i = 0; i < times.size(); i++) {
-		for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(birpPrior->rho(i, j), outExp.at(j).at(i)); }
-	}
+    // define expected 1D output vector (one row is one epoch)
+    std::vector<std::vector<size_t>> outExp = {{1,1},
+                                               {0,1},
+                                               {0,0}};
+    // test if result is as expected
+    for (size_t i = 0; i < times.size(); i++) {
+        for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
+    }
 }
 
+/*
+// check and make sure it takes start and stop (no error, just no epoch)
 TEST_F(TEpochModelTest, _fillRho_TimesOfChange_empty) {
-	std::vector<size_t> timesOfChange = {};
-	std::vector<size_t> times         = {1, 2, 3};
-	initialize(1, times, timesOfChange);
+    TBirpPriorBridge test;
+    test._readFile("../tests/test_files/test_epochModel2_TOC_empty.txt");
+    auto times = test.gettimes();
+    std::vector<size_t> timesOfChange = {};
+    initialize(timesOfChange);
+    // call function
+    epochModel->_fillRho(times);
+    EXPECT_EQ()
 
-	// call function
-	birpPrior->_fillRho(timesOfChange, times);
-
-	// define expected 1D output vector (rows are columns)
-	std::vector<size_t> outExp = {1, 2, 3};
-
-	// test if result is as expected
-	for (size_t i = 0; i < times.size(); i++) { EXPECT_EQ(birpPrior->rho(i, 0), outExp.at(i)); }
 }
+*/
+
 
 // testing _getEpochStarts
 TEST_F(TEpochModelTest, _getEpochStarts_easy1) {
-	std::vector<size_t> timesOfChange = {3, 8};
-	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-	initialize(1, times, timesOfChange);
-
-	// call function
-	auto result = birpPrior->_getEpochStarts(timesOfChange, times);
+    TBirpPriorBridge test;
+    test._readFile("../tests/test_files/test_epochStarts1.txt");
+    auto times = test.gettimes();
+    std::vector<size_t> timesOfChange = {3,8};
+    initialize(timesOfChange);
+    // call function
+    auto epochStarts = epochModel->_getEpochStarts(times);
 
 	// define expected 1D output vector (rows are columns)
 	std::vector<size_t> outExp = {0, 3, 8, 10};
 
 	// test if result is as expected
-	for (size_t i = 0; i < timesOfChange.size() + 2; i++) { EXPECT_EQ(result.at(i), outExp.at(i)); }
+    EXPECT_EQ(epochStarts.size(), outExp.size());
+	for (size_t i = 0; i < timesOfChange.size() + 2; i++) { EXPECT_EQ(epochStarts[i], outExp[i]); }
 }
-
-TEST_F(TEpochModelTest, _getEpochStarts_easy2) {
-	std::vector<size_t> timesOfChange = {3, 10};
-	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-	initialize(1, times, timesOfChange);
-
-	// call function
-	auto result = birpPrior->_getEpochStarts(timesOfChange, times);
-
-	// define expected 1D output vector (rows are columns)
-	std::vector<size_t> outExp = {0, 3, 10, 11};
-
-	// test if result is as expected
-	for (size_t i = 0; i < timesOfChange.size() + 2; i++) { EXPECT_EQ(result.at(i), outExp.at(i)); }
-}
-
-TEST_F(TEpochModelTest, _getEpochStarts_TimesOfChangeEmpty) {
-	std::vector<size_t> timesOfChange = {};
-	std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-	initialize(1, times, timesOfChange);
-
-	// call function
-	auto result = birpPrior->_getEpochStarts(timesOfChange, times);
-
-	// define expected 1D output vector (rows are columns)
-	std::vector<size_t> outExp = {0, 10};
-
-	// test if result is as expected
-	for (size_t i = 0; i < timesOfChange.size() + 2; i++) { EXPECT_EQ(result.at(i), outExp.at(i)); }
-}
-
-
 
 
 /*

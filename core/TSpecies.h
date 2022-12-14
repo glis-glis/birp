@@ -8,6 +8,7 @@
 #include "BirpTypes.h"
 #include <algorithm>
 #include <vector>
+#include "coretools/algorithms.h"
 
 template<typename T> class TUniqueContainer {
 protected:

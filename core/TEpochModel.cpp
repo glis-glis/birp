@@ -4,6 +4,7 @@
 //
 
 #include "TEpochModel.h"
+#include "TBirpPrior.h"
 
 using namespace coretools::instances;
 
@@ -40,6 +41,8 @@ std::vector<size_t> TEpochModel::_getEpochStarts(const TUniqueContainer<size_t> 
     return epochStarts;
 }
 
+// static void _readTimesOfChange(){}
+
 
 void TEpochModel::_fillRho(const TUniqueContainer<size_t> &Timepoints) {
     std::vector<size_t> epochStarts = _getEpochStarts(Timepoints);
@@ -59,48 +62,48 @@ void TEpochModel::_fillRho(const TUniqueContainer<size_t> &Timepoints) {
 }
 
 
-
-
 double TEpochModel::_calculateLogPhi_k(size_t k) const {
     double sum = 0.0;
     for (size_t m = 0; m < _numEpochs; m++) { sum += (double)_rho(k, m) * _gamma->value(m); }
     return sum;
 }
 
-std::vector<double> TEpochModel::_calculatePhi() const {
-    std::vector<double> logPhi(_numTimePoints);
-    for (size_t k = 0; k < _numTimePoints; k++) { logPhi[k] = _calculateLogPhi_k(k); }
-    coretools::standardizeZeroMean(logPhi);
-    for (auto &p : logPhi) { p = exp(p); }
-    return logPhi; // is not logPhi anymore due to exp() on line above
+std::vector<double> TEpochModel::_calculatePhi(size_t numTimepoints) const {
+    std::vector<double> phi(numTimepoints);
+    for (size_t k = 0; k < numTimepoints; k++) { phi[k] = _calculateLogPhi_k(k); }
+    coretools::standardizeZeroMean(phi);
+    for (auto &p : phi) { p = exp(p); } // make logPhi to phi
+    return phi;
 }
 
-
-double TEpochModel::_calculateSigma_ik(size_t i, size_t k, double Phi_k) const {
-    return Phi_k * _effort->value({i, k});
-}
-
-coretools::TMatrix<double> TEpochModel::_calculateP() const {
-    coretools::TMatrix<double> p((int)_numMethods, (int)_numTimePoints);
-    for (size_t i = 0; i < _numMethods; i++) {
-        double sum = 0.0;
-        for (size_t k = 0; k < _numTimePoints; k++) {
-            // calculate sigma and fill into p (will normalize later)
-            const double sigma = _calculateSigma_ik(i, k, phi[k]);
-            p(i, k)            = sigma;
-            sum += sigma;
-        }
-        // now normalize by row sum!
-        for (size_t k = 0; k < _numTimePoints; k++) { p(i, k) /= sum; }
-    }
-    return p;
+/*
+coretools::TMatrix<double> TEpochModel::_calculateP(size_t numTimepoints, size_t numMethods, const TSpecies &Data) const {
+   coretools::TMatrix<double> p((int)numMethods, (int)numTimepoints);
+   for (size_t i = 0; i < numMethods; i++) {
+       double sum = 0.0;
+       for (size_t k = 0; k < numTimepoints; k++) {
+           // calculate sigma and fill into p (will normalize later)
+           const double sigma = _phi[k] * Data() (i,k)   _calculateSigma_ik(i, k, _phi[k]);
+           p(i, k)            = sigma;
+           sum += sigma;
+       }
+       // now normalize by row sum!
+       for (size_t k = 0; k < numTimepoints; k++) { p(i, k) /= sum; }
+   }
+   return p;
 }
 
 void TEpochModel::_evaluateUpdateGamma(size_t m) {
-   // calculate probabilities p for new gamma
-   coretools::TMatrix<double> p; // = _calculateP();
+  // calculate probabilities p for new gamma
+  coretools::TMatrix<double> p; // = _calculateP();
 
-const double newLL   = _calculateLL(p);
+
+double calculateLL(const TDataSeries &Data) {
+
+}
+
+
+const double newLL  = calculateLL(p);
 const double LLRatio = newLL - _oldLL;
 
 const double newLogJeffPrior = _calculateLogJeffreysPrior(p);
@@ -108,29 +111,35 @@ const double logPriorRatio   = newLogJeffPrior - _oldLogJeffPrior;
 
 const double logH = LLRatio + logPriorRatio;
 if (_gamma->acceptOrReject(m, logH)) {
-   // accepted -> update LL and jeffrey's Prior
-   _oldLL           = newLL;
-   _oldLogJeffPrior = newLogJeffPrior;
+  // accepted -> update LL and jeffrey's Prior
+  _oldLL           = newLL;
+  _oldLogJeffPrior = newLogJeffPrior;
 }
 }
 
 void TEpochModel::updateGamma(){
- for (size_t m = 0; m < _numEpochs; m++) {
-    _gamma->updateSpecificIndex(m);
-    _evaluateUpdateGamma(m);
+for (size_t m = 0; m < _numEpochs; m++) {
+   _gamma->updateSpecificIndex(m);
+   _evaluateUpdateGamma(m);
 }
- }
+}
+
+*/
+
+// getters for test functions
+size_t TEpochModel::rho(size_t row, size_t col) const {
+   return _rho(row,col);
+}
+
+/*
+const  std::vector<size_t>& epochStarts() const{
+   return _
+}
+*/
 
 
- // getters for test functions
- const  coretools::TMatrix<size_t>& TEpochModel::rho(size_t row, size_t col) const {
-	return _rho(row,col);
- }
-
-
-
-
-namespace */
+/*
+namespace
 /*anonymous*/ /*
   {
      class Sums{

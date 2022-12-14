@@ -7,8 +7,10 @@
 
 #include "BirpTypes.h"
 #include "stattools/ParametersObservations/TObservationTyped.h"
-#include "stattools/ParametersObservations/TObservationTyped.h"
+#include "stattools/ParametersObservations/TParameterTyped.h"
 #include "TSpecies.h"
+#include "coretools/Files/TFile.h"
+#include "coretools/Files/TOutputFile.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
