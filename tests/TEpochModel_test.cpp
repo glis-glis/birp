@@ -17,6 +17,9 @@ public:
 	auto gettimes(){
 		return _timepoints;
 	}
+	void sortTimepoints(){
+		return TBirpPrior::_sortTimepoints();
+	}
 
 };
 
@@ -32,7 +35,6 @@ public:
     std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) {
         return TEpochModel::_getEpochStarts(Timepoints);
     }
-
 
 };
 
@@ -58,6 +60,8 @@ public:
 		testing::initializeStorageParameter(timesOfChange, "timesOfChange", {numEpochs-1}, TimesOfChange, TimesOfChange);
 
 		epochModel = std::make_shared<TEpochModelBridge>(gamma.get(), timesOfChange.get(), "out");  // get(): unique pointer gets raw pointer
+
+		epochModel->initialize();
 	}
 };
 
@@ -65,7 +69,8 @@ public:
 
 TEST_F(TEpochModelTest, _fillRho_easy1) {
 	TBirpPriorBridge test;
-	test._readFile("../tests/test_files/test_epochModel1.txt");
+	test._readFile("../tests/test_files/test_epochModel1.csv");
+	test.sortTimepoints();
 	auto times = test.gettimes();
 	std::vector<size_t> timesOfChange = {2013, 2018};
 	initialize(timesOfChange);
@@ -78,14 +83,18 @@ TEST_F(TEpochModelTest, _fillRho_easy1) {
 	                                           {0,0,0,0,0,2,11}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
-		for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
+		std::cout << "i: " << i << std::endl;
+		for (size_t j = 0; j < timesOfChange.size()+1; j++) {
+			std::cout << "j: " << j << std::endl;
+			std::cout << "rho:" << epochModel->rho(i, j) << std::endl;
+			EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
 	}
 }
 
 
 TEST_F(TEpochModelTest, _fillRho_easy2) {
 	TBirpPriorBridge test;
-	test._readFile("../tests/test_files/test_epochModel2.txt");
+	test._readFile("../tests/test_files/test_epochModel2.csv");
 	auto times = test.gettimes();
 	std::vector<size_t> timesOfChange = {2};
 	initialize(timesOfChange);
@@ -93,17 +102,22 @@ TEST_F(TEpochModelTest, _fillRho_easy2) {
 	epochModel->_fillRho(times);
 
 	// define expected 1D output vector (one row is one epoch)
-	std::vector<std::vector<size_t>> outExp = {{2,1,2,1,2,2,1,2,2},
-	                                           {1,0,0,0,1,1,0,1,0}};
+	std::vector<std::vector<size_t>> outExp = {{1,1,1,1,1},
+	                                           {0,1,2,3,4}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
-		for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
+		std::cout << "i: " << i << std::endl;
+		for (size_t j = 0; j < timesOfChange.size()+1; j++) {
+			std::cout << "j: " << j << std::endl;
+			std::cout << "rho:" << epochModel->rho(i, j) << std::endl;
+			EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i));
+		}
 	}
 }
 
 TEST_F(TEpochModelTest, _fillRho_TimesOfChange_same_as_times) {
     TBirpPriorBridge test;
-    test._readFile("../tests/test_files/test_epochModel2_TOC_same_as_times.txt");
+    test._readFile("../tests/test_files/test_epochModel2_TOC_same_as_times.csv");
     auto times = test.gettimes();
     std::vector<size_t> timesOfChange = {1,2};
     initialize(timesOfChange);
@@ -120,26 +134,22 @@ TEST_F(TEpochModelTest, _fillRho_TimesOfChange_same_as_times) {
     }
 }
 
-/*
-// check and make sure it takes start and stop (no error, just no epoch)
+
 TEST_F(TEpochModelTest, _fillRho_TimesOfChange_empty) {
     TBirpPriorBridge test;
-    test._readFile("../tests/test_files/test_epochModel2_TOC_empty.txt");
+    test._readFile("../tests/test_files/test_epochModel2_TOC_empty.csv");
     auto times = test.gettimes();
     std::vector<size_t> timesOfChange = {};
     initialize(timesOfChange);
-    // call function
     epochModel->_fillRho(times);
-    EXPECT_EQ()
-
+    EXPECT_EQ(timesOfChange.size(), 0);
 }
-*/
 
 
 // testing _getEpochStarts
 TEST_F(TEpochModelTest, _getEpochStarts_easy1) {
     TBirpPriorBridge test;
-    test._readFile("../tests/test_files/test_epochStarts1.txt");
+    test._readFile("../tests/test_files/test_epochStarts1.csv");
     auto times = test.gettimes();
     std::vector<size_t> timesOfChange = {3,8};
     initialize(timesOfChange);

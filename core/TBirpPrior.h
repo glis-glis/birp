@@ -36,7 +36,6 @@ protected:
 	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title);
 	void _readFile(const std::string &Filename);
 	void _sortTimepoints();
-
 	// write output file
 	void _writeFile(const std::string &Filename, const std::vector<std::string> &Header);
 
@@ -46,6 +45,8 @@ public:
 	~TBirpPrior() override = default;
 
 	[[nodiscard]] std::string name() const override;
+
+
 
 	// initialization
 	void initializeInferred() override;

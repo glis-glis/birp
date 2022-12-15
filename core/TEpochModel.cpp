@@ -18,7 +18,7 @@ TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, statto
 
 void TEpochModel::initialize() {
     if (!_timesOfChange->hasFixedInitialValue()){  // if user did not set initial values
-		UERROR("Please provide times of change!");
+		_numEpochs = 1;
 	}
 	_numEpochs = _timesOfChange->totalSize() + 1;
 	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
@@ -30,9 +30,9 @@ std::vector<size_t> TEpochModel::_getEpochStarts(const TUniqueContainer<size_t> 
     std::vector<size_t> epochStarts = {0};
     if (_timesOfChange->totalSize()!=0) {
         size_t maxTimeOfChange = _timesOfChange->max_value();
-        size_t maxTime         = std::max(*Timepoints.cend(), maxTimeOfChange + 1);
+        size_t maxTime         = std::max(Timepoints.back(), maxTimeOfChange + 1);
 		for (size_t i = 0; i < _timesOfChange->totalSize(); i++){
-			epochStarts.push_back(_timesOfChange->value());
+			epochStarts.push_back(_timesOfChange->value(i));
 		}
         epochStarts.push_back(maxTime);
     } else {
@@ -131,11 +131,9 @@ size_t TEpochModel::rho(size_t row, size_t col) const {
    return _rho(row,col);
 }
 
-/*
-const  std::vector<size_t>& epochStarts() const{
-   return _
-}
-*/
+
+
+
 
 
 /*

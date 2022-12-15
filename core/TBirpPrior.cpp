@@ -56,7 +56,12 @@ void TBirpPrior::_checkHeader(const coretools::TInputFile &Infile) {
 }
 
 void TBirpPrior::_readFile(const std::string &Filename) {
-    coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header);
+	std::string delim = "\t";
+	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
+	if (ending == "csv"){
+		delim = ",";
+	}
+    coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
     _checkHeader(infile);
 
     std::vector<std::string> vec;

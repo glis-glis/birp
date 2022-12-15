@@ -51,9 +51,9 @@ public:
 
     double calculateLL(const TDataSeries &Data);
 
-	// getter for rho for tests
+	// getter for rho and numEpochs for tests
 	size_t rho(size_t row, size_t col) const;
-    // const  std::vector<size_t>& epochStarts() const;
+
 
 
 };
