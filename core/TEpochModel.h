@@ -19,8 +19,7 @@ protected:
 	stattools::TParameterTyped<TypeGamma, 1>* _gamma = nullptr;
 	stattools::TParameterTyped<TypeTime, 1>* _timesOfChange  = nullptr;
 
-    // temporary variables
-	std::vector<double> _phi;
+	double _oldLL = 0.0;
 
     size_t _numEpochs = 0;
     coretools::TMatrix<size_t> _rho;
@@ -31,10 +30,8 @@ protected:
 
     // likelihood
     [[nodiscard]] double _calculateLogPhi_k(size_t k) const;
-    [[nodiscard]] std::vector<double> _calculatePhi(size_t numTimepoints) const;
-    double _calculateSigma_ik(size_t i, size_t k, double Phi_k) const;
-    coretools::TMatrix<double> _calculateP(size_t numTimepoints, size_t numMethods, const TDataSeries &Data) const;
-
+    [[nodiscard]] std::vector<double> _calculatePhi() const;
+    double _calculateLL(const TSpecies &Data) const;
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 
 

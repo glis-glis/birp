@@ -32,12 +32,14 @@ protected:
 	void _simulateUnderPrior(Storage *Data) override;
 
 	// check header and read file
+	std::vector<std::string> _getHeader() const;
 	void _checkHeader(const coretools::TInputFile &Infile);
 	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title);
 	void _readFile(const std::string &Filename);
+	void _writeFile(const std::string &Filename);
 	void _sortTimepoints();
 	// write output file
-	void _writeFile(const std::string &Filename, const std::vector<std::string> &Header);
+
 
 public:
 	TBirpPrior() = default;
@@ -45,6 +47,9 @@ public:
 	~TBirpPrior() override = default;
 
 	[[nodiscard]] std::string name() const override;
+
+	// temp
+	void read();
 
 
 

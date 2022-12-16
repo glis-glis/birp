@@ -83,10 +83,7 @@ TEST_F(TEpochModelTest, _fillRho_easy1) {
 	                                           {0,0,0,0,0,2,11}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
-		std::cout << "i: " << i << std::endl;
 		for (size_t j = 0; j < timesOfChange.size()+1; j++) {
-			std::cout << "j: " << j << std::endl;
-			std::cout << "rho:" << epochModel->rho(i, j) << std::endl;
 			EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
 	}
 }
@@ -102,14 +99,11 @@ TEST_F(TEpochModelTest, _fillRho_easy2) {
 	epochModel->_fillRho(times);
 
 	// define expected 1D output vector (one row is one epoch)
-	std::vector<std::vector<size_t>> outExp = {{1,1,1,1,1},
-	                                           {0,1,2,3,4}};
+	std::vector<std::vector<size_t>> outExp = {{1,2,2,2,2},
+	                                           {0,0,1,2,3}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
-		std::cout << "i: " << i << std::endl;
 		for (size_t j = 0; j < timesOfChange.size()+1; j++) {
-			std::cout << "j: " << j << std::endl;
-			std::cout << "rho:" << epochModel->rho(i, j) << std::endl;
 			EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i));
 		}
 	}

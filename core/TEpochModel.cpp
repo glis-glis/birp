@@ -68,62 +68,67 @@ double TEpochModel::_calculateLogPhi_k(size_t k) const {
     return sum;
 }
 
-std::vector<double> TEpochModel::_calculatePhi(size_t numTimepoints) const {
-    std::vector<double> phi(numTimepoints);
-    for (size_t k = 0; k < numTimepoints; k++) { phi[k] = _calculateLogPhi_k(k); }
+std::vector<double> TEpochModel::_calculatePhi() const {
+    std::vector<double> phi(_rho.n_rows);
+    for (size_t k = 0; k < _rho.n_rows; k++) { phi[k] = _calculateLogPhi_k(k); }
     coretools::standardizeZeroMean(phi);
     for (auto &p : phi) { p = exp(p); } // make logPhi to phi
     return phi;
 }
 
-/*
-coretools::TMatrix<double> TEpochModel::_calculateP(size_t numTimepoints, size_t numMethods, const TSpecies &Data) const {
-   coretools::TMatrix<double> p((int)numMethods, (int)numTimepoints);
-   for (size_t i = 0; i < numMethods; i++) {
-       double sum = 0.0;
-       for (size_t k = 0; k < numTimepoints; k++) {
+
+double TEpochModel::_calculateLL(const TSpecies &Data) const {
+	std::vector<double> phi = _calculatePhi();
+   double LL = 0.0;
+   for (size_t i = 0; i < Data.size(); i++) {
+		const auto & lm = Data[i];
+       std::vector<double> p(lm.size());
+       for (size_t k = 0; k < lm.size(); k++) {
            // calculate sigma and fill into p (will normalize later)
-           const double sigma = _phi[k] * Data() (i,k)   _calculateSigma_ik(i, k, _phi[k]);
-           p(i, k)            = sigma;
-           sum += sigma;
+           p[k] = phi[k] * lm[k].effort;
        }
        // now normalize by row sum!
-       for (size_t k = 0; k < numTimepoints; k++) { p(i, k) /= sum; }
+       coretools::normalize(p);
+	   // add to LL
+	   for (size_t k = 0; k < lm.size(); k++) {
+		   LL += lm[k].counts * log(p[k]);
+	   }
    }
-   return p;
+	return LL;
 }
 
-void TEpochModel::_evaluateUpdateGamma(size_t m) {
-  // calculate probabilities p for new gamma
-  coretools::TMatrix<double> p; // = _calculateP();
+void TEpochModel::updateGamma(const TSpecies &Data){
+	for (size_t m = 0; m < _numEpochs; m++) {  // loop over epochs and update gamma epoch by epoch
+	   _gamma->updateSpecificIndex(m);
 
+	   const double newLL  = _calculateLL(Data);
+	   const double LLRatio = newLL - _oldLL;
 
-double calculateLL(const TDataSeries &Data) {
+	   const double newLogJeffPrior = _calculateLogJeffreysPrior(p);
+	   const double logPriorRatio   = newLogJeffPrior - _oldLogJeffPrior;
 
+	   const double logH = LLRatio + logPriorRatio;
+	   if (_gamma->acceptOrReject(m, logH)) {
+		   // accepted -> update LL and jeffrey's Prior
+		   _oldLL           = newLL;
+		   _oldLogJeffPrior = newLogJeffPrior;
+	   }
+	}
 }
 
+// TO DO NEXT WEEK:
+// -check which variables we need for Jeffrey prior & save them
+// - write jeffrey prior (mehr Konsumfreie öffentliche Räume)
+// Stiflä (Madleina)
+// Simulator schribä
 
-const double newLL  = calculateLL(p);
-const double LLRatio = newLL - _oldLL;
 
-const double newLogJeffPrior = _calculateLogJeffreysPrior(p);
-const double logPriorRatio   = newLogJeffPrior - _oldLogJeffPrior;
 
-const double logH = LLRatio + logPriorRatio;
-if (_gamma->acceptOrReject(m, logH)) {
-  // accepted -> update LL and jeffrey's Prior
-  _oldLL           = newLL;
-  _oldLogJeffPrior = newLogJeffPrior;
-}
-}
 
-void TEpochModel::updateGamma(){
-for (size_t m = 0; m < _numEpochs; m++) {
-   _gamma->updateSpecificIndex(m);
-   _evaluateUpdateGamma(m);
-}
-}
 
+
+
+/*
 */
 
 // getters for test functions

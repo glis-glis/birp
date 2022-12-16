@@ -60,8 +60,11 @@ public:
 	TTask_infer() { _explanation = "Inferring rates of change in species densities from count data."; };
 
 	void run() override {
-		TBirpCore birp;
-		birp.infer();
+		TBirpPrior birp;
+		birp.read();
+		birp._writeFile("Test.txt");
+		// TBirpCore birp;
+	    // birp.infer();
 	};
 };
 

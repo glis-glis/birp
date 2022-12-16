@@ -83,7 +83,7 @@ public:
 	void add(const TDataPoint &Datapoint) { _dataPoints.push_back(Datapoint); }
 
 	// get
-	size_t size() { return _dataPoints.size(); }
+	size_t size() const { return _dataPoints.size(); }
 
 	const TDataPoint &operator[](const size_t index) const { return _dataPoints[index]; }
 
@@ -145,10 +145,14 @@ public:
 		for (size_t ds = 0; ds < _data.size(); ds++) { _data[ds].sorttimes(index); }
 	}
 
+	size_t size() const {return _data.size();}
+
 	std::vector<TDataSeries>::const_iterator cbegin() const { return _data.cbegin(); }
 	std::vector<TDataSeries>::iterator begin() { return _data.begin(); }
 	std::vector<TDataSeries>::const_iterator cend() const { return _data.cend(); }
 	std::vector<TDataSeries>::iterator end() { return _data.end(); }
+
+	const TDataSeries &operator[](const size_t index) const { return _data[index]; }
 };
 
 #endif /* CORE_TSPECIES_H_ */
