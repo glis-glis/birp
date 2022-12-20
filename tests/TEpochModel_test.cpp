@@ -21,21 +21,28 @@ public:
 		return TBirpPrior::_sortTimepoints();
 	}
 
+	auto getData() {
+		return _species;
+	}
+
 };
 
 class TEpochModelBridge : public TEpochModel {
 	// Dummy class inheriting from TEpochModel: allows for testing protected functions
 public:
-	TEpochModelBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1>* TimesOfChange, const std::string &Filename): TEpochModel(Gamma, TimesOfChange, Filename){}
+	TEpochModelBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, const std::string &Filename)
+	    : TEpochModel(Gamma, TimesOfChange, Filename) {}
 
-	void _fillRho(const TUniqueContainer<size_t> &Timepoints) {
-		return TEpochModel::_fillRho(Timepoints);
+	void _fillRho(const TUniqueContainer<size_t> &Timepoints) { return TEpochModel::_fillRho(Timepoints); }
+
+	std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) {
+		return TEpochModel::_getEpochStarts(Timepoints);
 	}
 
-    std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) {
-        return TEpochModel::_getEpochStarts(Timepoints);
-    }
-
+	std::pair<double, double> _calculateLLandJP(const TSpecies &Data) const {
+		return TEpochModel::_calculateLLandJP(Data);
+	}
 };
 
 class TEpochModelTest : public testing::Test {
@@ -159,38 +166,41 @@ TEST_F(TEpochModelTest, _getEpochStarts_easy1) {
 }
 
 
-/*
-
-// testing _calculateLL
-TEST_F(TBirpPriorTest, _calculateLL_oneDataset) {
-    // define values for parameters: used to test functions
-    std::vector<double> oldGamma      = {0.1, 0.9};
-    std::vector<double> newGamma      = {0.2, -0.1};
-    std::vector<size_t> valuesEffort  = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
-    std::vector<size_t> valuesCounts  = {15, 9, 17, 24, 30, 26, 25, 20, 26, 14};
-    std::vector<size_t> timesOfChange = {5};
-    std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-
-    initialize(1, times, timesOfChange, newGamma, oldGamma, valuesEffort, valuesCounts);
-
-    // call function
-    EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -467.4725); // not the same as in R due to normalization constant not calculated here
+// testing _calculateLLandJP
+TEST_F(TEpochModelTest, _calculateLLandJP_1) {
+	TBirpPriorBridge test;
+	test._readFile("../tests/test_files/test_calcLLandJP1.csv");
+	auto data = test.getData();
+	std::vector<size_t> timesOfChange = {2};
+	std::vector<double> NewGamma = {-2,1.5};
+	initialize(timesOfChange, NewGamma);
+	auto times = test.gettimes();
+	epochModel->_fillRho(times);
+	// define expected result
+	double expectedLL = -52.768731;
+	double expectedJP = 4.420733;
+	auto [LL, JP] = epochModel->_calculateLLandJP(data[0]);
+	// call function
+    EXPECT_FLOAT_EQ(expectedLL, LL);
+	EXPECT_FLOAT_EQ(expectedJP, JP);
 }
 
 
-// testing _calculateLL
-TEST_F(TBirpPriorTest, _calculateLL_twoDatasets) {
-    // define values for parameters: used to test functions
-    std::vector<double> oldGamma      = {0.1, 0.9};
-    std::vector<double> newGamma      = {0.8, -0.3};
-    std::vector<size_t> valuesEffort  = {1,2,3,4,5,6,7,8,9,10, 11, 12, 13, 14, 15, 16, 17, 18, 19,20};
-    std::vector<size_t> valuesCounts  = {1, 9, 32, 95, 259, 236, 217, 179, 154, 137, 14, 66, 155, 349, 829, 675, 541, 335, 315, 265};
-    std::vector<size_t> timesOfChange = {5};
-    std::vector<size_t> times         = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-
-    initialize(2, times, timesOfChange, newGamma, oldGamma, valuesEffort, valuesCounts);
-
+// testing _calculateLLandJP
+TEST_F(TEpochModelTest, _calculateLLandJP_2) {
+    TBirpPriorBridge test;
+    test._readFile("../tests/test_files/test_calcLLandJP2.csv");
+    auto data = test.getData();
+    std::vector<size_t> timesOfChange = {4};
+    std::vector<double> NewGamma = {-1,1};
+    initialize(timesOfChange, NewGamma);
+	auto times = test.gettimes();
+	epochModel->_fillRho(times);
+    // define expected result
+    double expectedLL = -1422.29668;
+    double expectedJP = 12.89151;
+    auto [LL, JP] = epochModel->_calculateLLandJP(data[0]);
     // call function
-    EXPECT_FLOAT_EQ(birpPrior->_calculateLL(), -9867.187); // not the same as in R due to normalization constant not calculated here
+    EXPECT_FLOAT_EQ(expectedLL, LL);
+    EXPECT_NEAR(expectedJP, JP, 0.0001);  // determinant is not exact in armadillo library
 }
-*/

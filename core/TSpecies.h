@@ -66,6 +66,7 @@ private:
 	std::vector<TDataPoint> _dataPoints;
 	size_t _location_id = 0;
 	size_t _method_id   = 0;
+	TypeCounts _nu; // sums of counts at one location and method (ij) across all time points (k)
 
 public:
 	TDataSeries(size_t Location_id, size_t Method_id) {
@@ -80,7 +81,10 @@ public:
 	}
 
 	// set
-	void add(const TDataPoint &Datapoint) { _dataPoints.push_back(Datapoint); }
+	void add(const TDataPoint &Datapoint) {
+		_dataPoints.push_back(Datapoint);
+		_nu += Datapoint.counts;
+	}
 
 	// get
 	size_t size() const { return _dataPoints.size(); }
@@ -92,9 +96,10 @@ public:
 	std::vector<TDataPoint>::const_iterator cend() const { return _dataPoints.cend(); }
 	std::vector<TDataPoint>::iterator end() { return _dataPoints.end(); }
 
+	// getters
 	size_t location_id() const { return _location_id; }
-
 	size_t method_id() const { return _method_id; }
+	TypeCounts nu() const {return _nu;}
 
 	void sorttimes(const std::vector<size_t> &index) {
 		std::vector<size_t> positionOfTimepointIds;

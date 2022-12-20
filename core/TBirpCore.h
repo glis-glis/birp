@@ -62,7 +62,7 @@ public:
 	void run() override {
 		TBirpPrior birp;
 		birp.read();
-		birp._writeFile("Test.txt");
+		// birp._writeFile("Test.txt");  // this was to test if file gets saved correctly
 		// TBirpCore birp;
 	    // birp.infer();
 	};

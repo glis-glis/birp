@@ -12,6 +12,7 @@
 #include "stattools/ParametersObservations/TObservationTyped.h"
 #include "stattools/ParametersObservations/TParameterTyped.h"
 #include <vector>
+#include <armadillo>
 
 class TEpochModel {
 protected:
@@ -19,19 +20,20 @@ protected:
 	stattools::TParameterTyped<TypeGamma, 1>* _gamma = nullptr;
 	stattools::TParameterTyped<TypeTime, 1>* _timesOfChange  = nullptr;
 
+	// TODO
+	// make sure old LL and old JP refer to correct species in case of multi species inference
+
 	double _oldLL = 0.0;
+	double _oldJP = 0.0;
 
     size_t _numEpochs = 0;
     coretools::TMatrix<size_t> _rho;
-    std::vector<TypeCounts> _nu; // sums of counts at one location and method (ij) across all time points (k)
-
-    // other stuff
-    std::string _filename;
 
     // likelihood
     [[nodiscard]] double _calculateLogPhi_k(size_t k) const;
     [[nodiscard]] std::vector<double> _calculatePhi() const;
-    double _calculateLL(const TSpecies &Data) const;
+	arma::mat _calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeCounts nu) const;
+	std::pair<double, double> _calculateLLandJP(const TSpecies &Data) const;
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 
 
@@ -44,14 +46,10 @@ public:
     // initialization
     [[nodiscard]] std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const; //return start of each epoch, including for a hypothetical epoch after the last epoch
 
-    // static void _readTimesOfChange(); already done in readFile?
-
-    double calculateLL(const TDataSeries &Data);
+	void updateGamma(const TSpecies &Data);
 
 	// getter for rho and numEpochs for tests
 	size_t rho(size_t row, size_t col) const;
-
-
 
 };
 
