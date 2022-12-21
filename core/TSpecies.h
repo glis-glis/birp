@@ -116,6 +116,15 @@ public:
 		positionOfTimepointIds           = coretools::sortContainerByRank(positionOfTimepointIds, sortingIndex);
 		// now set timepoint_id
 		for (size_t i = 0; i < _dataPoints.size(); i++) { _dataPoints[i].timepoint_id = positionOfTimepointIds[i]; }
+        // issue warning if any DataSeries contains less than two time points with nonzero efforts
+        size_t nonZeroEffort = 0;
+        for (size_t i = 0; i < _dataPoints.size(); i++) {
+            if(_dataPoints[i].effort > 0){ nonZeroEffort += 1; }
+        }
+        if(_dataPoints.size() < 2 || nonZeroEffort < 2){
+            // TODO write to log file
+            // TLogFile.write("What a noob")
+        }
 	}
 };
 
@@ -145,6 +154,7 @@ public:
 		}
 		if (!dataPointExists) { _data.emplace_back(pt, LocationIndex, MethodIndex); }
 	}
+
 
 	void sorttimes(const std::vector<size_t> &index) {
 		for (size_t ds = 0; ds < _data.size(); ds++) { _data[ds].sorttimes(index); }

@@ -48,6 +48,7 @@ public:
 
 	void updateGamma(const TSpecies &Data);
 
+
 	// getter for rho and numEpochs for tests
 	size_t rho(size_t row, size_t col) const;
 

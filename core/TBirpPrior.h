@@ -65,7 +65,12 @@ public:
 	// update all parameters
 	void updateParams() override;
 
-	// getters for locations, methods, timepoints, species for tests
+    void simulate();
+    // user: gives gamma, timepoints, times of change
+    // counts and efforts: simulate
+
+
+    // getters for locations, methods, timepoints, species for tests
 	const TUniqueContainer<std::string>& locations() const;
     const TUniqueContainer<std::string>& methods() const;
     const TUniqueContainer<size_t>& timepoints() const;

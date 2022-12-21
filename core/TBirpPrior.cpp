@@ -43,7 +43,7 @@ bool TBirpPrior::_checkHeaderPlacement(const coretools::TInputFile &Infile, size
 }
 
 std::vector<std::string> TBirpPrior::_getHeader() const {
-	return {"species", "location", "method", "time", "counts", "effort"};
+	return {"species", "location", "method", "time", "effort", "counts"};
 }
 
 void TBirpPrior::_checkHeader(const coretools::TInputFile &Infile) {
@@ -74,8 +74,8 @@ void TBirpPrior::_readFile(const std::string &Filename) {
 		size_t locationIndex  = _locations.add(vec[1]);
 		size_t methodIndex    = _methods.add(vec[2]);
 		size_t timepointIndex = _timepoints.add(coretools::str::fromStringCheck<size_t>(vec[3]));
-		TDataPoint pt(timepointIndex, coretools::str::fromStringCheck<size_t>(vec[4]),
-		              coretools::str::fromStringCheck<double>(vec[5]));
+		TDataPoint pt(timepointIndex, coretools::str::fromStringCheck<size_t>(vec[5]),
+		              coretools::str::fromStringCheck<double>(vec[4]));
 		// loop over all species and check if it already exists
 		bool speciesExists = false;
 		for (size_t sp = 0; sp < _species.size(); sp++) {
@@ -107,12 +107,24 @@ void TBirpPrior::_writeFile(const std::string &Filename) {
 			std::string method   = _methods[lm.method_id()];
 			for (auto & t : lm) { // loop over all time points
 				size_t timepoint = _timepoints[t.timepoint_id];
-				outfile << species.name() << location << method << timepoint << t.counts << t.effort;
+				outfile << species.name() << location << method << timepoint << t.effort << t.counts;
 				outfile.endln();
 			}
 		}
 	}
 }
+
+
+void TBirpPrior::simulate(){
+    std::string filename = parameters().getParameterFilename("simulationFile");
+    coretools::TInputFile file(filename, coretools::TFile_Filetype::header);
+    _checkHeader(file);
+    if(file.numCols() == 4){
+        // need to also simulate efforts
+
+    }
+}
+
 
 // getters for test functions
 const TUniqueContainer<std::string> &TBirpPrior::locations() const { return _locations; }

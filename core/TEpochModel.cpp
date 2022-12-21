@@ -131,79 +131,13 @@ void TEpochModel::updateGamma(const TSpecies &Data) {
 // TO DO NEXT WEEK:
 // Stiflä (Madleina)
 // Simulator schribä
+// remove data sets with less than two time points with effort > 0
 
-/*
- */
+
+
+
 
 // getters for test functions
 size_t TEpochModel::rho(size_t row, size_t col) const { return _rho(row, col); }
 
-/*
-namespace
-/*anonymous*/ /*
-  {
-     class Sums{
-     private:
-         double LL{};
-         TypeCounts sumN{};
-         double sumSigma{};
-         TypeIndex location{};
-         TypeIndex method{};
 
-         void _setIndex(const TDataPoint & D){
-             location = D.location;
-             method = D.method;
-         }
-
-         void _initSums(const TDataPoint& D, const std::vector<double> & Phi){
-             double sigma = Phi[D.timepoint] * D.effort;
-             sumSigma = sigma;
-             sumN = D.counts;
-             LL += D.counts * log(sigma);
-         }
-
-         void _addToSums(const TDataPoint& D, const std::vector<double> & Phi){
-             double sigma = Phi[D.timepoint] * D.effort;
-             sumSigma += sigma;
-             sumN += D.counts;
-             LL += D.counts * log(sigma);
-             _setIndex(D);
-         }
-
-         void _normalize(const TDataPoint& D, const std::vector<double> & Phi){
-             LL -= sumN * log(sumSigma);
-             _initSums(D, Phi);
-         }
-
-     public:
-         Sums(const TDataPoint& D, const std::vector<double> & Phi){
-             LL = 0.0;
-             _initSums(D, Phi);
-             _setIndex(D);
-         }
-
-         void add(const TDataPoint& D, const std::vector<double> & Phi){
-             if(D.location != location || D.method != method){
-                 _normalize(D, Phi);
-             } else {
-                 _addToSums(D, Phi);
-             }
-         }
-
-         double getLL(){
-             return LL;
-         }
-     };
- }
-
- double TEpochModel::calculateLL(const TData & Data){
-     auto d = Data.cbegin();
-     Sums sums(*d, _phi);
-     for(; d != Data.cend(); ++d){
-         sums.add(*d, _phi);
-     }
-     return sums.getLL();
- }
-
-
- */
