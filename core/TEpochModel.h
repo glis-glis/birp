@@ -35,6 +35,7 @@ protected:
 	arma::mat _calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeCounts nu) const;
 	std::pair<double, double> _calculateLLandJP(const TSpecies &Data) const;
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
+	;
 
 
 public:
@@ -42,6 +43,7 @@ public:
     ~TEpochModel() = default;
 
 	void initialize();
+	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs);
 
     // initialization
     [[nodiscard]] std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const; //return start of each epoch, including for a hypothetical epoch after the last epoch

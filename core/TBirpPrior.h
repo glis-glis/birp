@@ -35,7 +35,9 @@ protected:
 	std::vector<std::string> _getHeader() const;
 	void _checkHeader(const coretools::TInputFile &Infile);
 	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title);
-	void _readFile(const std::string &Filename);
+	void _readFile(const std::string &Filename, bool hasCounts);
+	coretools::TMultiDimensionalStorage<double, 2> _readDetectionProbFile();
+	std::vector<size_t> _readN0();
 	void _writeFile(const std::string &Filename);
 	void _sortTimepoints();
 	// write output file

@@ -129,6 +129,14 @@ public:
 		}
 	}
 
+	void simulate(size_t N0, double phi, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs) {
+		for (size_t t = 0; t < _dataPoints.size(); t++) {
+			size_t lambda = N0 * phi * detectionProbs[t];
+			lambda        = lambda * _dataPoints[t].effort;
+			
+		}
+	}
+
 };
 
 class TSpecies {

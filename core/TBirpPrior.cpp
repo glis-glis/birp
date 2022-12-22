@@ -4,6 +4,7 @@
 
 #include "TBirpPrior.h"
 #include "TEpochModel.h"
+#include "coretools/Storage/TDataFile.h"
 
 using namespace coretools::instances;
 
@@ -47,7 +48,7 @@ std::vector<std::string> TBirpPrior::_getHeader() const {
 }
 
 void TBirpPrior::_checkHeader(const coretools::TInputFile &Infile) {
-	std::vector<std::string> headerVec=_getHeader();
+	std::vector<std::string> headerVec = _getHeader();
 	for (size_t i = 0; i < headerVec.size(); i++) {
 		if (!_checkHeaderPlacement(Infile, i, headerVec[i])) {
 			UERROR("Error in header of file", Infile.name(), " , please make sure header at column ", i + 1, " is ",
@@ -56,17 +57,18 @@ void TBirpPrior::_checkHeader(const coretools::TInputFile &Infile) {
 	}
 }
 
-void TBirpPrior::read(){
+void TBirpPrior::read() {
 	std::string filenameCounts = parameters().getParameterFilename("counts");
-	_readFile(filenameCounts);
+	_readFile(filenameCounts, true);
 	_sortTimepoints();
 }
 
-void TBirpPrior::_readFile(const std::string &Filename) {
+void TBirpPrior::_readFile(const std::string &Filename, bool hasCounts) {
 	std::string delim       = "\t";
 	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
 	if (ending == "csv") { delim = ","; }
 	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
+	// TODO if it has counts: 6 columns, otherwise 5.
 	_checkHeader(infile);
 
 	std::vector<std::string> vec;
@@ -74,8 +76,9 @@ void TBirpPrior::_readFile(const std::string &Filename) {
 		size_t locationIndex  = _locations.add(vec[1]);
 		size_t methodIndex    = _methods.add(vec[2]);
 		size_t timepointIndex = _timepoints.add(coretools::str::fromStringCheck<size_t>(vec[3]));
-		TDataPoint pt(timepointIndex, coretools::str::fromStringCheck<size_t>(vec[5]),
-		              coretools::str::fromStringCheck<double>(vec[4]));
+		size_t counts         = 0;
+		if (hasCounts) { counts = coretools::str::fromStringCheck<size_t>(vec[5]); }
+		TDataPoint pt(timepointIndex, counts, coretools::str::fromStringCheck<double>(vec[4]));
 		// loop over all species and check if it already exists
 		bool speciesExists = false;
 		for (size_t sp = 0; sp < _species.size(); sp++) {
@@ -103,11 +106,11 @@ void TBirpPrior::_writeFile(const std::string &Filename) {
 	coretools::TOutputFile outfile(Filename, header);
 	// write file line by line
 	for (auto &species : _species) {
-		for (auto & lm:species) {
+		for (auto &lm : species) {
 			// lm: loop over all location-methods combinations
 			std::string location = _locations[lm.location_id()];
 			std::string method   = _methods[lm.method_id()];
-			for (auto & t : lm) { // loop over all time points
+			for (auto &t : lm) { // loop over all time points
 				size_t timepoint = _timepoints[t.timepoint_id];
 				outfile << species.name() << location << method << timepoint << t.effort << t.counts;
 				outfile.endln();
@@ -116,17 +119,36 @@ void TBirpPrior::_writeFile(const std::string &Filename) {
 	}
 }
 
-
-void TBirpPrior::simulate(){
-    std::string filename = parameters().getParameterFilename("simulationFile");
-    coretools::TInputFile file(filename, coretools::TFile_Filetype::header);
-    _checkHeader(file);
-    if(file.numCols() == 4){
-        // need to also simulate efforts
-
-    }
+void TBirpPrior::simulate() {
+	auto detectionProbs  = _readDetectionProbFile();
+	auto N0              = _readN0();
+	std::string filename = parameters().getParameterFilename("simulationFile");
+	_readFile(filename, false);
 }
 
+// TODO are detection probabilities the same across all species or one file per species?
+coretools::TMultiDimensionalStorage<double, 2> TBirpPrior::_readDetectionProbFile() {
+	std::string filename = parameters().getParameterFilename("detectionProbFile");
+
+	auto locationNames = std::make_shared<coretools::TNamesStrings>();
+	auto methodNames   = std::make_shared<coretools::TNamesStrings>();
+
+	// read file
+	coretools::TDataReaderBase<double, 2> reader;
+	size_t guessNumRows = 50; // doesn't matter, not too many anyways
+	coretools::TMultiDimensionalStorage<double, 2> detectionProbs;
+	reader.read(filename, &detectionProbs, {locationNames, methodNames}, {'\n', '\t'}, {true, true}, {0, 0},
+	            {false, false}, guessNumRows, coretools::colNames_multiline);
+	return detectionProbs;
+	// TODO make default p=1
+}
+
+std::vector<size_t> TBirpPrior::_readN0() {
+	std::vector<size_t> N0;
+	std::vector<size_t> N0default = {100};
+	parameters().fillParameterIntoContainerWithDefault("N0", N0, ',', N0default);
+	return N0;
+}
 
 // getters for test functions
 const TUniqueContainer<std::string> &TBirpPrior::locations() const { return _locations; }

@@ -67,7 +67,8 @@ std::vector<double> TEpochModel::_calculatePhi() const {
 	return phi;
 }
 
-arma::mat TEpochModel::_calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeCounts nu) const {
+arma::mat TEpochModel::_calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma,
+                                       TypeCounts nu) const {
 	arma::mat R(p.size(), _numEpochs);
 	arma::mat RtP(_numEpochs, p.size());
 	for (size_t k = 0; k < p.size(); k++) {
@@ -91,7 +92,7 @@ arma::mat TEpochModel::_calcFisherInfo(const std::vector<double> &p, const std::
 std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) const {
 	std::vector<double> phi = _calculatePhi();
 	double LL               = 0.0;
-	arma::mat fisherInfo(_numEpochs,_numEpochs, arma::fill::zeros);
+	arma::mat fisherInfo(_numEpochs, _numEpochs, arma::fill::zeros);
 	for (size_t i = 0; i < Data.size(); i++) {
 		const auto &lm = Data[i];
 		std::vector<double> sigma(lm.size());
@@ -107,7 +108,7 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 		// add to JP
 		fisherInfo += _calcFisherInfo(p, sigma, lm.nu());
 	}
-	double JP = log(arma::det(fisherInfo));  //sqrt drops out in hastings ratio
+	double JP = log(arma::det(fisherInfo)); // sqrt drops out in hastings ratio
 	return {LL, JP};
 }
 
@@ -115,16 +116,25 @@ void TEpochModel::updateGamma(const TSpecies &Data) {
 	for (size_t m = 0; m < _numEpochs; m++) { // loop over epochs and update gamma epoch by epoch
 		_gamma->updateSpecificIndex(m);
 
-		const auto [newLL, newJP]   = _calculateLLandJP(Data);
-		const double LLRatio = newLL - _oldLL;  // in log
+		const auto [newLL, newJP]  = _calculateLLandJP(Data);
+		const double LLRatio       = newLL - _oldLL; // in log
 		const double logPriorRatio = newJP - _oldJP; // in log
 
 		const double logH = LLRatio + logPriorRatio;
 		if (_gamma->acceptOrReject(m, logH)) {
 			// accepted -> update LL and jeffrey's Prior
-			_oldLL           = newLL;
+			_oldLL = newLL;
 			_oldJP = newJP;
 		}
+	}
+}
+
+void TEpochModel::simulate(TSpecies &data, size_t N0,
+                           const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs) {
+	std::vector<size_t> lambdas;
+	for (size_t i = 0; i < data.size(); i++) {
+		data[i].simulate(N0, _calculatePhi(),  detectionProbs);
+		coretools::instances::randomGenerator().getPoissonRandom(lambdas[i]);
 	}
 }
 
@@ -133,11 +143,5 @@ void TEpochModel::updateGamma(const TSpecies &Data) {
 // Simulator schribä
 // remove data sets with less than two time points with effort > 0
 
-
-
-
-
 // getters for test functions
 size_t TEpochModel::rho(size_t row, size_t col) const { return _rho(row, col); }
-
-
