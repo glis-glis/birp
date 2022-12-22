@@ -6,9 +6,9 @@
 #define CORE_TSPECIES_H_
 
 #include "BirpTypes.h"
+#include "coretools/algorithms.h"
 #include <algorithm>
 #include <vector>
-#include "coretools/algorithms.h"
 
 template<typename T> class TUniqueContainer {
 protected:
@@ -99,7 +99,7 @@ public:
 	// getters
 	size_t location_id() const { return _location_id; }
 	size_t method_id() const { return _method_id; }
-	TypeCounts nu() const {return _nu;}
+	TypeCounts nu() const { return _nu; }
 
 	void sorttimes(const std::vector<size_t> &index) {
 		std::vector<size_t> positionOfTimepointIds;
@@ -116,16 +116,19 @@ public:
 		positionOfTimepointIds           = coretools::sortContainerByRank(positionOfTimepointIds, sortingIndex);
 		// now set timepoint_id
 		for (size_t i = 0; i < _dataPoints.size(); i++) { _dataPoints[i].timepoint_id = positionOfTimepointIds[i]; }
-        // issue warning if any DataSeries contains less than two time points with nonzero efforts
-        size_t nonZeroEffort = 0;
-        for (size_t i = 0; i < _dataPoints.size(); i++) {
-            if(_dataPoints[i].effort > 0){ nonZeroEffort += 1; }
-        }
-        if(_dataPoints.size() < 2 || nonZeroEffort < 2){
-            // TODO write to log file
-            // TLogFile.write("What a noob")
-        }
 	}
+
+	void checkData(const std::string &name, const TUniqueContainer<std::string> &locations,
+	               const TUniqueContainer<std::string> &methods) {
+		size_t nonZeroEffort = 0;
+		for (size_t i = 0; i < _dataPoints.size(); i++) {
+			if (_dataPoints[i].effort > 0) { nonZeroEffort += 1; }
+		}
+		if (nonZeroEffort < 2) {
+			coretools::instances::logfile().warning("The location ",locations[_location_id]," with method ",methods[_method_id]," for species ",name," contains less than two timepoints with non-zero effort, therefore it won't be analysed.");
+		}
+	}
+
 };
 
 class TSpecies {
@@ -155,12 +158,15 @@ public:
 		if (!dataPointExists) { _data.emplace_back(pt, LocationIndex, MethodIndex); }
 	}
 
-
 	void sorttimes(const std::vector<size_t> &index) {
 		for (size_t ds = 0; ds < _data.size(); ds++) { _data[ds].sorttimes(index); }
 	}
 
-	size_t size() const {return _data.size();}
+	size_t size() const { return _data.size(); }
+
+	void checkData(const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) {
+		for (size_t i = 0; i < _data.size(); i++) { _data[i].checkData(_name, locations, methods); }
+	}
 
 	std::vector<TDataSeries>::const_iterator cbegin() const { return _data.cbegin(); }
 	std::vector<TDataSeries>::iterator begin() { return _data.begin(); }

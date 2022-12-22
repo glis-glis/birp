@@ -91,6 +91,8 @@ void TBirpPrior::_readFile(const std::string &Filename) {
 
 // sort timepoints and corresponding dataseries for every species
 void TBirpPrior::_sortTimepoints() {
+	// check if data has more than one entry with effort > 0
+	for (size_t sp = 0; sp < _species.size(); sp++) { _species[sp].checkData(locations(), methods()); }
 	std::vector<size_t> sortingIndex = coretools::rankSort(_timepoints);
 	_timepoints                      = coretools::sortContainerByRank(_timepoints, sortingIndex);
 	for (size_t sp = 0; sp < _species.size(); sp++) { _species[sp].sorttimes(sortingIndex); }
