@@ -8,7 +8,8 @@
 
 using namespace coretools::instances;
 
-TBirpPrior::TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma) { addPriorParameter(Gamma); }
+TBirpPrior::TBirpPrior(stattools::TParameterTyped<TypeGamma, 1> *Gamma) { addPriorParameter(Gamma);
+_out = parameters().getParameterWithDefault("out", "birp");}
 
 std::string TBirpPrior::name() const { return "birp"; }
 
@@ -119,12 +120,29 @@ void TBirpPrior::_writeFile(const std::string &Filename) {
 	}
 }
 
-void TBirpPrior::simulate() {
+void TBirpPrior::_simulateFromFile() {
 	auto detectionProbs  = _readDetectionProbFile();
 	auto N0              = _readN0();
 	std::string filename = parameters().getParameterFilename("simulationFile");
 	_readFile(filename, false);
+	for(size_t i = 0; i < _epochModel.size(); i++){
+		_epochModel[i].simulate(_species[i], N0[i], detectionProbs, _locations, _methods);
+	}
+	_writeFile(_out + "_simulated.txt");
 }
+
+void TBirpPrior::_simulateFromCommandLine(){
+	// get timepoints same way as N0 from cl
+    // efforts: from cl --effort. either one number of a distribution "Poisson(1), uniform(a,b), zero-poisson(p, lambda) p: p(not 0), lambda:for Pois. ..."
+    // coretools::str::stringIsProbablyANumber() // checks if its a number or distribution: make two cases
+    // case 1: is a number: use it for all efforts
+    // case 2: parse distributions. is in atlas code.
+    // how many locations and methosd: -numLocations -numMethods
+    // species: assume 1
+    // loop over my species, -> go into TSpeices and loop over lm (create) -> make as many t as needed. calc phi*effort; no N0 and det. (do the two cases in inner most function)
+    // at the end: _write file
+}
+
 
 // TODO are detection probabilities the same across all species or one file per species?
 coretools::TMultiDimensionalStorage<double, 2> TBirpPrior::_readDetectionProbFile() {

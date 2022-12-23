@@ -43,7 +43,7 @@ public:
     ~TEpochModel() = default;
 
 	void initialize();
-	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs);
+	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs, const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 
     // initialization
     [[nodiscard]] std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const; //return start of each epoch, including for a hypothetical epoch after the last epoch

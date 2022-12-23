@@ -58,6 +58,16 @@ public:
 	}
 	TDataPoint() = default;
 
+	void simulate(size_t N0, double phi, double detectionProbs) {
+		coretools::Positive<double> lambda = (double)N0 * phi * detectionProbs;
+		lambda *= effort;
+		if (lambda == 0.0) {
+			counts = 0;
+		} else {
+			counts = coretools::instances::randomGenerator().getPoissonRandom((double)lambda);
+		}
+	}
+
 	bool operator<(const TDataPoint &other) const { return timepoint_id < other.timepoint_id; }
 };
 
@@ -125,18 +135,15 @@ public:
 			if (_dataPoints[i].effort > 0) { nonZeroEffort += 1; }
 		}
 		if (nonZeroEffort < 2) {
-			coretools::instances::logfile().warning("The location ",locations[_location_id]," with method ",methods[_method_id]," for species ",name," contains less than two timepoints with non-zero effort, therefore it won't be analysed.");
+			coretools::instances::logfile().warning(
+			    "The location ", locations[_location_id], " with method ", methods[_method_id], " for species ", name,
+			    " contains less than two timepoints with non-zero effort, therefore it won't be analysed.");
 		}
 	}
 
-	void simulate(size_t N0, double phi, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs) {
-		for (size_t t = 0; t < _dataPoints.size(); t++) {
-			size_t lambda = N0 * phi * detectionProbs[t];
-			lambda        = lambda * _dataPoints[t].effort;
-			
-		}
+	void simulate(size_t N0, std::vector<double> phi, double detectionProbs) {
+		for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(N0, phi[t], detectionProbs); }
 	}
-
 };
 
 class TSpecies {
@@ -182,6 +189,17 @@ public:
 	std::vector<TDataSeries>::iterator end() { return _data.end(); }
 
 	const TDataSeries &operator[](const size_t index) const { return _data[index]; }
+
+	void simulate(size_t N0, const std::vector<double> &phi,
+	              const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) {
+		for (size_t i = 0; i < size(); i++) {
+			std::string locName = locations[_data[i].location_id()];
+			std::string methName = methods[_data[i].method_id()];
+			size_t locIndex = detectionProbs.getDimensionName(0)->getIndex(locName);
+			size_t methIndex = detectionProbs.getDimensionName(1)->getIndex(methName);
+			_data[i].simulate(N0, phi, detectionProbs(locIndex, methIndex)); }
+	}
 };
 
 #endif /* CORE_TSPECIES_H_ */

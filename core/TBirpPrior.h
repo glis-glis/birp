@@ -11,6 +11,7 @@
 #include "TSpecies.h"
 #include "coretools/Files/TFile.h"
 #include "coretools/Files/TOutputFile.h"
+#include "TEpochModel.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
@@ -21,11 +22,13 @@ private:
 protected:
 	// data
 	std::vector<TSpecies> _species;
+	std::vector<TEpochModel> _epochModel;
 
 	// dimensions
 	TUniqueContainer<std::string> _locations;
 	TUniqueContainer<std::string> _methods;
 	TUniqueContainer<size_t> _timepoints;
+	std::string _out;
 
 
 	// simulate values

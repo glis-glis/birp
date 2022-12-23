@@ -129,13 +129,8 @@ void TEpochModel::updateGamma(const TSpecies &Data) {
 	}
 }
 
-void TEpochModel::simulate(TSpecies &data, size_t N0,
-                           const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs) {
-	std::vector<size_t> lambdas;
-	for (size_t i = 0; i < data.size(); i++) {
-		data[i].simulate(N0, _calculatePhi(),  detectionProbs);
-		coretools::instances::randomGenerator().getPoissonRandom(lambdas[i]);
-	}
+void TEpochModel::simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs, const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) {
+	data.simulate(N0, _calculatePhi(), detectionProbs, locations, methods);
 }
 
 // TO DO NEXT WEEK:
