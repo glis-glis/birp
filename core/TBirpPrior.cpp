@@ -135,12 +135,12 @@ void TBirpPrior::_simulateFromFile() {
 
 void TBirpPrior::_simulateFromCommandLine() {
     auto timepoints= _readTimepoints();
-    auto effort = _readEffort();
-
-    // how many locations and methosd: -numLocations -numMethods
-    // species: assume 1
-    // loop over my species, -> go into TSpeices and loop over lm (create) -> make as many t as needed. calc phi*effort; no N0 and det. (do the two cases in inner most function)
-    // at the end: _write file
+	// TODO find out how many locations and methods (from command line)
+	_species.emplace_back("Moose", numLocations, numMethods, timepoints.size());
+	for (size_t i = 0; i < _epochModel.size(); i++) {
+		_epochModel[i].simulate(_species[i]);
+	}
+	_writeFile(_out + "_simulated.txt");
 }
 
 
@@ -175,28 +175,13 @@ std::vector<size_t> TBirpPrior::_readTimepoints() {
     return timepoints;
 }
 
-std::vector<size_t> TBirpPrior::_readEffort() {
-    std::string effortString;
-    parameters().fillParameterIntoContainer("effort", effortString, ',');
-    if(coretools::str::stringIsProbablyANumber(effortString)){
-        // case 1: is a number: use it for all efforts
-        double effort = stod(effortString);
-        return std::vector<size_t>{(size_t)effort};
-    } else {
-        // case 2: parse distributions. is in atlas code. "Poisson(1), uniform(a,b), zero-poisson(p, lambda) -> p: p(not 0), lambda:for Pois. ..."
-        // wait for Carl
-        auto distribution = 0;  // what is the type of a distribution?
-        if(distribution == 0){
-
-        } else if(distribution == 0){
-
-        } else if(distribution==0){
-
-        }
-
-        return std::vector<size_t>{0};  // lol
-    }
+std::vector<size_t> TBirpPrior::_Effort() {
+	std::vector<size_t> effort;
+	std::vector<size_t> effortDefault = {1};
+	parameters().fillParameterIntoContainerWithDefault("effort", effort, ',', effortDefault);
+	return effort;
 }
+
 
 
 

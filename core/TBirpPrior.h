@@ -44,7 +44,6 @@ protected:
 	coretools::TMultiDimensionalStorage<double, 2> _readDetectionProbFile();
 	std::vector<size_t> _readN0();
     std::vector<size_t> _readTimepoints();
-    std::vector<size_t> _readEffort();
 	void _writeFile(const std::string &Filename);
 	void _sortTimepoints();
 	// write output file

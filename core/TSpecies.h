@@ -9,13 +9,18 @@
 #include "coretools/algorithms.h"
 #include <algorithm>
 #include <vector>
+#include "coretools/Strings/splitters.h"
+#include "coretools/Math/TProbabilityDistributions.h"
+#include "coretools/Storage/TStorage.h"
 
 template<typename T> class TUniqueContainer {
 protected:
 	std::vector<T> _names;
 
 public:
-	bool exists(const T &Value) const { return std::find(_names.begin(), _names.end(), Value) != _names.end(); }
+	bool exists(const T &Value) const {
+		return std::find(_names.begin(), _names.end(), Value) != _names.end();
+	}
 
 	size_t add(const T &Value) {
 		if (!exists(Value)) {
@@ -45,31 +50,32 @@ public:
 	T back() const { return _names.back(); }
 };
 
+// ------------------------------------------------------ //
+
 class TDataPoint {
+private:
+	void _simulatePoisson(double lambda);
+
 public:
 	size_t timepoint_id = 0;
 	TypeCounts counts   = 0;
 	TypeEffort effort   = 0;
 
-	TDataPoint(size_t Timpoint_id, TypeCounts Counts, TypeEffort Effort) {
-		timepoint_id = Timpoint_id;
-		counts       = Counts;
-		effort       = Effort;
-	}
+	TDataPoint(size_t Timpoint_id, TypeCounts Counts, TypeEffort Effort);
 	TDataPoint() = default;
+	TDataPoint(size_t Timpoint_id);
 
-	void simulate(size_t N0, double phi, double detectionProbs) {
-		coretools::Positive<double> lambda = (double)N0 * phi * detectionProbs;
-		lambda *= effort;
-		if (lambda == 0.0) {
-			counts = 0;
-		} else {
-			counts = coretools::instances::randomGenerator().getPoissonRandom((double)lambda);
-		}
+	void simulate(size_t N0, double phi, double detectionProbs);
+	template<class Object> void simulate(Object obj, double phi){
+		effort = obj.sample();
+		_simulatePoisson(phi);
 	}
+	void simulate(double effort, double phi);
 
-	bool operator<(const TDataPoint &other) const { return timepoint_id < other.timepoint_id; }
+	bool operator<(const TDataPoint &other) const;
 };
+
+// ------------------------------------------------------ //
 
 class TDataSeries {
 private:
@@ -79,72 +85,40 @@ private:
 	TypeCounts _nu; // sums of counts at one location and method (ij) across all time points (k)
 
 public:
-	TDataSeries(size_t Location_id, size_t Method_id) {
-		_location_id = Location_id;
-		_method_id   = Method_id;
-	}
-
-	TDataSeries(const TDataPoint &Datapoint, size_t Location_id, size_t Method_id) {
-		_location_id = Location_id;
-		_method_id   = Method_id;
-		add(Datapoint);
-	}
-
+	TDataSeries(size_t Location_id, size_t Method_id);
+	TDataSeries(const TDataPoint &Datapoint, size_t Location_id, size_t Method_id);
+	TDataSeries(size_t Location_id, size_t Method_id, size_t numTimepoints);
 	// set
-	void add(const TDataPoint &Datapoint) {
-		_dataPoints.push_back(Datapoint);
-		_nu += Datapoint.counts;
-	}
+	void add(const TDataPoint &Datapoint);
 
 	// get
-	size_t size() const { return _dataPoints.size(); }
+	size_t size() const;
 
 	const TDataPoint &operator[](const size_t index) const { return _dataPoints[index]; }
 
-	std::vector<TDataPoint>::const_iterator cbegin() const { return _dataPoints.cbegin(); }
-	std::vector<TDataPoint>::iterator begin() { return _dataPoints.begin(); }
-	std::vector<TDataPoint>::const_iterator cend() const { return _dataPoints.cend(); }
-	std::vector<TDataPoint>::iterator end() { return _dataPoints.end(); }
+	std::vector<TDataPoint>::const_iterator cbegin() const;
+	std::vector<TDataPoint>::iterator begin();
+	std::vector<TDataPoint>::const_iterator cend() const;
+	std::vector<TDataPoint>::iterator end();
 
 	// getters
-	size_t location_id() const { return _location_id; }
-	size_t method_id() const { return _method_id; }
-	TypeCounts nu() const { return _nu; }
+	size_t location_id() const;
+	size_t method_id() const;
+	TypeCounts nu() const;
 
-	void sorttimes(const std::vector<size_t> &index) {
-		std::vector<size_t> positionOfTimepointIds;
-		for (size_t i = 0; i < _dataPoints.size(); i++) {
-			auto it    = std::find(index.begin(), index.end(), _dataPoints[i].timepoint_id);
-			size_t pos = it - index.begin();
-			positionOfTimepointIds.push_back(pos);
-		}
-		// sort the newly found positions of timepoints using ranksort()
-		std::vector<size_t> sortingIndex = coretools::rankSort(positionOfTimepointIds);
-		// sort _dataPoints
-		_dataPoints                      = coretools::sortContainerByRank(_dataPoints, sortingIndex);
-		// now sort positionOfTimepointIds
-		positionOfTimepointIds           = coretools::sortContainerByRank(positionOfTimepointIds, sortingIndex);
-		// now set timepoint_id
-		for (size_t i = 0; i < _dataPoints.size(); i++) { _dataPoints[i].timepoint_id = positionOfTimepointIds[i]; }
-	}
+	void sorttimes(const std::vector<size_t> &index);
 
 	void checkData(const std::string &name, const TUniqueContainer<std::string> &locations,
-	               const TUniqueContainer<std::string> &methods) {
-		size_t nonZeroEffort = 0;
-		for (size_t i = 0; i < _dataPoints.size(); i++) {
-			if (_dataPoints[i].effort > 0) { nonZeroEffort += 1; }
-		}
-		if (nonZeroEffort < 2) {
-			coretools::instances::logfile().warning(
-			    "The location ", locations[_location_id], " with method ", methods[_method_id], " for species ", name,
-			    " contains less than two timepoints with non-zero effort, therefore it won't be analysed.");
-		}
-	}
+	               const TUniqueContainer<std::string> &methods);
 
-	void simulate(size_t N0, std::vector<double> phi, double detectionProbs) {
-		for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(N0, phi[t], detectionProbs); }
+	void simulate(size_t N0, const std::vector<double>& phi, double detectionProbs);
+	template<class Object> void simulate(Object obj, const std::vector<double>& phi){
+		for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(obj, phi[t]); }
 	}
+	void simulate(double effort, const std::vector<double>& phi);
 };
+
+// ------------------------------------------------------ //
 
 class TSpecies {
 private:
@@ -152,54 +126,61 @@ private:
 	std::string _name;
 
 public:
-	explicit TSpecies(const std::string &Name) { _name = Name; }
+	explicit TSpecies(const std::string &Name);
+	explicit TSpecies(const std::string &Name, const TDataPoint &pt, size_t LocationIndex, size_t MethodIndex);
+	TSpecies(const std::string &Name, size_t numLocations, size_t numMethods, size_t numTimepoints);
 
-	explicit TSpecies(const std::string &Name, const TDataPoint &pt, size_t LocationIndex, size_t MethodIndex) {
-		_name = Name;
-		add(pt, LocationIndex, MethodIndex);
-	}
+	std::string name() const;
 
-	std::string name() const { return _name; }
+	void add(const TDataPoint &pt, size_t LocationIndex, size_t MethodIndex);
 
-	void add(const TDataPoint &pt, size_t LocationIndex, size_t MethodIndex) {
-		bool dataPointExists = false;
-		for (size_t d = 0; d < _data.size(); d++) {
-			if (_data[d].location_id() == LocationIndex && _data[d].method_id() == MethodIndex) {
-				dataPointExists = true;
-				_data[d].add(pt);
-				break;
-			}
-		}
-		if (!dataPointExists) { _data.emplace_back(pt, LocationIndex, MethodIndex); }
-	}
+	void sorttimes(const std::vector<size_t> &index);
 
-	void sorttimes(const std::vector<size_t> &index) {
-		for (size_t ds = 0; ds < _data.size(); ds++) { _data[ds].sorttimes(index); }
-	}
+	size_t size() const;
 
-	size_t size() const { return _data.size(); }
+	void checkData(const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 
-	void checkData(const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) {
-		for (size_t i = 0; i < _data.size(); i++) { _data[i].checkData(_name, locations, methods); }
-	}
-
-	std::vector<TDataSeries>::const_iterator cbegin() const { return _data.cbegin(); }
-	std::vector<TDataSeries>::iterator begin() { return _data.begin(); }
-	std::vector<TDataSeries>::const_iterator cend() const { return _data.cend(); }
-	std::vector<TDataSeries>::iterator end() { return _data.end(); }
+	std::vector<TDataSeries>::const_iterator cbegin() const;
+	std::vector<TDataSeries>::iterator begin();
+	std::vector<TDataSeries>::const_iterator cend() const;
+	std::vector<TDataSeries>::iterator end();
 
 	const TDataSeries &operator[](const size_t index) const { return _data[index]; }
 
 	void simulate(size_t N0, const std::vector<double> &phi,
 	              const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) {
-		for (size_t i = 0; i < size(); i++) {
-			std::string locName = locations[_data[i].location_id()];
-			std::string methName = methods[_data[i].method_id()];
-			size_t locIndex = detectionProbs.getDimensionName(0)->getIndex(locName);
-			size_t methIndex = detectionProbs.getDimensionName(1)->getIndex(methName);
-			_data[i].simulate(N0, phi, detectionProbs(locIndex, methIndex)); }
-	}
+	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
+
+	void simulate(const std::vector<double>& phi);
+
+
 };
+
+
+//------------------------------------------------
+// zero-Poisson distribution
+//------------------------------------------------
+class TZeroPoisDistr {
+private:
+	coretools::Probability _p;
+	coretools::StrictlyPositive<double> _lambda;
+
+public:
+	TZeroPoisDistr(coretools::Probability p, coretools::StrictlyPositive<double> lambda);
+	TZeroPoisDistr(std::string_view parameterString) { set(parameterString); }
+
+	void set(coretools::Probability p, coretools::StrictlyPositive<double> Lambda);
+	void set(std::string_view parameterString);
+
+	static constexpr std::string_view name = "zeroPoisson";
+
+	static size_t sample( coretools::Probability p, coretools::StrictlyPositive<double> lambda);
+
+	// functions using member parameters
+	[[nodiscard]] size_t sample() const noexcept;
+
+
+};
+
 
 #endif /* CORE_TSPECIES_H_ */

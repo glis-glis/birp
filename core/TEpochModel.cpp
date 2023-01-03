@@ -1,4 +1,3 @@
-
 //
 // Created by Liam on 23/08/22.
 //
@@ -131,6 +130,10 @@ void TEpochModel::updateGamma(const TSpecies &Data) {
 
 void TEpochModel::simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs, const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) {
 	data.simulate(N0, _calculatePhi(), detectionProbs, locations, methods);
+}
+
+void TEpochModel::simulate(TSpecies &data) {
+	data.simulate(_calculatePhi());
 }
 
 // TO DO NEXT WEEK:
