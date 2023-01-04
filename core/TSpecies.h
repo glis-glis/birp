@@ -6,21 +6,18 @@
 #define CORE_TSPECIES_H_
 
 #include "BirpTypes.h"
-#include "coretools/algorithms.h"
+#include "coretools/Storage/TStorage.h"
 #include <algorithm>
 #include <vector>
-#include "coretools/Strings/splitters.h"
-#include "coretools/Math/TProbabilityDistributions.h"
-#include "coretools/Storage/TStorage.h"
 
 template<typename T> class TUniqueContainer {
+	// class that stores a vector of unique elements
+	// vector is ordered
 protected:
 	std::vector<T> _names;
 
 public:
-	bool exists(const T &Value) const {
-		return std::find(_names.begin(), _names.end(), Value) != _names.end();
-	}
+	bool exists(const T &Value) const { return std::find(_names.begin(), _names.end(), Value) != _names.end(); }
 
 	size_t add(const T &Value) {
 		if (!exists(Value)) {
@@ -50,7 +47,9 @@ public:
 	T back() const { return _names.back(); }
 };
 
-// ------------------------------------------------------ //
+//-------------------------------------------
+// TDataPoint
+//-------------------------------------------
 
 class TDataPoint {
 private:
@@ -65,8 +64,9 @@ public:
 	TDataPoint() = default;
 	TDataPoint(size_t Timpoint_id);
 
+	// functions for simulating
 	void simulate(size_t N0, double phi, double detectionProbs);
-	template<class Object> void simulate(Object obj, double phi){
+	template<class Object> void simulate(Object obj, double phi) {
 		effort = obj.sample();
 		_simulatePoisson(phi);
 	}
@@ -75,7 +75,9 @@ public:
 	bool operator<(const TDataPoint &other) const;
 };
 
-// ------------------------------------------------------ //
+//-------------------------------------------
+// TDataSeries
+//-------------------------------------------
 
 class TDataSeries {
 private:
@@ -88,11 +90,21 @@ public:
 	TDataSeries(size_t Location_id, size_t Method_id);
 	TDataSeries(const TDataPoint &Datapoint, size_t Location_id, size_t Method_id);
 	TDataSeries(size_t Location_id, size_t Method_id, size_t numTimepoints);
-	// set
+
+	void sorttimes(const std::vector<size_t> &index);
+
+	void checkData(const std::string &name, const TUniqueContainer<std::string> &locations,
+	               const TUniqueContainer<std::string> &methods);
+
+	// setters
 	void add(const TDataPoint &Datapoint);
 
-	// get
+	// getters
 	size_t size() const;
+
+	size_t location_id() const;
+	size_t method_id() const;
+	TypeCounts nu() const;
 
 	const TDataPoint &operator[](const size_t index) const { return _dataPoints[index]; }
 
@@ -101,24 +113,17 @@ public:
 	std::vector<TDataPoint>::const_iterator cend() const;
 	std::vector<TDataPoint>::iterator end();
 
-	// getters
-	size_t location_id() const;
-	size_t method_id() const;
-	TypeCounts nu() const;
-
-	void sorttimes(const std::vector<size_t> &index);
-
-	void checkData(const std::string &name, const TUniqueContainer<std::string> &locations,
-	               const TUniqueContainer<std::string> &methods);
-
-	void simulate(size_t N0, const std::vector<double>& phi, double detectionProbs);
-	template<class Object> void simulate(Object obj, const std::vector<double>& phi){
+	// functions for simulating
+	void simulate(size_t N0, const std::vector<double> &phi, double detectionProbs);
+	template<class Object> void simulate(Object obj, const std::vector<double> &phi) {
 		for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(obj, phi[t]); }
 	}
-	void simulate(double effort, const std::vector<double>& phi);
+	void simulate(double effort, const std::vector<double> &phi);
 };
 
-// ------------------------------------------------------ //
+//-------------------------------------------
+// TSpecies
+//-------------------------------------------
 
 class TSpecies {
 private:
@@ -130,36 +135,35 @@ public:
 	explicit TSpecies(const std::string &Name, const TDataPoint &pt, size_t LocationIndex, size_t MethodIndex);
 	TSpecies(const std::string &Name, size_t numLocations, size_t numMethods, size_t numTimepoints);
 
-	std::string name() const;
-
+	// setters
 	void add(const TDataPoint &pt, size_t LocationIndex, size_t MethodIndex);
 
+	void checkData(const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 	void sorttimes(const std::vector<size_t> &index);
 
+	// getters
+	std::string name() const;
 	size_t size() const;
 
-	void checkData(const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
+	const TDataSeries &operator[](const size_t index) const { return _data[index]; }
 
 	std::vector<TDataSeries>::const_iterator cbegin() const;
 	std::vector<TDataSeries>::iterator begin();
 	std::vector<TDataSeries>::const_iterator cend() const;
 	std::vector<TDataSeries>::iterator end();
 
-	const TDataSeries &operator[](const size_t index) const { return _data[index]; }
-
+	// functions for simulating
 	void simulate(size_t N0, const std::vector<double> &phi,
 	              const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 
-	void simulate(const std::vector<double>& phi);
-
-
+	void simulate(const std::vector<double> &phi);
 };
 
+//-------------------------------------------
+// TZeroPoisDistr
+//-------------------------------------------
 
-//------------------------------------------------
-// zero-Poisson distribution
-//------------------------------------------------
 class TZeroPoisDistr {
 private:
 	coretools::Probability _p;
@@ -174,14 +178,10 @@ public:
 
 	static constexpr std::string_view name = "zeroPoisson";
 
-	size_t sample( coretools::Probability p, coretools::StrictlyPositive<double> lambda) const;
+	size_t sample(coretools::Probability p, coretools::StrictlyPositive<double> lambda) const;
 
 	// functions using member parameters
 	size_t sample() const noexcept;
-
-
-
 };
-
 
 #endif /* CORE_TSPECIES_H_ */

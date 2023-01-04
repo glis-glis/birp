@@ -8,19 +8,26 @@
 using namespace coretools::instances;
 
 TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                         stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, const std::string &Filename)
-    : _gamma(Gamma), _timesOfChange(TimesOfChange) {}
+                         stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
+    : _gamma(Gamma), _timesOfChange(TimesOfChange) {
 
-void TEpochModel::initialize() {
 	if (!_timesOfChange->hasFixedInitialValue()) { // if user did not set initial values
-		_numEpochs = 1;
+		_numEpochs = 1;                            // TODO: ? -> throw
 	}
 	_numEpochs = _timesOfChange->totalSize() + 1;
+
 	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
 }
 
+void TEpochModel::estimateInitialPriorParameters() {
+	// TODO: something more sophisticated?
+	for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->set(g, 0.0); }
+}
+
 std::vector<size_t> TEpochModel::_getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const {
+	// return start of each epoch, including for a hypothetical epoch after the last epoch
 	assert(!Timepoints.empty());
+
 	std::vector<size_t> epochStarts = {0};
 	if (_timesOfChange->totalSize() != 0) {
 		size_t maxTimeOfChange = _timesOfChange->max_value();
@@ -33,12 +40,10 @@ std::vector<size_t> TEpochModel::_getEpochStarts(const TUniqueContainer<size_t> 
 	return epochStarts;
 }
 
-// static void _readTimesOfChange(){}
-
 void TEpochModel::_fillRho(const TUniqueContainer<size_t> &Timepoints) {
 	std::vector<size_t> epochStarts = _getEpochStarts(Timepoints);
 	_rho.zeros((int)Timepoints.size(), (int)_numEpochs);
-	// fill rhos
+
 	for (size_t t = 0; t < Timepoints.size(); ++t) {
 		for (size_t e = 1; e < epochStarts.size(); ++e) {
 			if (Timepoints[t] <= epochStarts[e - 1]) {
@@ -80,7 +85,7 @@ arma::mat TEpochModel::_calcFisherInfo(const std::vector<double> &p, const std::
 			}
 			denom     = denom * denom;
 			R(k, m)   = sigma[k] * rhoSumSigma / denom;
-			RtP(m, k) = R(k, m) * 1.0 / p[k]; // write test for this
+			RtP(m, k) = R(k, m) * 1.0 / p[k];
 		}
 	}
 	// real actual matrix multiplication
@@ -111,6 +116,11 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 	return {LL, JP};
 }
 
+double TEpochModel::calculateLL(const TSpecies &Data) const{
+	const auto [newLL, newJP]  = _calculateLLandJP(Data);
+	return newLL;
+}
+
 void TEpochModel::updateGamma(const TSpecies &Data) {
 	for (size_t m = 0; m < _numEpochs; m++) { // loop over epochs and update gamma epoch by epoch
 		_gamma->updateSpecificIndex(m);
@@ -128,13 +138,14 @@ void TEpochModel::updateGamma(const TSpecies &Data) {
 	}
 }
 
-void TEpochModel::simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs, const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) {
+void TEpochModel::simulate(TSpecies &data, size_t N0,
+                           const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                           const TUniqueContainer<std::string> &locations,
+                           const TUniqueContainer<std::string> &methods) {
 	data.simulate(N0, _calculatePhi(), detectionProbs, locations, methods);
 }
 
-void TEpochModel::simulate(TSpecies &data) {
-	data.simulate(_calculatePhi());
-}
+void TEpochModel::simulate(TSpecies &data) { data.simulate(_calculatePhi()); }
 
 // TO DO NEXT WEEK:
 // Stiflä (Madleina)
