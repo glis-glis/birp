@@ -141,16 +141,7 @@ void TBirpCore::_writeFile(const std::string &Filename) {
 	coretools::TOutputFile outfile(Filename, header);
 	// write file line by line
 	for (auto &species : _species) {
-		for (auto &lm : species) {
-			// lm: loop over all location-methods combinations
-			std::string location = _locations[lm.location_id()];
-			std::string method   = _methods[lm.method_id()];
-			for (auto &t : lm) { // loop over all time points
-				size_t timepoint = _timepoints[t.timepoint_id];
-				outfile << species.name() << location << method << timepoint << t.effort << t.counts;
-				outfile.endln();
-			}
-		}
+		species.write(outfile, _locations, _methods, _timepoints);
 	}
 }
 
@@ -170,7 +161,7 @@ void TBirpCore::_fillLocationsFromCommandLine() {
 
 void TBirpCore::_fillMethodsFromCommandLine() {
 	size_t numMethods = parameters().getParameterWithDefault("numMethods", 2);
-	for (size_t m = 0; m < numMethods; ++m) { _locations.add("Method_" + coretools::str::toString(m)); }
+	for (size_t m = 0; m < numMethods; ++m) { _methods.add("Method_" + coretools::str::toString(m)); }
 }
 
 void TBirpCore::simulate() {

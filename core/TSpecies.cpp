@@ -40,6 +40,12 @@ void TDataPoint::simulate(double Effort, double phi) {
 	_simulatePoisson(phi);
 }
 
+void TDataPoint::write(coretools::TOutputFile &File, const std::string &SpeciesName, const std::string &Location,
+                       const std::string &Method, const TUniqueContainer<size_t> &Timepoints) const {
+	// write one line
+	File << SpeciesName << Location << Method << Timepoints[timepoint_id] << effort << counts << coretools::endl;
+}
+
 bool TDataPoint::operator<(const TDataPoint &other) const { return timepoint_id < other.timepoint_id; }
 
 //-------------------------------------------
@@ -123,6 +129,14 @@ void TDataSeries::simulate(double effort, const std::vector<double> &phi) {
 	for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(effort, phi[t]); }
 }
 
+void TDataSeries::write(coretools::TOutputFile &File, const std::string &SpeciesName,
+                        const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
+                        const TUniqueContainer<size_t> &Timepoints) const {
+	std::string location = Locations[_location_id];
+	std::string method   = Methods[_method_id];
+	for (const auto &dataPoint : _dataPoints) { dataPoint.write(File, SpeciesName, location, method, Timepoints); }
+}
+
 //-------------------------------------------
 // TSpecies
 //-------------------------------------------
@@ -198,7 +212,7 @@ void TSpecies::simulate(const std::vector<double> &phi) {
 		std::string_view distr = sp.front();          // takes first element
 		sp.popFront();                                // takes 'Poisson' away
 		std::string params = (std::string)sp.front(); // now parameters are in front
-		coretools::str::extractBefore(params, ')');
+		params             = coretools::str::extractBefore(params, ')');
 		if (distr == "Poisson") {
 			coretools::probdist::TPoissonDistr poisDistr(params);
 			for (size_t i = 0; i < size(); i++) { _data[i].simulate(poisDistr, phi); }
@@ -210,6 +224,11 @@ void TSpecies::simulate(const std::vector<double> &phi) {
 			for (size_t i = 0; i < size(); i++) { _data[i].simulate(zeroPoisDist, phi); }
 		}
 	}
+}
+
+void TSpecies::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+                     const TUniqueContainer<std::string> &Methods, const TUniqueContainer<size_t> &Timepoints) const {
+	for (size_t i = 0; i < size(); i++) { _data[i].write(File, _name, Locations, Methods, Timepoints); }
 }
 
 //-------------------------------------------

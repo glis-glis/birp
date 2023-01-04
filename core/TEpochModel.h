@@ -39,11 +39,14 @@ protected:
 	std::pair<double, double> _calculateLLandJP(const TSpecies &Data) const;
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 
+	// simulation
+	void _setSimulatedGammaToZero();
+
 public:
-	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	            stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
+	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+	            const TUniqueContainer<size_t> &Timepoints);
 	~TEpochModel() = default;
-	void estimateInitialPriorParameters();
+	void estimateInitialPriorParameters(const TSpecies &Data);
 
 	void updateGamma(const TSpecies &Data);
 	double calculateLL(const TSpecies &Data) const;

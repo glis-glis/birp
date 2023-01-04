@@ -6,6 +6,7 @@
 #define CORE_TSPECIES_H_
 
 #include "BirpTypes.h"
+#include "coretools/Files/TOutputFile.h"
 #include "coretools/Storage/TStorage.h"
 #include <algorithm>
 #include <vector>
@@ -71,6 +72,8 @@ public:
 		_simulatePoisson(phi);
 	}
 	void simulate(double effort, double phi);
+	void write(coretools::TOutputFile &File, const std::string &SpeciesName, const std::string &Location,
+	           const std::string &Method, const TUniqueContainer<size_t> &Timepoints) const;
 
 	bool operator<(const TDataPoint &other) const;
 };
@@ -87,9 +90,9 @@ private:
 	TypeCounts _nu; // sums of counts at one location and method (ij) across all time points (k)
 
 public:
-	TDataSeries(size_t Location_id, size_t Method_id);
-	TDataSeries(const TDataPoint &Datapoint, size_t Location_id, size_t Method_id);
-	TDataSeries(size_t Location_id, size_t Method_id, size_t numTimepoints);
+	explicit TDataSeries(size_t Location_id, size_t Method_id);
+	explicit TDataSeries(const TDataPoint &Datapoint, size_t Location_id, size_t Method_id);
+	explicit TDataSeries(size_t Location_id, size_t Method_id, size_t numTimepoints);
 
 	void sorttimes(const std::vector<size_t> &index);
 
@@ -119,6 +122,9 @@ public:
 		for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(obj, phi[t]); }
 	}
 	void simulate(double effort, const std::vector<double> &phi);
+	void write(coretools::TOutputFile &File, const std::string &SpeciesName,
+	           const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
+	           const TUniqueContainer<size_t> &Timepoints) const;
 };
 
 //-------------------------------------------
@@ -133,7 +139,7 @@ private:
 public:
 	explicit TSpecies(const std::string &Name);
 	explicit TSpecies(const std::string &Name, const TDataPoint &pt, size_t LocationIndex, size_t MethodIndex);
-	TSpecies(const std::string &Name, size_t numLocations, size_t numMethods, size_t numTimepoints);
+	explicit TSpecies(const std::string &Name, size_t numLocations, size_t numMethods, size_t numTimepoints);
 
 	// setters
 	void add(const TDataPoint &pt, size_t LocationIndex, size_t MethodIndex);
@@ -158,6 +164,9 @@ public:
 	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 
 	void simulate(const std::vector<double> &phi);
+	void write(coretools::TOutputFile &File,
+	           const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
+	           const TUniqueContainer<size_t> &Timepoints) const;
 };
 
 //-------------------------------------------

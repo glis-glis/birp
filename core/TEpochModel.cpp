@@ -3,25 +3,32 @@
 //
 
 #include "TEpochModel.h"
-#include "TBirpPrior.h"
 
 using namespace coretools::instances;
 
 TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                         stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
+                         stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+                         const TUniqueContainer<size_t> &Timepoints)
     : _gamma(Gamma), _timesOfChange(TimesOfChange) {
 
 	if (!_timesOfChange->hasFixedInitialValue()) { // if user did not set initial values
-		_numEpochs = 1;                            // TODO: ? -> throw
+		_numEpochs = 1;
+	} else {
+		_numEpochs = _timesOfChange->totalSize() + 1;
 	}
-	_numEpochs = _timesOfChange->totalSize() + 1;
 
+	_fillRho(Timepoints);
+
+	_timesOfChange->initStorage({_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
 	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
 }
 
-void TEpochModel::estimateInitialPriorParameters() {
+void TEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
 	// TODO: something more sophisticated?
 	for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->set(g, 0.0); }
+
+	// set _oldLL and _oldJP
+	std::tie(_oldLL, _oldJP) = _calculateLLandJP(Data);
 }
 
 std::vector<size_t> TEpochModel::_getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const {
@@ -116,8 +123,8 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 	return {LL, JP};
 }
 
-double TEpochModel::calculateLL(const TSpecies &Data) const{
-	const auto [newLL, newJP]  = _calculateLLandJP(Data);
+double TEpochModel::calculateLL(const TSpecies &Data) const {
+	const auto [newLL, newJP] = _calculateLLandJP(Data);
 	return newLL;
 }
 
@@ -138,14 +145,24 @@ void TEpochModel::updateGamma(const TSpecies &Data) {
 	}
 }
 
+void TEpochModel::_setSimulatedGammaToZero() {
+	if (!_gamma->hasFixedInitialValue()) {
+		for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->set(g, 0.0); }
+	}
+}
+
 void TEpochModel::simulate(TSpecies &data, size_t N0,
                            const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
                            const TUniqueContainer<std::string> &locations,
                            const TUniqueContainer<std::string> &methods) {
+	_setSimulatedGammaToZero();
 	data.simulate(N0, _calculatePhi(), detectionProbs, locations, methods);
 }
 
-void TEpochModel::simulate(TSpecies &data) { data.simulate(_calculatePhi()); }
+void TEpochModel::simulate(TSpecies &data) {
+	_setSimulatedGammaToZero();
+	data.simulate(_calculatePhi());
+}
 
 // TO DO NEXT WEEK:
 // Stiflä (Madleina)
