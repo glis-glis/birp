@@ -9,7 +9,7 @@ class TBirpPriorBridge : public TBirpPrior {
 	// Dummy class inheriting from TBirpPrior: allows for testing protected functions
 public:
 	void _readFile(const std::string &Filename){
-		return TBirpPrior::_readFile(Filename);
+		return TBirpPrior::_readFile(Filename, true);
 	}
 	void _sortTimepoints(){
 		return TBirpPrior::_sortTimepoints();

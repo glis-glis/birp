@@ -174,10 +174,11 @@ public:
 
 	static constexpr std::string_view name = "zeroPoisson";
 
-	static size_t sample( coretools::Probability p, coretools::StrictlyPositive<double> lambda);
+	size_t sample( coretools::Probability p, coretools::StrictlyPositive<double> lambda) const;
 
 	// functions using member parameters
-	[[nodiscard]] size_t sample() const noexcept;
+	size_t sample() const noexcept;
+
 
 
 };

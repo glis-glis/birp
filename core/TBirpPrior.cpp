@@ -135,8 +135,16 @@ void TBirpPrior::_simulateFromFile() {
 
 void TBirpPrior::_simulateFromCommandLine() {
     auto timepoints= _readTimepoints();
-	// TODO find out how many locations and methods (from command line)
-	_species.emplace_back("Moose", numLocations, numMethods, timepoints.size());
+	// TODO how to fill a single number?
+    std::vector<size_t> numLoc;
+    std::vector<size_t> numLocDefault = {2};
+    parameters().fillParameterIntoContainerWithDefault("numLocations", numLoc, ',',numLocDefault);
+    std::vector<size_t> numMeth;
+    std::vector<size_t> numMethDefault = {2};
+    parameters().fillParameterIntoContainerWithDefault("numMethods", numMeth, ',',numMethDefault);
+    size_t numLocations = numLoc[0];
+    size_t numMethods = numMeth[0];
+    _species.emplace_back("Moose", numLocations, numMethods, timepoints.size());
 	for (size_t i = 0; i < _epochModel.size(); i++) {
 		_epochModel[i].simulate(_species[i]);
 	}
@@ -173,13 +181,6 @@ std::vector<size_t> TBirpPrior::_readTimepoints() {
     std::vector<size_t> timepointsDdefault = {1,2,3};
     parameters().fillParameterIntoContainerWithDefault("timepoints", timepoints, ',', timepointsDdefault);
     return timepoints;
-}
-
-std::vector<size_t> TBirpPrior::_Effort() {
-	std::vector<size_t> effort;
-	std::vector<size_t> effortDefault = {1};
-	parameters().fillParameterIntoContainerWithDefault("effort", effort, ',', effortDefault);
-	return effort;
 }
 
 

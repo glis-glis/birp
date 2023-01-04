@@ -238,7 +238,7 @@ void TZeroPoisDistr::set(std::string_view parameterString) {
 	coretools::str::convertString(parameterString, std::string{"Use "}.append(name) + "(p, lambda) with 0 <= p <= 1, lambda>0.", _p, _lambda);
 }
 
-static size_t sample(coretools::Probability p, coretools::StrictlyPositive<double> lambda) {
+size_t TZeroPoisDistr::sample(coretools::Probability p, coretools::StrictlyPositive<double> lambda) const {
 	double tmp = coretools::instances::randomGenerator().getRand(0, 1);
 	if (tmp > p) { // p is probability of taking Poisson
 		return 0;
@@ -247,4 +247,4 @@ static size_t sample(coretools::Probability p, coretools::StrictlyPositive<doubl
 	}
 }
 
-size_t TZeroPoisDistr::sample() const noexcept { return sample(_p, _lambda); }
+size_t TZeroPoisDistr::sample() const noexcept { return TZeroPoisDistr::sample(_p, _lambda); }
