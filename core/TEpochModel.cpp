@@ -137,7 +137,7 @@ void TEpochModel::updateGamma(const TSpecies &Data) {
 		const double logPriorRatio = newJP - _oldJP; // in log
 
 		const double logH = LLRatio + logPriorRatio;
-		if (_gamma->acceptOrReject(m, logH)) {
+		if (_gamma->acceptOrReject(logH, m)) {
 			// accepted -> update LL and jeffrey's Prior
 			_oldLL = newLL;
 			_oldJP = newJP;
