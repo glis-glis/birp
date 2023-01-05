@@ -41,7 +41,7 @@ public:
 //--------------------------------------
 
 class TBirpCore {
-private:
+protected:
 	std::string _outname;
 
 	// data
