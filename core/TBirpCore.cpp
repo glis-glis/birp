@@ -50,7 +50,7 @@ TBirpCore::TBirpCore() {
 		logfile().list("Will write files with prefix '", _outname, "'. (parameter 'out')");
 	} else {
 		_outname = "birp";
-		logfile().list("Will write files with default prefix '", _outname, "'. (set with 'out')");
+		logfile().list("Will write files with default prefix '", _outname, "'. (You can change this using the parameter 'out')");
 	}
 }
 
@@ -178,7 +178,7 @@ void TBirpCore::simulate() {
 		_fillTimepointsFromCommandLine();
 		_fillLocationsFromCommandLine();
 		_fillMethodsFromCommandLine();
-		_species.emplace_back("Moose", _locations.size(), _methods.size(), _timepoints.size());
+		_species.emplace_back("Seal", _locations.size(), _methods.size(), _timepoints.size());
 	}
 
 	// create model
