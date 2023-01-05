@@ -26,6 +26,10 @@ std::string TBirpPrior::name() const { return "birp"; }
 //------------------------------------
 // Initialization
 
+void TBirpPrior::initializeInferred() {
+	for (size_t s = 0; s < _epochModel.size(); ++s) { _epochModel[s].initializeInferred(); }
+}
+
 void TBirpPrior::estimateInitialPriorParameters() {
 	for (size_t s = 0; s < _species->size(); ++s) { _epochModel[s].estimateInitialPriorParameters((*_species)[s]); }
 }
@@ -55,7 +59,7 @@ std::vector<size_t> TBirpPrior::_readN0FromCommandLine() const {
 }
 
 coretools::TMultiDimensionalStorage<double, 2> TBirpPrior::_readDetectionProbFile() const {
-	if(parameters().parameterExists("detectionProbFile")) {
+	if (parameters().parameterExists("detectionProbFile")) {
 		// TODO are detection probabilities the same across all species or one file per species?
 		std::string filename = parameters().getParameterFilename("detectionProbFile");
 
@@ -74,12 +78,8 @@ coretools::TMultiDimensionalStorage<double, 2> TBirpPrior::_readDetectionProbFil
 		storage.fill(1.0);
 		auto locationNames = std::make_shared<coretools::TNamesStrings>();
 		auto methodNames   = std::make_shared<coretools::TNamesStrings>();
-		for(const auto & location : *_locations){
-			locationNames->addName({location});
-		}
-		for(const auto & method : *_methods){
-			methodNames->addName({method});
-		}
+		for (const auto &location : *_locations) { locationNames->addName({location}); }
+		for (const auto &method : *_methods) { methodNames->addName({method}); }
 		storage.setDimensionNames({locationNames, methodNames});
 		return storage;
 	}

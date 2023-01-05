@@ -46,6 +46,8 @@ public:
 	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
 	            const TUniqueContainer<size_t> &Timepoints);
 	~TEpochModel() = default;
+	void initializeInferred();
+
 	void estimateInitialPriorParameters(const TSpecies &Data);
 
 	void updateGamma(const TSpecies &Data);

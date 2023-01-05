@@ -27,8 +27,8 @@ protected:
 
 	// locations, methods, timepoints
 	TUniqueContainer<std::string> *_locations = nullptr;
-	TUniqueContainer<std::string> *_methods = nullptr;
-	TUniqueContainer<size_t> *_timepoints = nullptr;
+	TUniqueContainer<std::string> *_methods   = nullptr;
+	TUniqueContainer<size_t> *_timepoints     = nullptr;
 
 	// prefix for writing
 	std::string _out;
@@ -44,9 +44,11 @@ public:
 	TBirpPrior() = default;
 	TBirpPrior(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
 	           TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
-	           stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	           stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, std::string Prefix);
+	           stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+	           std::string Prefix);
 	~TBirpPrior() override = default;
+
+	void initializeInferred() override;
 
 	[[nodiscard]] std::string name() const override;
 

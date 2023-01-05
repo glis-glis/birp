@@ -18,7 +18,9 @@ TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	}
 
 	_fillRho(Timepoints);
+}
 
+void TEpochModel::initializeInferred() {
 	_timesOfChange->initStorage({_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
 	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
 }

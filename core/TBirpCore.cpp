@@ -190,5 +190,5 @@ void TBirpCore::simulate() {
 	simulator.simulate(_outname, &dagBuilder);
 
 	// write Birp file
-	_writeFile(_outname + "_simulated.txt");
+	_writeFile(_outname + "_simulatedCounts.txt");
 }
