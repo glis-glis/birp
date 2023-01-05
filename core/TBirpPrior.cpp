@@ -55,20 +55,34 @@ std::vector<size_t> TBirpPrior::_readN0FromCommandLine() const {
 }
 
 coretools::TMultiDimensionalStorage<double, 2> TBirpPrior::_readDetectionProbFile() const {
-	// TODO are detection probabilities the same across all species or one file per species?
-	std::string filename = parameters().getParameterFilename("detectionProbFile");
+	if(parameters().parameterExists("detectionProbFile")) {
+		// TODO are detection probabilities the same across all species or one file per species?
+		std::string filename = parameters().getParameterFilename("detectionProbFile");
 
-	auto locationNames = std::make_shared<coretools::TNamesStrings>();
-	auto methodNames   = std::make_shared<coretools::TNamesStrings>();
+		auto locationNames = std::make_shared<coretools::TNamesStrings>();
+		auto methodNames   = std::make_shared<coretools::TNamesStrings>();
 
-	// read file
-	coretools::TDataReaderBase<double, 2> reader;
-	size_t guessNumRows = 50; // doesn't matter, not too many anyways
-	coretools::TMultiDimensionalStorage<double, 2> detectionProbs;
-	reader.read(filename, &detectionProbs, {locationNames, methodNames}, {'\n', '\t'}, {true, true}, {0, 0},
-	            {false, false}, guessNumRows, coretools::colNames_multiline);
-	return detectionProbs;
-	// TODO make default p=1
+		// read file
+		coretools::TDataReaderBase<double, 2> reader;
+		size_t guessNumRows = 50; // doesn't matter, not too many anyways
+		coretools::TMultiDimensionalStorage<double, 2> detectionProbs;
+		reader.read(filename, &detectionProbs, {locationNames, methodNames}, {'\n', '\t'}, {true, true}, {0, 0},
+		            {false, false}, guessNumRows, coretools::colNames_multiline);
+		return detectionProbs;
+	} else {
+		coretools::TMultiDimensionalStorage<double, 2> storage({_locations->size(), _methods->size()});
+		storage.fill(1.0);
+		auto locationNames = std::make_shared<coretools::TNamesStrings>();
+		auto methodNames   = std::make_shared<coretools::TNamesStrings>();
+		for(const auto & location : *_locations){
+			locationNames->addName({location});
+		}
+		for(const auto & method : *_methods){
+			methodNames->addName({method});
+		}
+		storage.setDimensionNames({locationNames, methodNames});
+		return storage;
+	}
 }
 
 void TBirpPrior::_simulateUnderPrior(Storage *) {

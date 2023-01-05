@@ -87,7 +87,11 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
 	if (ending == "csv") { delim = ","; }
 	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
-	// TODO if it has counts: 6 columns, otherwise 5.
+	if(hasCounts && infile.numCols() != 6){
+		UERROR("Expected file ",infile.name()," to have 6 columns, but found ", infile.numCols(),".");
+	} else if(!hasCounts && infile.numCols() != 5){
+		UERROR("Expected file ",infile.name()," to have 5 columns, but found ", infile.numCols(),".");
+	}
 	_checkHeader(infile);
 
 	std::vector<std::string> vec;
