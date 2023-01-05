@@ -7,7 +7,7 @@
 TEST(TBirpPriorTest, readFile1) {
 	// construct birp
 	TBirpCoreBridge birp;
-	birp._readFile("../tests/test_files/test_counts.txt");
+	birp._readFile("../tests/test_files/test_counts.csv");
 	// test locations
 	const auto locations = birp.locations();
 	EXPECT_EQ(locations[0], "beach");
@@ -37,7 +37,7 @@ TEST(TBirpPriorTest, readFile1) {
 TEST(TBirpPriorTest, readFile2) {
 	// construct birp
 	TBirpCoreBridge birp;
-	birp._readFile("../tests/test_files/test_counts2.txt");
+	birp._readFile("../tests/test_files/test_counts2.csv");
 	// test locations
 	const auto locations = birp.locations();
 	EXPECT_EQ(locations[0], "basecamp");
@@ -65,7 +65,7 @@ TEST(TBirpPriorTest, readFile2) {
 TEST(TBirpPriorTest, sortTimes1) {
 	// construct birp
 	TBirpCoreBridge birp;
-	birp._readFile("../tests/test_files/sortingTest.txt");
+	birp._readFile("../tests/test_files/sortingTest.csv");
 	birp._sortTimepoints();
 	// test timepoints
 	const auto times = birp.timepoints();
@@ -77,7 +77,7 @@ TEST(TBirpPriorTest, sortTimes1) {
 
 TEST(TBirpPriorTest, sortTimes2) {
 	TBirpCoreBridge birp;
-	birp._readFile("../tests/test_files/sortingTest.txt");
+	birp._readFile("../tests/test_files/sortingTest.csv");
 	birp._sortTimepoints();
 	std::vector<size_t> truthVec{2001, 2005, 2020, 2022, 2005, 2020, 2001, 2005, 2020};
 	std::vector<size_t> sorted_tp{2001, 2005, 2020, 2022};
