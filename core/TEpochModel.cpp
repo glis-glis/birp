@@ -11,12 +11,13 @@ TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                          const TUniqueContainer<size_t> &Timepoints)
     : _gamma(Gamma), _timesOfChange(TimesOfChange) {
 
-	if (_timesOfChange->getDefinition().hasDefaultInitVal()) { // if user did not set initial values
-		_numEpochs = parameters().getParameterWithDefault("numEpochs", 1);
-	} else { // user provided initial values for timesOfChange -> read them
+	// find out how many epochs there are
+	if (parameters().parameterExists("timesOfChange")) {
 		std::vector<std::string> tmp;
-		coretools::str::fillContainerFromString(_timesOfChange->getDefinition().initVal(), tmp, ',');
+		parameters().fillParameterIntoContainer("timesOfChange", tmp, ',');
 		_numEpochs = tmp.size() + 1;
+	} else {
+		_numEpochs = parameters().getParameterWithDefault("numEpochs", 1);
 	}
 
 	_fillRho(Timepoints);
