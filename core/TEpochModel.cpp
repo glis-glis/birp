@@ -11,7 +11,7 @@ TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                          const TUniqueContainer<size_t> &Timepoints)
     : _gamma(Gamma), _timesOfChange(TimesOfChange) {
 
-	if (!_timesOfChange->hasFixedInitialValue()) { // if user did not set initial values
+	if (_timesOfChange->totalSize() == 0) { // if user did not set initial values
 		_numEpochs = 1;
 	} else {
 		_numEpochs = _timesOfChange->totalSize() + 1;
