@@ -18,7 +18,7 @@ TBirpPrior::TBirpPrior(std::vector<TSpecies> *Species, TUniqueContainer<std::str
 	// constructor for Poisson model
 
 	addPriorParameter({Gamma, TimesOfChange});
-	_epochModel.emplace_back(Gamma, TimesOfChange, *TimePoints);
+	_epochModel.emplace_back(Gamma, TimesOfChange);
 }
 
 std::string TBirpPrior::name() const { return "birp"; }
@@ -27,7 +27,7 @@ std::string TBirpPrior::name() const { return "birp"; }
 // Initialization
 
 void TBirpPrior::initializeInferred() {
-	for (size_t s = 0; s < _epochModel.size(); ++s) { _epochModel[s].initializeInferred(); }
+	for (size_t s = 0; s < _epochModel.size(); ++s) { _epochModel[s].initializeInferred(*_timepoints); }
 }
 
 void TBirpPrior::estimateInitialPriorParameters() {

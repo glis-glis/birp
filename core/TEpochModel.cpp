@@ -7,8 +7,7 @@
 using namespace coretools::instances;
 
 TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                         stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-                         const TUniqueContainer<size_t> &Timepoints)
+                         stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
     : _gamma(Gamma), _timesOfChange(TimesOfChange) {
 
 	// find out how many epochs there are
@@ -19,13 +18,15 @@ TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	} else {
 		_numEpochs = parameters().getParameterWithDefault("numEpochs", 1);
 	}
-
-	_fillRho(Timepoints);
+	// default: do not infer times of change
+	if (!parameters().parameterExists("inferTimesOfChange")) { _timesOfChange->getDefinition().update(false); }
 }
 
-void TEpochModel::initializeInferred() {
+void TEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints) {
 	_timesOfChange->initStorage({_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
 	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
+
+	_fillRho(Timepoints);
 }
 
 void TEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {

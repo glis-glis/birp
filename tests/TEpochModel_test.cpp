@@ -11,9 +11,8 @@ class TEpochModelBridge : public TEpochModel {
 	// Dummy class inheriting from TEpochModel: allows for testing protected functions
 public:
 	TEpochModelBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-	                  const TUniqueContainer<size_t> &Timepoints)
-	    : TEpochModel(Gamma, TimesOfChange, Timepoints) {}
+	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
+	    : TEpochModel(Gamma, TimesOfChange) {}
 
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints) { return TEpochModel::_fillRho(Timepoints); }
 
@@ -42,14 +41,17 @@ public:
 		const size_t numEpochs = TimesOfChange.size() + 1;
 
 		// create a gamma
+		coretools::instances::parameters().addParameter("timesOfChange",
+		                                                coretools::str::concatenateString(TimesOfChange, ","));
 		if (OldGamma.empty()) { OldGamma.resize(numEpochs, 0.0); }
 		if (NewGamma.empty()) { NewGamma.resize(numEpochs, 0.0); }
 		testing::initializeStorageParameter(gamma, "gamma", {numEpochs}, OldGamma, NewGamma);
 		testing::initializeStorageParameter(timesOfChange, "timesOfChange", {numEpochs - 1}, TimesOfChange,
 		                                    TimesOfChange);
 
-		epochModel = std::make_shared<TEpochModelBridge>(gamma.get(), timesOfChange.get(),
-		                                                 Timepoints); // get(): unique pointer gets raw pointer
+		epochModel = std::make_shared<TEpochModelBridge>(gamma.get(),
+		                                                 timesOfChange.get()); // get(): unique pointer gets raw pointer
+		epochModel->initializeInferred(Timepoints);
 	}
 };
 
@@ -133,8 +135,8 @@ TEST_F(TEpochModelTest, _getEpochStarts_easy1) {
 TEST_F(TEpochModelTest, _calculateLLandJP_1) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_calcLLandJP1.csv");
-	auto data  = test.species();
-	auto times = test.timepoints();
+	auto data                         = test.species();
+	auto times                        = test.timepoints();
 	std::vector<size_t> timesOfChange = {2};
 	std::vector<double> NewGamma      = {-2, 1.5};
 
@@ -153,8 +155,8 @@ TEST_F(TEpochModelTest, _calculateLLandJP_1) {
 TEST_F(TEpochModelTest, _calculateLLandJP_2) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_calcLLandJP2.csv");
-	auto data  = test.species();
-	auto times = test.timepoints();
+	auto data                         = test.species();
+	auto times                        = test.timepoints();
 	std::vector<size_t> timesOfChange = {4};
 	std::vector<double> NewGamma      = {-1, 1};
 

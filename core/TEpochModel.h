@@ -43,10 +43,9 @@ protected:
 	void _setSimulatedGammaToZero();
 
 public:
-	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-	            const TUniqueContainer<size_t> &Timepoints);
+	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 	~TEpochModel() = default;
-	void initializeInferred();
+	void initializeInferred(const TUniqueContainer<size_t> &Timepoints);
 
 	void estimateInitialPriorParameters(const TSpecies &Data);
 
