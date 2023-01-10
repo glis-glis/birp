@@ -42,6 +42,7 @@ protected:
 	// simulation
 	void _setSimulatedGammaToZero();
 
+	virtual double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const = 0;
 public:
 	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 	~TEpochModel() = default;
@@ -50,7 +51,6 @@ public:
 	void estimateInitialPriorParameters(const TSpecies &Data);
 
 	void updateGamma(const TSpecies &Data);
-	double calculateLL(const TSpecies &Data) const;
 
 	// simulation
 	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
@@ -62,3 +62,23 @@ public:
 };
 
 #endif // BIRP_TEPOCHMODEL_H
+
+
+class TPoissonEpochModel : public TEpochModel {
+
+protected:
+	double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const;
+
+public:
+	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
+	    : TEpochModel(Gamma, TimesOfChange) {}
+};
+
+class TNegBinEpochModel : public TEpochModel {
+protected:
+	double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const;
+
+public:
+	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
+	    : TEpochModel(Gamma, TimesOfChange) {}
+};

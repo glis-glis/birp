@@ -117,11 +117,11 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 			// calculate sigma and fill into p (will normalize later)
 			sigma[k] = phi[k] * lm[k].effort;
 		}
-		// now normalize by row sum!
 		std::vector<double> p = sigma;
+		// now normalize by row sum!
 		coretools::normalize(p);
-		// add to LL
-		for (size_t k = 0; k < lm.size(); k++) { LL += (double)lm[k].counts * log(p[k]); }
+		// add to Likelihood
+		LL += _calculateLL(sigma, lm, p);
 		// add to JP
 		fisherInfo += _calcFisherInfo(p, sigma, lm.nu());
 	}
@@ -129,9 +129,25 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 	return {LL, JP};
 }
 
-double TEpochModel::calculateLL(const TSpecies &Data) const {
-	const auto [newLL, newJP] = _calculateLLandJP(Data);
-	return newLL;
+double TPoissonEpochModel::_calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const {
+	double LL = 0.0;
+	for (size_t k = 0; k < lm.size(); k++) { LL += (double)lm[k].counts * log(p[k]);}
+	return LL;
+}
+
+double TNegBinEpochModel::_calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const {
+	double LL = 0.0;
+	int n = lm.size();
+	// const auto [newLL, newJP] = _calculateLLandJP(Data); ?? why is this here
+	for (size_t k = 0; k < lm.size(); k++) {
+		double term1 = coretools::gammaLog(p[k]) + coretools::gammaLog(n+1) - coretools::gammaLog(n+p[k]);
+		double term2 = 0.0;
+		for (size_t kk = 0; kk < lm.size(); kk++) {
+			term2 += ( coretools::gammaLog(lm[kk].counts + p[kk]) / (coretools::gammaLog(p[kk])) * (coretools::gammaLog(lm[kk].counts + 1)) );
+		}
+		LL += (double)(term1+term2);  // is still in log; ok?
+	}
+	return LL;
 }
 
 void TEpochModel::updateGamma(const TSpecies &Data) {
@@ -170,10 +186,8 @@ void TEpochModel::simulate(TSpecies &data) {
 	data.simulate(_calculatePhi());
 }
 
-// TO DO NEXT WEEK:
-// Stiflä (Madleina)
-// Simulator schribä
-// remove data sets with less than two time points with effort > 0
+// TO DO
+// automatically remove data sets with less than two time points with effort > 0?
 
 // getters for test functions
 size_t TEpochModel::rho(size_t row, size_t col) const { return _rho(row, col); }
