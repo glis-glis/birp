@@ -110,8 +110,8 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 	std::vector<double> phi = _calculatePhi();
 	double LL               = 0.0;
 	arma::mat fisherInfo(_numEpochs, _numEpochs, arma::fill::zeros);
-	for (size_t i = 0; i < Data.size(); i++) {
-		const auto &lm = Data[i];
+	for (size_t ij = 0; ij < Data.size(); ij++) {
+		const auto &lm = Data[ij];
 		std::vector<double> sigma(lm.size());
 		for (size_t k = 0; k < lm.size(); k++) {
 			// calculate sigma and fill into p (will normalize later)
@@ -121,7 +121,7 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 		// now normalize by row sum!
 		coretools::normalize(p);
 		// add to Likelihood
-		LL += _calculateLL(sigma, lm, p);
+		LL += _calculateLL(sigma, lm, p, ij);
 		// add to JP
 		fisherInfo += _calcFisherInfo(p, sigma, lm.nu());
 	}
@@ -129,24 +129,22 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 	return {LL, JP};
 }
 
-double TPoissonEpochModel::_calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const {
+double TPoissonEpochModel::_calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const {
 	double LL = 0.0;
 	for (size_t k = 0; k < lm.size(); k++) { LL += (double)lm[k].counts * log(p[k]);}
 	return LL;
 }
 
-double TNegBinEpochModel::_calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const {
+double TNegBinEpochModel::_calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const {
 	double sum_a = 0.0;
     double term2 = 0.0;
-    std::vector<double> phi = _calculatePhi();
     int n = lm.nu();
 	for (size_t k = 0; k < lm.size(); k++) {
-        double alpha_k = _mu->value() * phi[k];
+        double alpha_k = _mu->value(ij) * sigma[k];
         sum_a += alpha_k;  // summing up alphas
-        term2 += (coretools::gammaLog(lm[k].counts + alpha_k) - (coretools::gammaLog(alpha_k)) - (coretools::gammaLog(lm[k].counts + 1)));
+        term2 += coretools::gammaLog(lm[k].counts + alpha_k) - coretools::gammaLog(alpha_k);  // x_k + 1 drops out in hastings ratio
 	}
-    double LL = coretools::gammaLog(sum_a) + coretools::gammaLog(n + 1) - coretools::gammaLog(n + sum_a) + term2;
-    return LL;
+    return coretools::gammaLog(sum_a)  - coretools::gammaLog(n + sum_a) + term2; // n+1 drops out as well
 }
 
 void TEpochModel::updateGamma(const TSpecies &Data) {

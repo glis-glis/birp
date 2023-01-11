@@ -42,7 +42,7 @@ protected:
 	// simulation
 	void _setSimulatedGammaToZero();
 
-	virtual double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const = 0;
+	virtual double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const = 0;
 public:
 	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 	~TEpochModel() = default;
@@ -67,7 +67,7 @@ public:
 class TPoissonEpochModel : public TEpochModel {
 
 protected:
-	double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const;
+	double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const;
 
 public:
 	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
@@ -77,7 +77,7 @@ public:
 class TNegBinEpochModel : public TEpochModel {
 protected:
     stattools::TParameterTyped<TypeMu, 1> *_mu        = nullptr;
-	double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const;
+	double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const;
 
 public:
 	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
