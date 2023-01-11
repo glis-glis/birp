@@ -76,6 +76,7 @@ public:
 
 class TNegBinEpochModel : public TEpochModel {
 protected:
+    stattools::TParameterTyped<TypeMu, 1> *_mu        = nullptr;
 	double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const;
 
 public:

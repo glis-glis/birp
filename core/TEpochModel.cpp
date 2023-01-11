@@ -136,18 +136,17 @@ double TPoissonEpochModel::_calculateLL(const std::vector<double>& sigma, const 
 }
 
 double TNegBinEpochModel::_calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, std::vector<double> p) const {
-	double LL = 0.0;
-	int n = lm.size();
-	// const auto [newLL, newJP] = _calculateLLandJP(Data); ?? why is this here
+	double sum_a = 0.0;
+    double term2 = 0.0;
+    std::vector<double> phi = _calculatePhi();
+    int n = lm.nu();
 	for (size_t k = 0; k < lm.size(); k++) {
-		double term1 = coretools::gammaLog(p[k]) + coretools::gammaLog(n+1) - coretools::gammaLog(n+p[k]);
-		double term2 = 0.0;
-		for (size_t kk = 0; kk < lm.size(); kk++) {
-			term2 += ( coretools::gammaLog(lm[kk].counts + p[kk]) / (coretools::gammaLog(p[kk])) * (coretools::gammaLog(lm[kk].counts + 1)) );
-		}
-		LL += (double)(term1+term2);  // is still in log; ok?
+        double alpha_k = _mu->value() * phi[k];
+        sum_a += alpha_k;  // summing up alphas
+        term2 += (coretools::gammaLog(lm[k].counts + alpha_k) - (coretools::gammaLog(alpha_k)) - (coretools::gammaLog(lm[k].counts + 1)));
 	}
-	return LL;
+    double LL = coretools::gammaLog(sum_a) + coretools::gammaLog(n + 1) - coretools::gammaLog(n + sum_a) + term2;
+    return LL;
 }
 
 void TEpochModel::updateGamma(const TSpecies &Data) {
