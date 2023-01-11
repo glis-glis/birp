@@ -19,6 +19,6 @@ typedef coretools::UnsignedInt<uint16_t> TypeIndex;
 typedef coretools::WeakType<double> TypeGamma;
 typedef coretools::Positive<double> TypeEffort;
 typedef coretools::UnsignedInt<uint16_t> TypeTime;
-typedif coretools::StrictlyPositive<double> TypeMu;
+typedef coretools::StrictlyPositive<double> TypeMu;
 
 #endif // BIRPTYPES_H

@@ -22,18 +22,21 @@
 // TBirpModel
 //------------------------------------------
 
-class TBirpModelPoisson {
+class TBirpModel {
 private:
 	// all parameters of model (including prior parameters)
 	stattools::TParameterTyped<TypeGamma, 1> _gamma;
 	stattools::TParameterTyped<TypeTime, 1> _timesOfChange;
 
+	// only relevant for negative binomial model
+	stattools::TParameterTyped<TypeMu, 2> _mu;
+
 	std::unique_ptr<stattools::TObservationTyped<TypeCounts, 2>> _data;
 
 public:
-	TBirpModelPoisson(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
-	                  TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
-	                  const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);
+	TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
+	           TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
+	           const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial);
 };
 
 //--------------------------------------

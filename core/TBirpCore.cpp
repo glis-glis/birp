@@ -13,31 +13,41 @@ using namespace coretools::instances;
 using namespace stattools;
 using namespace stattools::prior;
 
-//--------------------------------------
-// TBirpModel
-//--------------------------------------
+TBirpModel::TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
+                       TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
+                       const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial)
+    // TODO: change to improper prior!
+    : _gamma("gamma", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeGamma, 1>>(),
+             {Filename}),
+      _timesOfChange("timesOfChange",
+                     std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeTime, 1>>(),
+                     {Filename}),
+      _mu("mu", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeMu, 2>>(), {Filename}) {
 
-TBirpModelPoisson::TBirpModelPoisson(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
-                                     TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
-                                     const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
-    : _gamma("gamma", std::make_shared<TUniformFixed<TParameterBase, TypeGamma, 1>>(), {Filename}),
-      _timesOfChange("timesOfChange", std::make_shared<TUniformFixed<TParameterBase, TypeTime, 1>>(), {Filename}) {
+	// currently only allow for single species
+	if (Species->size() != 1) { UERROR("Currently only supports single species!"); }
 
-	// Poisson model is only valid for single species case
-	if (Species->size() != 1) { UERROR("Poisson model only supports single species!"); }
+	// create birp prior (Poisson or Negative Binomial)
+	std::shared_ptr<TBirpPrior> birp;
+	if (NegativeBinomial) {
+		birp = std::make_shared<TBirpPrior>(Species, Locations, Methods, TimePoints, &_gamma, &_timesOfChange, &_mu,
+		                                    Filename);
+	} else {
+		birp =
+		    std::make_shared<TBirpPrior>(Species, Locations, Methods, TimePoints, &_gamma, &_timesOfChange, Filename);
+	}
 
 	// create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
 	coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;
-	_data = std::make_unique<TObservationTyped<TypeCounts, 2>>(
-	    "data",
-	    std::make_shared<TBirpPrior>(Species, Locations, Methods, TimePoints, &_gamma, &_timesOfChange, Filename),
-	    fakeData, TObservationDefinition(Filename));
+	_data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>("data", birp, fakeData,
+	                                                                      stattools::TObservationDefinition(Filename));
 
 	// add to DAG
 	DAGBuilder.addToDAG({&_gamma, &_timesOfChange});
+	if (NegativeBinomial) { DAGBuilder.addToDAG(&_mu); }
 	DAGBuilder.addToDAG(_data.get());
 	DAGBuilder.buildDAG();
-}
+};
 
 //--------------------------------------
 // TBirpCore
@@ -50,7 +60,8 @@ TBirpCore::TBirpCore() {
 		logfile().list("Will write files with prefix '", _outname, "'. (parameter 'out')");
 	} else {
 		_outname = "birp";
-		logfile().list("Will write files with default prefix '", _outname, "'. (You can change this using the parameter 'out')");
+		logfile().list("Will write files with default prefix '", _outname,
+		               "'. (You can change this using the parameter 'out')");
 	}
 }
 
@@ -87,10 +98,10 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
 	if (ending == "csv") { delim = ","; }
 	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
-	if(hasCounts && infile.numCols() != 6){
-		UERROR("Expected file ",infile.name()," to have 6 columns, but found ", infile.numCols(),".");
-	} else if(!hasCounts && infile.numCols() != 5){
-		UERROR("Expected file ",infile.name()," to have 5 columns, but found ", infile.numCols(),".");
+	if (hasCounts && infile.numCols() != 6) {
+		UERROR("Expected file ", infile.name(), " to have 6 columns, but found ", infile.numCols(), ".");
+	} else if (!hasCounts && infile.numCols() != 5) {
+		UERROR("Expected file ", infile.name(), " to have 5 columns, but found ", infile.numCols(), ".");
 	}
 	_checkHeader(infile);
 
@@ -130,7 +141,8 @@ void TBirpCore::infer() {
 
 	// create model
 	stattools::TDAGBuilder dagBuilder;
-	TBirpModelPoisson model(&_species, &_locations, &_methods, &_timepoints, _outname, dagBuilder);
+	bool negBinom = parameters().parameterExists("negativeBinomial");
+	TBirpModel model(&_species, &_locations, &_methods, &_timepoints, _outname, dagBuilder, negBinom);
 
 	// run MCMC
 	stattools::TMCMC mcmc;
@@ -144,9 +156,7 @@ void TBirpCore::_writeFile(const std::string &Filename) {
 	auto header = _getHeader();
 	coretools::TOutputFile outfile(Filename, header);
 	// write file line by line
-	for (auto &species : _species) {
-		species.write(outfile, _locations, _methods, _timepoints);
-	}
+	for (auto &species : _species) { species.write(outfile, _locations, _methods, _timepoints); }
 }
 
 void TBirpCore::_fillTimepointsFromCommandLine() {
@@ -183,7 +193,8 @@ void TBirpCore::simulate() {
 
 	// create model
 	stattools::TDAGBuilder dagBuilder;
-	TBirpModelPoisson model(&_species, &_locations, &_methods, &_timepoints, _outname, dagBuilder);
+	bool negBinom = parameters().parameterExists("negativeBinomial");
+	TBirpModel model(&_species, &_locations, &_methods, &_timepoints, _outname, dagBuilder, negBinom);
 
 	// run simulator
 	stattools::TSimulator simulator;

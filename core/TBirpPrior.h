@@ -23,7 +23,7 @@ protected:
 	std::vector<TSpecies> *_species = nullptr;
 
 	// model
-	std::vector<TEpochModel> _epochModel;
+	std::vector<std::unique_ptr<TEpochModel>> _epochModel;
 
 	// locations, methods, timepoints
 	TUniqueContainer<std::string> *_locations = nullptr;
@@ -46,6 +46,10 @@ public:
 	           TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
 	           stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
 	           std::string Prefix);
+	TBirpPrior(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
+	           TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
+	           stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+	           stattools::TParameterTyped<TypeMu, 2> *Mu, std::string Prefix);
 	~TBirpPrior() override = default;
 
 	void initializeInferred() override;

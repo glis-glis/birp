@@ -7,30 +7,32 @@
 #include "TEpochModel.h"
 #include "gtest/gtest.h"
 
-class TEpochModelBridge : public TEpochModel {
+//----------------------------------
+// TPoissonEpochModel
+//----------------------------------
+
+class TPoissonEpochModelBridge : public TPoissonEpochModel {
 	// Dummy class inheriting from TEpochModel: allows for testing protected functions
 public:
-	TEpochModelBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
-	    : TEpochModel(Gamma, TimesOfChange) {}
-
-	void _fillRho(const TUniqueContainer<size_t> &Timepoints) { return TEpochModel::_fillRho(Timepoints); }
+	TPoissonEpochModelBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+	                         stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
+	    : TPoissonEpochModel(Gamma, TimesOfChange) {}
 
 	std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) {
-		return TEpochModel::_getEpochStarts(Timepoints);
+		return TPoissonEpochModel::_getEpochStarts(Timepoints);
 	}
 
 	std::pair<double, double> _calculateLLandJP(const TSpecies &Data) const {
-		return TEpochModel::_calculateLLandJP(Data);
+		return TPoissonEpochModel::_calculateLLandJP(Data);
 	}
 };
 
-class TEpochModelTest : public testing::Test {
+class TEpochModelPoissonTest : public testing::Test {
 	// class for google test suite: define variables needed for testing TBirpPrior
 public:
 	// define parameters for test
 	std::unique_ptr<stattools::TParameterTyped<TypeGamma, 1>> gamma;
-	std::shared_ptr<TEpochModelBridge> epochModel;
+	std::shared_ptr<TPoissonEpochModelBridge> epochModel;
 	std::unique_ptr<stattools::TParameterTyped<TypeTime, 1>> timesOfChange;
 
 	void initialize(const std::vector<size_t> &TimesOfChange, const TUniqueContainer<size_t> &Timepoints,
@@ -49,13 +51,14 @@ public:
 		testing::initializeStorageParameter(timesOfChange, "timesOfChange", {numEpochs - 1}, TimesOfChange,
 		                                    TimesOfChange);
 
-		epochModel = std::make_shared<TEpochModelBridge>(gamma.get(),
-		                                                 timesOfChange.get()); // get(): unique pointer gets raw pointer
-		epochModel->initializeInferred(Timepoints);
+		epochModel =
+		    std::make_shared<TPoissonEpochModelBridge>(gamma.get(),
+		                                               timesOfChange.get()); // get(): unique pointer gets raw pointer
+		epochModel->initializeInferred(Timepoints, {}, {});
 	}
 };
 
-TEST_F(TEpochModelTest, _fillRho_easy1) {
+TEST_F(TEpochModelPoissonTest, _fillRho_easy1) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_epochModel1.csv");
 	test._sortTimepoints();
@@ -72,7 +75,7 @@ TEST_F(TEpochModelTest, _fillRho_easy1) {
 	}
 }
 
-TEST_F(TEpochModelTest, _fillRho_easy2) {
+TEST_F(TEpochModelPoissonTest, _fillRho_easy2) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_epochModel2.csv");
 	auto times                        = test.timepoints();
@@ -87,7 +90,7 @@ TEST_F(TEpochModelTest, _fillRho_easy2) {
 	}
 }
 
-TEST_F(TEpochModelTest, _fillRho_TimesOfChange_same_as_times) {
+TEST_F(TEpochModelPoissonTest, _fillRho_TimesOfChange_same_as_times) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_epochModel2_TOC_same_as_times.csv");
 	auto times                        = test.timepoints();
@@ -102,7 +105,7 @@ TEST_F(TEpochModelTest, _fillRho_TimesOfChange_same_as_times) {
 	}
 }
 
-TEST_F(TEpochModelTest, _fillRho_TimesOfChange_empty) {
+TEST_F(TEpochModelPoissonTest, _fillRho_TimesOfChange_empty) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_epochModel2_TOC_empty.csv");
 	auto times                        = test.timepoints();
@@ -113,7 +116,7 @@ TEST_F(TEpochModelTest, _fillRho_TimesOfChange_empty) {
 }
 
 // testing _getEpochStarts
-TEST_F(TEpochModelTest, _getEpochStarts_easy1) {
+TEST_F(TEpochModelPoissonTest, _getEpochStarts_easy1) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_epochStarts1.csv");
 	auto times                        = test.timepoints();
@@ -132,7 +135,7 @@ TEST_F(TEpochModelTest, _getEpochStarts_easy1) {
 }
 
 // testing _calculateLLandJP
-TEST_F(TEpochModelTest, _calculateLLandJP_1) {
+TEST_F(TEpochModelPoissonTest, _calculateLLandJP_1) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_calcLLandJP1.csv");
 	auto data                         = test.species();
@@ -152,7 +155,7 @@ TEST_F(TEpochModelTest, _calculateLLandJP_1) {
 }
 
 // testing _calculateLLandJP
-TEST_F(TEpochModelTest, _calculateLLandJP_2) {
+TEST_F(TEpochModelPoissonTest, _calculateLLandJP_2) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_calcLLandJP2.csv");
 	auto data                         = test.species();
@@ -165,6 +168,86 @@ TEST_F(TEpochModelTest, _calculateLLandJP_2) {
 	// define expected result
 	double expectedLL = -1422.29668;
 	double expectedJP = 12.89151;
+	auto [LL, JP]     = epochModel->_calculateLLandJP(data[0]);
+	// call function
+	EXPECT_FLOAT_EQ(expectedLL, LL);
+	EXPECT_NEAR(expectedJP, JP, 0.0001); // determinant is not exact in armadillo library
+}
+
+//----------------------------------
+// TNegBinEpochModel
+//----------------------------------
+
+class TNegBinEpochModelBridge : public TNegBinEpochModel {
+	// Dummy class inheriting from TEpochModel: allows for testing protected functions
+public:
+	TNegBinEpochModelBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+	                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+	                        stattools::TParameterTyped<TypeMu, 2> *Mu)
+	    : TNegBinEpochModel(Gamma, TimesOfChange, Mu) {}
+
+	std::pair<double, double> _calculateLLandJP(const TSpecies &Data) const {
+		return TNegBinEpochModel::_calculateLLandJP(Data);
+	}
+};
+
+class TEpochModelNegBinTest : public testing::Test {
+	// class for google test suite: define variables needed for testing TBirpPrior
+public:
+	// define parameters for test
+	std::unique_ptr<stattools::TParameterTyped<TypeGamma, 1>> gamma;
+	std::unique_ptr<stattools::TParameterTyped<TypeTime, 1>> timesOfChange;
+	std::unique_ptr<stattools::TParameterTyped<TypeMu, 2>> mu;
+	std::shared_ptr<TNegBinEpochModelBridge> epochModel;
+
+	void initialize(const std::vector<size_t> &TimesOfChange, const TUniqueContainer<size_t> &Timepoints,
+	                const TUniqueContainer<std::string> &Methods, const TUniqueContainer<std::string> &Locations,
+	                std::vector<double> NewGamma = {}, std::vector<double> NewMu = {},
+	                std::vector<double> OldGamma = {}, std::vector<double> OldMu = {}) {
+		using namespace stattools::prior;
+
+		const size_t numEpochs = TimesOfChange.size() + 1;
+		coretools::instances::parameters().addParameter("timesOfChange",
+		                                                coretools::str::concatenateString(TimesOfChange, ","));
+
+		// create a gamma
+		if (OldGamma.empty()) { OldGamma.resize(numEpochs, 0.0); }
+		if (NewGamma.empty()) { NewGamma.resize(numEpochs, 0.0); }
+		testing::initializeStorageParameter(gamma, "gamma", {numEpochs}, OldGamma, NewGamma);
+
+		// create times of change
+		testing::initializeStorageParameter(timesOfChange, "timesOfChange", {numEpochs - 1}, TimesOfChange,
+		                                    TimesOfChange);
+
+		// create mu
+		if (OldMu.empty()) { OldMu.resize(numEpochs, 0.0); }
+		if (NewMu.empty()) { NewMu.resize(numEpochs, 0.0); }
+		std::array<size_t, 2> dimensionsMu = {Methods.size(), Locations.size()};
+		testing::initializeStorageParameter(mu, "mu", dimensionsMu, OldMu, NewMu);
+
+		epochModel = std::make_shared<TNegBinEpochModelBridge>(gamma.get(), timesOfChange.get(),
+		                                                       mu.get()); // get(): unique pointer gets raw pointer
+		epochModel->initializeInferred(Timepoints, Locations, Methods);
+	}
+};
+
+// testing _calculateLLandJP
+TEST_F(TEpochModelNegBinTest, _calculateLLandJP) {
+	TBirpCoreBridge test;
+	test._readFile("../tests/test_files/test_calcLLandJP2.csv");
+	auto data                         = test.species();
+	auto times                        = test.timepoints();
+	auto methods                      = test.methods();
+	auto locations                    = test.locations();
+	std::vector<size_t> timesOfChange = {4};
+	std::vector<double> NewGamma      = {-1, 1};
+	std::vector<double> NewMu         = {0.5, 0.6}; // TODO change!
+
+	initialize(timesOfChange, times, methods, locations, NewGamma, NewMu);
+
+	// define expected result
+	double expectedLL = -1422.29668; // TODO change!
+	double expectedJP = 12.89151;    // TODO change!
 	auto [LL, JP]     = epochModel->_calculateLLandJP(data[0]);
 	// call function
 	EXPECT_FLOAT_EQ(expectedLL, LL);

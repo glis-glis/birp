@@ -6,6 +6,10 @@
 
 using namespace coretools::instances;
 
+//--------------------------------
+// TEpochModel
+//--------------------------------
+
 TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                          stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
     : _gamma(Gamma), _timesOfChange(TimesOfChange) {
@@ -22,7 +26,9 @@ TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	if (!parameters().parameterExists("inferTimesOfChange")) { _timesOfChange->getDefinition().update(false); }
 }
 
-void TEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints) {
+void TEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
+                                     const TUniqueContainer<std::string> & /*Locations*/,
+                                     const TUniqueContainer<std::string> & /*Methods*/) {
 	_timesOfChange->initStorage({_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
 	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
 
@@ -121,7 +127,7 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 		// now normalize by row sum!
 		coretools::normalize(p);
 		// add to Likelihood
-		LL += _calculateLL(sigma, lm, p, ij);
+		LL += _calculateLL(sigma, lm, p);
 		// add to JP
 		fisherInfo += _calcFisherInfo(p, sigma, lm.nu());
 	}
@@ -129,22 +135,9 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 	return {LL, JP};
 }
 
-double TPoissonEpochModel::_calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const {
-	double LL = 0.0;
-	for (size_t k = 0; k < lm.size(); k++) { LL += (double)lm[k].counts * log(p[k]);}
-	return LL;
-}
-
-double TNegBinEpochModel::_calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const {
-	double sum_a = 0.0;
-    double term2 = 0.0;
-    int n = lm.nu();
-	for (size_t k = 0; k < lm.size(); k++) {
-        double alpha_k = _mu->value(ij) * sigma[k];
-        sum_a += alpha_k;  // summing up alphas
-        term2 += coretools::gammaLog(lm[k].counts + alpha_k) - coretools::gammaLog(alpha_k);  // x_k + 1 drops out in hastings ratio
-	}
-    return coretools::gammaLog(sum_a)  - coretools::gammaLog(n + sum_a) + term2; // n+1 drops out as well
+double TEpochModel::calculateLL(const TSpecies &Data) const {
+	const auto [newLL, newJP] = _calculateLLandJP(Data);
+	return newLL;
 }
 
 void TEpochModel::updateGamma(const TSpecies &Data) {
@@ -183,8 +176,70 @@ void TEpochModel::simulate(TSpecies &data) {
 	data.simulate(_calculatePhi());
 }
 
-// TO DO
-// automatically remove data sets with less than two time points with effort > 0?
-
 // getters for test functions
 size_t TEpochModel::rho(size_t row, size_t col) const { return _rho(row, col); }
+
+//--------------------------------
+// TPoissonEpochModel
+//--------------------------------
+
+TPoissonEpochModel::TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+                                       stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
+    : TEpochModel(Gamma, TimesOfChange){};
+
+double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, const TDataSeries &lm,
+                                        const std::vector<double> &p) const {
+	double LL = 0.0;
+	for (size_t k = 0; k < lm.size(); k++) { LL += (double)lm[k].counts * log(p[k]); }
+	return LL;
+}
+
+//--------------------------------
+// TNegBinEpochModel
+//--------------------------------
+
+TNegBinEpochModel::TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+                                     stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+                                     stattools::TParameterTyped<TypeMu, 2> *Mu)
+    : TEpochModel(Gamma, TimesOfChange) {
+	_mu = Mu;
+}
+
+void TNegBinEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
+                                           const TUniqueContainer<std::string> &Locations,
+                                           const TUniqueContainer<std::string> &Methods) {
+	// initialize gamma and timepoints
+	TEpochModel::initializeInferred(Timepoints, Methods, Locations);
+
+	// initialize mu
+	auto locationNames = std::make_shared<coretools::TNamesStrings>();
+	auto methodNames   = std::make_shared<coretools::TNamesStrings>();
+	for (size_t j = 0; j < Locations.size(); ++j) { locationNames->addName({Locations[j]}); }
+	for (size_t i = 0; i < Methods.size(); ++i) { methodNames->addName({Methods[i]}); }
+	_mu->initStorage({Methods.size(), Locations.size()}, {methodNames, locationNames});
+}
+
+double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const TDataSeries &lm,
+                                       const std::vector<double> & /*p*/) const {
+	double sum_a = 0.0;
+	double term2 = 0.0;
+	int n        = lm.nu();
+	for (size_t k = 0; k < lm.size(); k++) {
+		const size_t ij = _mu->getIndex({lm.method_id(), lm.location_id()});
+		double alpha_k  = _mu->value(ij) * sigma[k];
+		sum_a += alpha_k; // summing up alphas
+		term2 += coretools::gammaLog(lm[k].counts + alpha_k) -
+		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
+	}
+	return coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2; // n+1 drops out as well
+}
+
+void TNegBinEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
+	// TODO: something more sophisticated?
+	for (size_t ij = 0; ij < _mu->totalSize(); ++ij) { _mu->set(ij, 1.0); }
+
+	TEpochModel::estimateInitialPriorParameters(Data);
+}
+
+// TO DO
+// automatically remove data sets with less than two time points with effort > 0?

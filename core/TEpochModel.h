@@ -14,6 +14,10 @@
 #include <armadillo>
 #include <vector>
 
+//--------------------------------
+// TEpochModel
+//--------------------------------
+
 class TEpochModel {
 protected:
 	// Birp parameters and co-variates
@@ -42,15 +46,20 @@ protected:
 	// simulation
 	void _setSimulatedGammaToZero();
 
-	virtual double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const = 0;
-public:
-	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
-	~TEpochModel() = default;
-	void initializeInferred(const TUniqueContainer<size_t> &Timepoints);
+	virtual double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm, const std::vector<double> &p) const = 0;
 
-	void estimateInitialPriorParameters(const TSpecies &Data);
+public:
+	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+	            stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
+	~TEpochModel() = default;
+	virtual void initializeInferred(const TUniqueContainer<size_t> &Timepoints,
+	                                const TUniqueContainer<std::string> &Locations,
+	                                const TUniqueContainer<std::string> &Methods);
+
+	virtual void estimateInitialPriorParameters(const TSpecies &Data);
 
 	void updateGamma(const TSpecies &Data);
+	double calculateLL(const TSpecies &Data) const;
 
 	// simulation
 	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
@@ -61,25 +70,38 @@ public:
 	size_t rho(size_t row, size_t col) const;
 };
 
-#endif // BIRP_TEPOCHMODEL_H
-
+//--------------------------------
+// TPoissonEpochModel
+//--------------------------------
 
 class TPoissonEpochModel : public TEpochModel {
-
 protected:
-	double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const;
+	double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm, const std::vector<double> &p) const override;
 
 public:
-	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
-	    : TEpochModel(Gamma, TimesOfChange) {}
+	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+	                   stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 };
+
+//--------------------------------
+// TNegBinEpochModel
+//--------------------------------
 
 class TNegBinEpochModel : public TEpochModel {
 protected:
-    stattools::TParameterTyped<TypeMu, 1> *_mu        = nullptr;
-	double _calculateLL(const std::vector<double>& sigma, const TDataSeries& lm, const std::vector<double>& p, size_t ij) const;
+	// parameters: gamma (in base class) and mu
+	stattools::TParameterTyped<TypeMu, 2> *_mu = nullptr;
+
+	double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm, const std::vector<double> &p) const override;
 
 public:
-	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
-	    : TEpochModel(Gamma, TimesOfChange) {}
+	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+	                  stattools::TParameterTyped<TypeMu, 2> *Mu);
+
+	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
+	                        const TUniqueContainer<std::string> &Methods) override;
+	void estimateInitialPriorParameters(const TSpecies &Data) override;
 };
+
+#endif // BIRP_TEPOCHMODEL_H
