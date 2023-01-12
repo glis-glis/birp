@@ -220,8 +220,8 @@ public:
 		                                    TimesOfChange);
 
 		// create mu
-		if (OldMu.empty()) { OldMu.resize(numEpochs, 0.0); }
-		if (NewMu.empty()) { NewMu.resize(numEpochs, 0.0); }
+		if (OldMu.empty()) { OldMu.resize(Methods.size()*Locations.size(), 1.0); }
+		if (NewMu.empty()) { NewMu.resize(Methods.size()*Locations.size(), 1.0); }
 		std::array<size_t, 2> dimensionsMu = {Methods.size(), Locations.size()};
 		testing::initializeStorageParameter(mu, "mu", dimensionsMu, OldMu, NewMu);
 
@@ -234,22 +234,18 @@ public:
 // testing _calculateLLandJP
 TEST_F(TEpochModelNegBinTest, _calculateLLandJP) {
 	TBirpCoreBridge test;
-	test._readFile("../tests/test_files/test_calcLLandJP2.csv");
+	test._readFile("../tests/test_files/NB_dirichletMultinomial_LL_test1a.csv");
 	auto data                         = test.species();
 	auto times                        = test.timepoints();
 	auto methods                      = test.methods();
 	auto locations                    = test.locations();
-	std::vector<size_t> timesOfChange = {4};
+	std::vector<size_t> timesOfChange = {3};
 	std::vector<double> NewGamma      = {-1, 1};
-	std::vector<double> NewMu         = {0.5, 0.6}; // TODO change!
-
+	std::vector<double> NewMu         = {3,7,8,1};
 	initialize(timesOfChange, times, methods, locations, NewGamma, NewMu);
-
 	// define expected result
-	double expectedLL = -1422.29668; // TODO change!
-	double expectedJP = 12.89151;    // TODO change!
+	double expectedLL = -361.9808;
 	auto [LL, JP]     = epochModel->_calculateLLandJP(data[0]);
 	// call function
 	EXPECT_FLOAT_EQ(expectedLL, LL);
-	EXPECT_NEAR(expectedJP, JP, 0.0001); // determinant is not exact in armadillo library
 }

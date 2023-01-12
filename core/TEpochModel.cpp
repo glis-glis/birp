@@ -228,6 +228,7 @@ double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const T
 		const size_t ij = _mu->getIndex({lm.method_id(), lm.location_id()});
 		double alpha_k  = _mu->value(ij) * sigma[k];
 		sum_a += alpha_k; // summing up alphas
+		std::cout << _mu->value(ij) << std::endl;
 		term2 += coretools::gammaLog(lm[k].counts + alpha_k) -
 		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
 	}
