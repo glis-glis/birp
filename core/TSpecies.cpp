@@ -40,6 +40,14 @@ void TDataPoint::simulate(double Effort, double phi) {
 	_simulatePoisson(phi);
 }
 
+void TDataPoint::simulateNB(double Effort, double phi, double a, double mu_ij){
+	effort = Effort;
+	double r = a * mu_ij * phi * effort;
+	double p = 1/(1+a);
+	counts = coretools::instances::randomGenerator().getNegativeBinomialRand(r,p);
+}
+
+
 void TDataPoint::write(coretools::TOutputFile &File, const std::string &SpeciesName, const std::string &Location,
                        const std::string &Method, const TUniqueContainer<size_t> &Timepoints) const {
 	// write one line
@@ -128,6 +136,13 @@ void TDataSeries::simulate(size_t N0, const std::vector<double> &phi, double det
 void TDataSeries::simulate(double effort, const std::vector<double> &phi) {
 	for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(effort, phi[t]); }
 }
+
+void TDataSeries::simulateNB(double effort, const std::vector<double> &phi, double a, double mu_ij) {
+	for (size_t t = 0; t < _dataPoints.size(); t++) {
+		_dataPoints[t].simulateNB(effort, phi[t], a, mu_ij);
+	}
+}
+
 
 void TDataSeries::write(coretools::TOutputFile &File, const std::string &SpeciesName,
                         const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
@@ -225,6 +240,8 @@ void TSpecies::simulate(const std::vector<double> &phi) {
 		}
 	}
 }
+
+// TODO make simulateNB function
 
 void TSpecies::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
                      const TUniqueContainer<std::string> &Methods, const TUniqueContainer<size_t> &Timepoints) const {

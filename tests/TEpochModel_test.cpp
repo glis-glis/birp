@@ -22,7 +22,7 @@ public:
 		return TPoissonEpochModel::_getEpochStarts(Timepoints);
 	}
 
-	std::pair<double, double> _calculateLLandJP(const TSpecies &Data) const {
+	std::pair<std::vector<double>, double> _calculateLLandJP(const TSpecies &Data) const {
 		return TPoissonEpochModel::_calculateLLandJP(Data);
 	}
 };
@@ -150,7 +150,7 @@ TEST_F(TEpochModelPoissonTest, _calculateLLandJP_1) {
 	double expectedJP = 4.420733;
 	auto [LL, JP]     = epochModel->_calculateLLandJP(data[0]);
 	// call function
-	EXPECT_FLOAT_EQ(expectedLL, LL);
+	EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL));
 	EXPECT_FLOAT_EQ(expectedJP, JP);
 }
 
@@ -170,7 +170,7 @@ TEST_F(TEpochModelPoissonTest, _calculateLLandJP_2) {
 	double expectedJP = 12.89151;
 	auto [LL, JP]     = epochModel->_calculateLLandJP(data[0]);
 	// call function
-	EXPECT_FLOAT_EQ(expectedLL, LL);
+	EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL));
 	EXPECT_NEAR(expectedJP, JP, 0.0001); // determinant is not exact in armadillo library
 }
 
@@ -186,7 +186,7 @@ public:
 	                        stattools::TParameterTyped<TypeMu, 2> *Mu)
 	    : TNegBinEpochModel(Gamma, TimesOfChange, Mu) {}
 
-	std::pair<double, double> _calculateLLandJP(const TSpecies &Data) const {
+	std::pair<std::vector<double>, double> _calculateLLandJP(const TSpecies &Data) const {
 		return TNegBinEpochModel::_calculateLLandJP(Data);
 	}
 };
@@ -241,11 +241,11 @@ TEST_F(TEpochModelNegBinTest, _calculateLLandJP) {
 	auto locations                    = test.locations();
 	std::vector<size_t> timesOfChange = {3};
 	std::vector<double> NewGamma      = {-1, 1};
-	std::vector<double> NewMu         = {3,7,8,1};
+	std::vector<double> NewMu         = {3,1,7,8};
 	initialize(timesOfChange, times, methods, locations, NewGamma, NewMu);
 	// define expected result
 	double expectedLL = -361.9808;
 	auto [LL, JP]     = epochModel->_calculateLLandJP(data[0]);
 	// call function
-	EXPECT_FLOAT_EQ(expectedLL, LL);
+	EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL));
 }

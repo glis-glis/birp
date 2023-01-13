@@ -72,6 +72,7 @@ public:
 		_simulatePoisson(phi);
 	}
 	void simulate(double effort, double phi);
+	void simulateNB(double Effort, double phi, double a, double mu_ij);
 	void write(coretools::TOutputFile &File, const std::string &SpeciesName, const std::string &Location,
 	           const std::string &Method, const TUniqueContainer<size_t> &Timepoints) const;
 
@@ -122,6 +123,7 @@ public:
 		for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(obj, phi[t]); }
 	}
 	void simulate(double effort, const std::vector<double> &phi);
+	void simulateNB(double effort, const std::vector<double> &phi, double a, double mu_ij);
 	void write(coretools::TOutputFile &File, const std::string &SpeciesName,
 	           const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
 	           const TUniqueContainer<size_t> &Timepoints) const;

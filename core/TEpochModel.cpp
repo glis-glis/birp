@@ -112,22 +112,27 @@ arma::mat TEpochModel::_calcFisherInfo(const std::vector<double> &p, const std::
 	return nu * tmp;
 }
 
-std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) const {
+std::vector<double> TEpochModel::calcSigma(const TDataSeries &lm, const std::vector<double> &phi) const {
+	std::vector<double> sigma(lm.size());
+	for (size_t k = 0; k < lm.size(); k++) {
+		// calculate sigma and fill into p (will normalize later)
+		sigma[k] = phi[k] * lm[k].effort;
+	}
+	return sigma;
+}
+
+std::pair<std::vector<double>, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) const {
 	std::vector<double> phi = _calculatePhi();
-	double LL               = 0.0;
+	std::vector<double> LL(Data.size(), 0.0);
 	arma::mat fisherInfo(_numEpochs, _numEpochs, arma::fill::zeros);
 	for (size_t ij = 0; ij < Data.size(); ij++) {
-		const auto &lm = Data[ij];
-		std::vector<double> sigma(lm.size());
-		for (size_t k = 0; k < lm.size(); k++) {
-			// calculate sigma and fill into p (will normalize later)
-			sigma[k] = phi[k] * lm[k].effort;
-		}
+		const auto &lm        = Data[ij];
+		std::vector sigma     = calcSigma(lm, phi);
 		std::vector<double> p = sigma;
 		// now normalize by row sum!
 		coretools::normalize(p);
 		// add to Likelihood
-		LL += _calculateLL(sigma, lm, p);
+		LL[ij] = _calculateLL(sigma, lm, p);
 		// add to JP
 		fisherInfo += _calcFisherInfo(p, sigma, lm.nu());
 	}
@@ -137,24 +142,28 @@ std::pair<double, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) c
 
 double TEpochModel::calculateLL(const TSpecies &Data) const {
 	const auto [newLL, newJP] = _calculateLLandJP(Data);
-	return newLL;
+	return coretools::containerSum(newLL);
 }
 
-void TEpochModel::updateGamma(const TSpecies &Data) {
+void TEpochModel::_updateGamma(const TSpecies &Data) {
 	for (size_t m = 0; m < _numEpochs; m++) { // loop over epochs and update gamma epoch by epoch
-		_gamma->updateSpecificIndex(m);
+		if(_gamma->updateSpecificIndex(m)) {
+			const auto [newLL, newJP]  = _calculateLLandJP(Data);
+			const double LLRatio       = coretools::containerSum(newLL) - coretools::containerSum(_oldLL); // in log
+			const double logPriorRatio = newJP - _oldJP;                                                   // in log
 
-		const auto [newLL, newJP]  = _calculateLLandJP(Data);
-		const double LLRatio       = newLL - _oldLL; // in log
-		const double logPriorRatio = newJP - _oldJP; // in log
-
-		const double logH = LLRatio + logPriorRatio;
-		if (_gamma->acceptOrReject(logH, m)) {
-			// accepted -> update LL and jeffrey's Prior
-			_oldLL = newLL;
-			_oldJP = newJP;
+			const double logH = LLRatio + logPriorRatio;
+			if (_gamma->acceptOrReject(logH, m)) {
+				// accepted -> update LL and jeffrey's Prior
+				_oldLL = newLL;
+				_oldJP = newJP;
+			}
 		}
 	}
+}
+
+void TEpochModel::update(const TSpecies &Data) {
+	_updateGamma(Data);
 }
 
 void TEpochModel::_setSimulatedGammaToZero() {
@@ -224,15 +233,41 @@ double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const T
 	double sum_a = 0.0;
 	double term2 = 0.0;
 	int n        = lm.nu();
+	const size_t ij = _mu->getIndex({lm.method_id(), lm.location_id()});
 	for (size_t k = 0; k < lm.size(); k++) {
-		const size_t ij = _mu->getIndex({lm.method_id(), lm.location_id()});
 		double alpha_k  = _mu->value(ij) * sigma[k];
+		std::cout << alpha_k << ",";
 		sum_a += alpha_k; // summing up alphas
-		std::cout << _mu->value(ij) << std::endl;
-		term2 += coretools::gammaLog(lm[k].counts + alpha_k) -
+		term2 += coretools::gammaLog((double)lm[k].counts + alpha_k) -
 		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
 	}
+	std::cout << std::endl;
 	return coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2; // n+1 drops out as well
+}
+
+void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
+	for (size_t c = 0; c < Data.size(); c++) { // loop over one location/method pair across all years k (c=counter)
+		const auto &lm        = Data[c];
+		const size_t ij = _mu->getIndex({lm.method_id(), lm.location_id()});
+		_mu->updateSpecificIndex(ij);
+		std::cout << std::endl;
+		std::cout << "ij:" << ij << ":" << _mu->oldValue(ij) << "->" << _mu->value(ij) << std::endl;
+		std::vector<double> phi   = _calculatePhi();
+		std::vector<double> sigma = calcSigma(lm, phi);
+		const auto newLL          = _calculateLL(sigma, lm, {});
+		const double LLRatio      = newLL - _oldLL[c]; // in log
+		std::cout << newLL << "-" << _oldLL[c] << "=" << LLRatio << std::endl;
+
+		    if (_mu->acceptOrReject(LLRatio, ij)) {
+			// accepted -> update LL
+			_oldLL[c] = newLL;
+		}
+	}
+}
+
+void TNegBinEpochModel::update(const TSpecies &Data) {
+	_updateGamma(Data);
+	_updateMu(Data);
 }
 
 void TNegBinEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
@@ -242,5 +277,5 @@ void TNegBinEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
 	TEpochModel::estimateInitialPriorParameters(Data);
 }
 
-// TO DO
+// TODO
 // automatically remove data sets with less than two time points with effort > 0?

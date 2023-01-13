@@ -32,7 +32,7 @@ protected:
 
 	// temporary values, stored for speed
 	// TODO: make sure old LL and old JP refer to correct species in case of multi species inference
-	double _oldLL = 0.0;
+	std::vector<double> _oldLL;
 	double _oldJP = 0.0;
 
 	// likelihood
@@ -40,14 +40,14 @@ protected:
 	[[nodiscard]] double _calculateLogPhi_k(size_t k) const;
 	[[nodiscard]] std::vector<double> _calculatePhi() const;
 	arma::mat _calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeCounts nu) const;
-	std::pair<double, double> _calculateLLandJP(const TSpecies &Data) const;
+	std::pair<std::vector<double>, double> _calculateLLandJP(const TSpecies &Data) const;
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 
 	// simulation
 	void _setSimulatedGammaToZero();
 
 	virtual double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm, const std::vector<double> &p) const = 0;
-
+	void _updateGamma(const TSpecies &Data);
 public:
 	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	            stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
@@ -58,7 +58,9 @@ public:
 
 	virtual void estimateInitialPriorParameters(const TSpecies &Data);
 
-	void updateGamma(const TSpecies &Data);
+	std::vector<double> calcSigma(const TDataSeries& lm, const std::vector<double>& phi) const;
+
+	virtual void update(const TSpecies &Data);
 	double calculateLL(const TSpecies &Data) const;
 
 	// simulation
@@ -93,7 +95,7 @@ protected:
 	stattools::TParameterTyped<TypeMu, 2> *_mu = nullptr;
 
 	double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm, const std::vector<double> &p) const override;
-
+	void _updateMu(const TSpecies &Data);
 public:
 	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
@@ -101,6 +103,7 @@ public:
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
 	                        const TUniqueContainer<std::string> &Methods) override;
+	virtual void update(const TSpecies &Data);
 	void estimateInitialPriorParameters(const TSpecies &Data) override;
 };
 

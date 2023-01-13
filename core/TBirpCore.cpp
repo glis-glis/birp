@@ -8,6 +8,7 @@
 #include "TBirpCore.h"
 #include "coretools/Types/strongTypes.h"
 #include "stattools/MCMC/TMCMC.h"
+#include "stattools/Priors/TPriorExponential.h"
 
 using namespace coretools::instances;
 using namespace stattools;
@@ -22,7 +23,7 @@ TBirpModel::TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::str
       _timesOfChange("timesOfChange",
                      std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeTime, 1>>(),
                      {Filename}),
-      _mu("mu", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeMu, 2>>(), {Filename}) {
+      _mu("mu", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeMu, 2>>(), {Filename, "1000"}) {
 
 	// currently only allow for single species
 	if (Species->size() != 1) { UERROR("Currently only supports single species!"); }

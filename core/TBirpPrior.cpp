@@ -52,7 +52,7 @@ void TBirpPrior::estimateInitialPriorParameters() {
 // MCMC
 
 void TBirpPrior::updateParams() {
-	for (size_t s = 0; s < _species->size(); ++s) { _epochModel[s]->updateGamma((*_species)[s]); }
+	for (size_t s = 0; s < _species->size(); ++s) { _epochModel[s]->update((*_species)[s]); }
 }
 
 double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
