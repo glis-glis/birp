@@ -163,6 +163,7 @@ void TEpochModel::_updateGamma(const TSpecies &Data) {
 	}
 }
 
+
 void TEpochModel::update(const TSpecies &Data) { _updateGamma(Data); }
 
 void TEpochModel::_setSimulatedGammaToZero() {
@@ -245,7 +246,9 @@ double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const T
 		term2 += coretools::gammaLog((double)lm[k].counts + alpha_k) -
 		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
 	}
-	return coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2; // n+1 drops out as well
+	double LLtoPrint = coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2; // n+1 drops out as well
+	std::cout << "LL:" << LLtoPrint << std::endl;
+	return LLtoPrint;
 }
 
 void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
@@ -284,8 +287,24 @@ void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
 }
 
 void TNegBinEpochModel::_updateLogA(const TSpecies &Data) {
-	// TODO: implement
+	if (_logA->update()) {
+		std::vector<double> phi = _calculatePhi();
+		std::vector<double> newLL(Data.size());
+		for (size_t ij = 0; ij < Data.size(); ++ij) {
+			const auto &lm    = Data[ij];
+			std::vector sigma = calcSigma(lm, phi);
+			// add to Likelihood
+			newLL[ij]         = _calculateLL(sigma, lm, {});
+		}
+		const double LLRatio = coretools::containerSum(newLL) - coretools::containerSum(_oldLL);
+		const double logH    = LLRatio + _logA->getLogPriorRatio();
+		if (_logA->acceptOrReject(logH, 0)) {
+			// accepted -> update LL
+			_oldLL = newLL;
+		}
+	}
 }
+
 
 void TNegBinEpochModel::update(const TSpecies &Data) {
 	if (_gamma->isUpdated()) { _updateGamma(Data); }
