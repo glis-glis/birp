@@ -49,7 +49,8 @@ public:
 	TBirpPrior(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
 	           TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
 	           stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-	           stattools::TParameterTyped<TypeMu, 2> *Mu, std::string Prefix);
+	           stattools::TParameterTyped<TypeMu, 2> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
+	           std::string Prefix);
 	~TBirpPrior() override = default;
 
 	void initializeInferred() override;

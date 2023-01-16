@@ -46,8 +46,10 @@ protected:
 	// simulation
 	void _setSimulatedGammaToZero();
 
-	virtual double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm, const std::vector<double> &p) const = 0;
+	virtual double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm,
+	                            const std::vector<double> &p) const = 0;
 	void _updateGamma(const TSpecies &Data);
+
 public:
 	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	            stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
@@ -58,7 +60,7 @@ public:
 
 	virtual void estimateInitialPriorParameters(const TSpecies &Data);
 
-	std::vector<double> calcSigma(const TDataSeries& lm, const std::vector<double>& phi) const;
+	std::vector<double> calcSigma(const TDataSeries &lm, const std::vector<double> &phi) const;
 
 	virtual void update(const TSpecies &Data);
 	double calculateLL(const TSpecies &Data) const;
@@ -78,7 +80,8 @@ public:
 
 class TPoissonEpochModel : public TEpochModel {
 protected:
-	double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm, const std::vector<double> &p) const override;
+	double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm,
+	                    const std::vector<double> &p) const override;
 
 public:
 	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
@@ -92,14 +95,24 @@ public:
 class TNegBinEpochModel : public TEpochModel {
 protected:
 	// parameters: gamma (in base class) and mu
-	stattools::TParameterTyped<TypeMu, 2> *_mu = nullptr;
+	stattools::TParameterTyped<TypeMu, 2> *_mu     = nullptr;
+	stattools::TParameterTyped<TypeLogA, 1> *_logA = nullptr;
 
-	double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm, const std::vector<double> &p) const override;
+	// likelihood
+	double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm,
+	                    const std::vector<double> &p) const override;
+
+	// update functions
 	void _updateMu(const TSpecies &Data);
+	void _updateLogA(const TSpecies &Data);
+
+	// initialization
+	void _estimateInitialMu(const TSpecies &Data);
+
 public:
 	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-	                  stattools::TParameterTyped<TypeMu, 2> *Mu);
+	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, stattools::TParameterTyped<TypeMu, 2> *Mu,
+	                  stattools::TParameterTyped<TypeLogA, 1> *LogA);
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
 	                        const TUniqueContainer<std::string> &Methods) override;

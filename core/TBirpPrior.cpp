@@ -25,12 +25,13 @@ TBirpPrior::TBirpPrior(std::vector<TSpecies> *Species, TUniqueContainer<std::str
                        TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-                       stattools::TParameterTyped<TypeMu, 2> *Mu, std::string Prefix)
+                       stattools::TParameterTyped<TypeMu, 2> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
+                       std::string Prefix)
     : _species(Species), _locations(Locations), _methods(Methods), _timepoints(TimePoints), _out(std::move(Prefix)) {
 	// constructor for Negative Binomial model
 
-	addPriorParameter({Gamma, TimesOfChange, Mu});
-	_epochModel.emplace_back(std::make_unique<TNegBinEpochModel>(Gamma, TimesOfChange, Mu));
+	addPriorParameter({Gamma, TimesOfChange, Mu, LogA});
+	_epochModel.emplace_back(std::make_unique<TNegBinEpochModel>(Gamma, TimesOfChange, Mu, LogA));
 }
 
 std::string TBirpPrior::name() const { return "birp"; }
@@ -39,9 +40,7 @@ std::string TBirpPrior::name() const { return "birp"; }
 // Initialization
 
 void TBirpPrior::initializeInferred() {
-	for (auto & s : _epochModel) {
-		s->initializeInferred(*_timepoints, *_locations, *_methods);
-	}
+	for (auto &s : _epochModel) { s->initializeInferred(*_timepoints, *_locations, *_methods); }
 }
 
 void TBirpPrior::estimateInitialPriorParameters() {

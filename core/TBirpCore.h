@@ -29,7 +29,9 @@ private:
 	stattools::TParameterTyped<TypeTime, 1> _timesOfChange;
 
 	// only relevant for negative binomial model
+	stattools::TParameterTyped<TypeSigmaMu, 1> _sigmaMu;
 	stattools::TParameterTyped<TypeMu, 2> _mu;
+	stattools::TParameterTyped<TypeLogA, 1> _logA;
 
 	std::unique_ptr<stattools::TObservationTyped<TypeCounts, 2>> _data;
 

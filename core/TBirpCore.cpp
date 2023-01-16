@@ -8,11 +8,28 @@
 #include "TBirpCore.h"
 #include "coretools/Types/strongTypes.h"
 #include "stattools/MCMC/TMCMC.h"
+#include "stattools/Priors/TPriorDirichlet.h"
 #include "stattools/Priors/TPriorExponential.h"
 
 using namespace coretools::instances;
 using namespace stattools;
 using namespace stattools::prior;
+
+std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretools::StrictlyPositive<double> Default) {
+	// read values of alpha from command line
+	std::vector<coretools::StrictlyPositive<double>> alphas;
+	if (parameters().parameterExists(ArgName)) {
+		parameters().fillParameterIntoContainer(ArgName, alphas, ',');
+	} else {
+		alphas.push_back(Default);
+	}
+
+	if (alphas.empty()) { UERROR("Invalid argument '", ArgName, "': is empty!"); }
+	if (alphas.size() == 1) { return coretools::str::repeat(alphas[0], Size); }
+	if (alphas.size() == Size) { return coretools::str::concatenateString(alphas, ","); }
+
+	UERROR("Size of argument '", ArgName, "' (", alphas.size(), ") does not match expected size (", Size, ").");
+}
 
 TBirpModel::TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
                        TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
@@ -23,7 +40,15 @@ TBirpModel::TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::str
       _timesOfChange("timesOfChange",
                      std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeTime, 1>>(),
                      {Filename}),
-      _mu("mu", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeMu, 2>>(), {Filename, "1000"}) {
+      _sigmaMu("sigmaMu",
+               std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigmaMu, 1>>(),
+               {Filename, "1"}),
+      _mu("mu",
+          std::make_shared<stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeMu, 2, TypeSigmaMu>>(
+              &_sigmaMu),
+          {Filename, readAlphaDirichlet("alpha_mu", Methods->size() * Locations->size(), 1.0)}),
+      _logA("logA", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogA, 1>>(),
+            {Filename}) {
 
 	// currently only allow for single species
 	if (Species->size() != 1) { UERROR("Currently only supports single species!"); }
@@ -32,7 +57,7 @@ TBirpModel::TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::str
 	std::shared_ptr<TBirpPrior> birp;
 	if (NegativeBinomial) {
 		birp = std::make_shared<TBirpPrior>(Species, Locations, Methods, TimePoints, &_gamma, &_timesOfChange, &_mu,
-		                                    Filename);
+		                                    &_logA, Filename);
 	} else {
 		birp =
 		    std::make_shared<TBirpPrior>(Species, Locations, Methods, TimePoints, &_gamma, &_timesOfChange, Filename);
@@ -45,7 +70,7 @@ TBirpModel::TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::str
 
 	// add to DAG
 	DAGBuilder.addToDAG({&_gamma, &_timesOfChange});
-	if (NegativeBinomial) { DAGBuilder.addToDAG(&_mu); }
+	if (NegativeBinomial) { DAGBuilder.addToDAG({&_mu, &_sigmaMu, &_logA}); }
 	DAGBuilder.addToDAG(_data.get());
 	DAGBuilder.buildDAG();
 };

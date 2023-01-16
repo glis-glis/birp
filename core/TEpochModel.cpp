@@ -3,6 +3,7 @@
 //
 
 #include "TEpochModel.h"
+#include "stattools/ParametersObservations/TIndexSampler.h"
 
 using namespace coretools::instances;
 
@@ -147,7 +148,7 @@ double TEpochModel::calculateLL(const TSpecies &Data) const {
 
 void TEpochModel::_updateGamma(const TSpecies &Data) {
 	for (size_t m = 0; m < _numEpochs; m++) { // loop over epochs and update gamma epoch by epoch
-		if(_gamma->updateSpecificIndex(m)) {
+		if (_gamma->updateSpecificIndex(m)) {
 			const auto [newLL, newJP]  = _calculateLLandJP(Data);
 			const double LLRatio       = coretools::containerSum(newLL) - coretools::containerSum(_oldLL); // in log
 			const double logPriorRatio = newJP - _oldJP;                                                   // in log
@@ -162,9 +163,7 @@ void TEpochModel::_updateGamma(const TSpecies &Data) {
 	}
 }
 
-void TEpochModel::update(const TSpecies &Data) {
-	_updateGamma(Data);
-}
+void TEpochModel::update(const TSpecies &Data) { _updateGamma(Data); }
 
 void TEpochModel::_setSimulatedGammaToZero() {
 	if (!_gamma->hasFixedInitialValue()) {
@@ -209,9 +208,11 @@ double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, c
 
 TNegBinEpochModel::TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                                      stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-                                     stattools::TParameterTyped<TypeMu, 2> *Mu)
+                                     stattools::TParameterTyped<TypeMu, 2> *Mu,
+                                     stattools::TParameterTyped<TypeLogA, 1> *LogA)
     : TEpochModel(Gamma, TimesOfChange) {
-	_mu = Mu;
+	_mu   = Mu;
+	_logA = LogA;
 }
 
 void TNegBinEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
@@ -226,53 +227,93 @@ void TNegBinEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timep
 	for (size_t j = 0; j < Locations.size(); ++j) { locationNames->addName({Locations[j]}); }
 	for (size_t i = 0; i < Methods.size(); ++i) { methodNames->addName({Methods[i]}); }
 	_mu->initStorage({Methods.size(), Locations.size()}, {methodNames, locationNames});
+
+	// initialize a: single element
+	_logA->initStorage({1});
 }
 
 double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const TDataSeries &lm,
                                        const std::vector<double> & /*p*/) const {
-	double sum_a = 0.0;
-	double term2 = 0.0;
-	int n        = lm.nu();
+	double sum_a    = 0.0;
+	double term2    = 0.0;
+	int n           = lm.nu();
+	const double a  = exp(_logA->value());
 	const size_t ij = _mu->getIndex({lm.method_id(), lm.location_id()});
 	for (size_t k = 0; k < lm.size(); k++) {
-		double alpha_k  = _mu->value(ij) * sigma[k];
-		std::cout << alpha_k << ",";
+		double alpha_k = a * _mu->value(ij) * sigma[k];
 		sum_a += alpha_k; // summing up alphas
 		term2 += coretools::gammaLog((double)lm[k].counts + alpha_k) -
 		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
 	}
-	std::cout << std::endl;
 	return coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2; // n+1 drops out as well
 }
 
 void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
-	for (size_t c = 0; c < Data.size(); c++) { // loop over one location/method pair across all years k (c=counter)
-		const auto &lm        = Data[c];
-		const size_t ij = _mu->getIndex({lm.method_id(), lm.location_id()});
-		_mu->updateSpecificIndex(ij);
-		std::cout << std::endl;
-		std::cout << "ij:" << ij << ":" << _mu->oldValue(ij) << "->" << _mu->value(ij) << std::endl;
-		std::vector<double> phi   = _calculatePhi();
-		std::vector<double> sigma = calcSigma(lm, phi);
-		const auto newLL          = _calculateLL(sigma, lm, {});
-		const double LLRatio      = newLL - _oldLL[c]; // in log
-		std::cout << newLL << "-" << _oldLL[c] << "=" << LLRatio << std::endl;
+	stattools::TIndexSampler sampler(Data.size());
+	sampler.sampleIndices();
 
-		    if (_mu->acceptOrReject(LLRatio, ij)) {
+	for (size_t c = 0; c < sampler.length(); ++c) {
+		// pick two indices i to update
+		auto [c1, c2] = sampler.getIndexPair(c);
+
+		const auto &lm1 = Data[c1];
+		const auto &lm2 = Data[c2];
+
+		const size_t ij1 = _mu->getIndex({lm1.method_id(), lm1.location_id()});
+		const size_t ij2 = _mu->getIndex({lm2.method_id(), lm2.location_id()});
+
+		_mu->updatePairWiseSumOneVector(ij1, ij2);
+
+		std::vector<double> phi    = _calculatePhi();
+		std::vector<double> sigma1 = calcSigma(lm1, phi);
+		std::vector<double> sigma2 = calcSigma(lm2, phi);
+
+		const auto newLL1 = _calculateLL(sigma1, lm1, {});
+		const auto newLL2 = _calculateLL(sigma2, lm2, {});
+
+		const double LLRatio = newLL1 + newLL2 - _oldLL[c1] - _oldLL[c2]; // in log
+		const double logH    = LLRatio + _mu->getLogPriorRatio(ij1) + _mu->getLogPriorRatio(ij2);
+
+		coretools::TRange range(ij1, ij2);
+		if (_mu->acceptOrReject(logH, range, ij1)) {
 			// accepted -> update LL
-			_oldLL[c] = newLL;
+			_oldLL[c1] = newLL1;
+			_oldLL[c2] = newLL2;
 		}
 	}
 }
 
+void TNegBinEpochModel::_updateLogA(const TSpecies &Data) {
+	// TODO: implement
+}
+
 void TNegBinEpochModel::update(const TSpecies &Data) {
-	_updateGamma(Data);
-	_updateMu(Data);
+	if (_gamma->isUpdated()) { _updateGamma(Data); }
+	if (_mu->isUpdated()) { _updateMu(Data); }
+	if (_logA->isUpdated()) { _updateLogA(Data); }
+}
+
+void TNegBinEpochModel::_estimateInitialMu(const TSpecies &Data) {
+	// initialize mu: relative nu's
+	std::vector<double> nus(Data.size());
+	for (size_t c = 0; c < Data.size(); ++c) {
+		nus[c] = std::max(coretools::UnsignedInt<uint16_t>(1), Data[c].nu()); // do not allow 0: problem for Dirichlet
+	}
+	coretools::normalize(nus);
+
+	// initialize to very small value: not all i-j-combinations exists
+	for (size_t ij = 0; ij < _mu->totalSize(); ++ij) { _mu->setInitial(ij, 1e-10); }
+	for (size_t c = 0; c < Data.size(); ++c) {
+		const size_t ij = _mu->getIndex({Data[c].method_id(), Data[c].location_id()});
+		_mu->setInitial(ij, nus[c]);
+	}
+	_mu->normalizeToSum1AfterUpdate();
 }
 
 void TNegBinEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
-	// TODO: something more sophisticated?
-	for (size_t ij = 0; ij < _mu->totalSize(); ++ij) { _mu->set(ij, 1.0); }
+	// initialize mu
+	_estimateInitialMu(Data);
+	_logA->setInitial(0.0); // log(1) = 0
 
 	TEpochModel::estimateInitialPriorParameters(Data);
 }
