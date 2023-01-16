@@ -163,7 +163,6 @@ void TEpochModel::_updateGamma(const TSpecies &Data) {
 	}
 }
 
-
 void TEpochModel::update(const TSpecies &Data) { _updateGamma(Data); }
 
 void TEpochModel::_setSimulatedGammaToZero() {
@@ -214,6 +213,9 @@ TNegBinEpochModel::TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *G
     : TEpochModel(Gamma, TimesOfChange) {
 	_mu   = Mu;
 	_logA = LogA;
+
+	// set max of logA to something reasonable: otherwise we have numeric issues with gammaLog function
+	TypeLogA::setMax(10.0);
 }
 
 void TNegBinEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
@@ -246,9 +248,7 @@ double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const T
 		term2 += coretools::gammaLog((double)lm[k].counts + alpha_k) -
 		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
 	}
-	double LLtoPrint = coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2; // n+1 drops out as well
-	std::cout << "LL:" << LLtoPrint << std::endl;
-	return LLtoPrint;
+	return coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2;
 }
 
 void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
@@ -293,7 +293,6 @@ void TNegBinEpochModel::_updateLogA(const TSpecies &Data) {
 		for (size_t ij = 0; ij < Data.size(); ++ij) {
 			const auto &lm    = Data[ij];
 			std::vector sigma = calcSigma(lm, phi);
-			// add to Likelihood
 			newLL[ij]         = _calculateLL(sigma, lm, {});
 		}
 		const double LLRatio = coretools::containerSum(newLL) - coretools::containerSum(_oldLL);
@@ -304,7 +303,6 @@ void TNegBinEpochModel::_updateLogA(const TSpecies &Data) {
 		}
 	}
 }
-
 
 void TNegBinEpochModel::update(const TSpecies &Data) {
 	if (_gamma->isUpdated()) { _updateGamma(Data); }
