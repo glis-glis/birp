@@ -171,17 +171,17 @@ void TEpochModel::_setSimulatedGammaToZero() {
 	}
 }
 
-void TEpochModel::simulate(TSpecies &data, size_t N0,
+void TEpochModel::simulateP(TSpecies &data, size_t N0,
                            const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
                            const TUniqueContainer<std::string> &locations,
                            const TUniqueContainer<std::string> &methods) {
 	_setSimulatedGammaToZero();
-	data.simulate(N0, _calculatePhi(), detectionProbs, locations, methods);
+	data.simulateP(N0, _calculatePhi(), detectionProbs, locations, methods);
 }
 
-void TEpochModel::simulate(TSpecies &data) {
+void TEpochModel::simulateP(TSpecies &data) {
 	_setSimulatedGammaToZero();
-	data.simulate(_calculatePhi());
+	data.simulateP(_calculatePhi());
 }
 
 // getters for test functions

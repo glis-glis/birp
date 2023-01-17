@@ -66,9 +66,9 @@ public:
 	double calculateLL(const TSpecies &Data) const;
 
 	// simulation
-	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	void simulateP(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
-	void simulate(TSpecies &data);
+	void simulateP(TSpecies &data);
 
 	// get rho for tests
 	size_t rho(size_t row, size_t col) const;

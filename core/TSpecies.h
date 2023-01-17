@@ -66,12 +66,12 @@ public:
 	TDataPoint(size_t Timpoint_id);
 
 	// functions for simulating
-	void simulate(size_t N0, double phi, double detectionProbs);
+	void simulateP(size_t N0, double phi, double detectionProbs);
 	template<class Object> void simulate(Object obj, double phi) {
 		effort = obj.sample();
 		_simulatePoisson(phi);
 	}
-	void simulate(double effort, double phi);
+	void simulateP(double effort, double phi);
 	void simulateNB(double Effort, double phi, double a, double mu_ij);
 	void write(coretools::TOutputFile &File, const std::string &SpeciesName, const std::string &Location,
 	           const std::string &Method, const TUniqueContainer<size_t> &Timepoints) const;
@@ -118,12 +118,12 @@ public:
 	std::vector<TDataPoint>::iterator end();
 
 	// functions for simulating
-	void simulate(size_t N0, const std::vector<double> &phi, double detectionProbs);
+	void simulateP(size_t N0, const std::vector<double> &phi, double detectionProbs);
 	template<class Object> void simulate(Object obj, const std::vector<double> &phi) {
 		for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(obj, phi[t]); }
 	}
-	void simulate(double effort, const std::vector<double> &phi);
-	void simulateNB(double effort, const std::vector<double> &phi, double a, double mu_ij);
+	void simulateP(double effort, const std::vector<double> &phi);
+	void simulateNB(double effort, const std::vector<double> &phi, double a, const std::vector<double>& mu_ij);
 	void write(coretools::TOutputFile &File, const std::string &SpeciesName,
 	           const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
 	           const TUniqueContainer<size_t> &Timepoints) const;
@@ -161,11 +161,11 @@ public:
 	std::vector<TDataSeries>::iterator end();
 
 	// functions for simulating
-	void simulate(size_t N0, const std::vector<double> &phi,
+	void simulateP(size_t N0, const std::vector<double> &phi,
 	              const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 
-	void simulate(const std::vector<double> &phi);
+	void simulateP(const std::vector<double> &phi);
 	void write(coretools::TOutputFile &File,
 	           const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
 	           const TUniqueContainer<size_t> &Timepoints) const;

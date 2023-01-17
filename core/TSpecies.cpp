@@ -30,23 +30,24 @@ void TDataPoint::_simulatePoisson(double lambda) {
 	}
 }
 
-void TDataPoint::simulate(size_t N0, double phi, double detectionProbs) {
+void TDataPoint::simulateP(size_t N0, double phi, double detectionProbs) {
 	coretools::Positive<double> lambda = (double)N0 * phi * detectionProbs;
 	_simulatePoisson(lambda);
 }
 
-void TDataPoint::simulate(double Effort, double phi) {
+void TDataPoint::simulateP(double Effort, double phi) {
 	effort = Effort;
 	_simulatePoisson(phi);
 }
 
-void TDataPoint::simulateNB(double Effort, double phi, double a, double mu_ij){
-	effort = Effort;
-	double r = a * mu_ij * phi * effort;
-	double p = 1/(1+a);
-	counts = coretools::instances::randomGenerator().getNegativeBinomialRand(r,p);
+void TDataPoint::simulateNB(double Effort, double phi, double a, double mu_ij) {
+	// first draw lambda from a Gamma distr and then from there draw counts from Pois
+	effort        = Effort;
+	double alpha  = a * mu_ij * phi * effort;
+	double beta   = a;
+	double lambda = coretools::instances::randomGenerator().getGammaRand(alpha, beta);
+	counts        = coretools::instances::randomGenerator().getPoissonRandom(lambda);
 }
-
 
 void TDataPoint::write(coretools::TOutputFile &File, const std::string &SpeciesName, const std::string &Location,
                        const std::string &Method, const TUniqueContainer<size_t> &Timepoints) const {
@@ -129,20 +130,17 @@ void TDataSeries::checkData(const std::string &name, const TUniqueContainer<std:
 	}
 }
 
-void TDataSeries::simulate(size_t N0, const std::vector<double> &phi, double detectionProbs) {
-	for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(N0, phi[t], detectionProbs); }
+void TDataSeries::simulateP(size_t N0, const std::vector<double> &phi, double detectionProbs) {
+	for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulateP(N0, phi[t], detectionProbs); }
 }
 
-void TDataSeries::simulate(double effort, const std::vector<double> &phi) {
-	for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(effort, phi[t]); }
+void TDataSeries::simulateP(double effort, const std::vector<double> &phi) {
+	for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulateP(effort, phi[t]); }
 }
 
 void TDataSeries::simulateNB(double effort, const std::vector<double> &phi, double a, double mu_ij) {
-	for (size_t t = 0; t < _dataPoints.size(); t++) {
-		_dataPoints[t].simulateNB(effort, phi[t], a, mu_ij);
-	}
+	for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulateNB(effort, phi[t], a, mu_ij); }
 }
-
 
 void TDataSeries::write(coretools::TOutputFile &File, const std::string &SpeciesName,
                         const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
@@ -203,24 +201,24 @@ std::vector<TDataSeries>::const_iterator TSpecies::cend() const { return _data.c
 
 std::vector<TDataSeries>::iterator TSpecies::end() { return _data.end(); }
 
-void TSpecies::simulate(size_t N0, const std::vector<double> &phi,
-                        const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                        const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) {
+void TSpecies::simulateP(size_t N0, const std::vector<double> &phi,
+                         const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                         const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) {
 	for (size_t i = 0; i < size(); i++) {
 		std::string locName  = locations[_data[i].location_id()];
 		std::string methName = methods[_data[i].method_id()];
 		size_t locIndex      = detectionProbs.getDimensionName(0)->getIndex(locName);
 		size_t methIndex     = detectionProbs.getDimensionName(1)->getIndex(methName);
-		_data[i].simulate(N0, phi, detectionProbs(locIndex, methIndex));
+		_data[i].simulateP(N0, phi, detectionProbs(locIndex, methIndex));
 	}
 }
 
-void TSpecies::simulate(const std::vector<double> &phi) {
+void TSpecies::simulateP(const std::vector<double> &phi) {
 	std::string effortString = coretools::instances::parameters().getParameterWithDefault("effort", "Poisson(10)");
 	if (coretools::str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all efforts
 		double effort = coretools::str::fromString<double>(effortString);
-		for (size_t i = 0; i < size(); i++) { _data[i].simulate(effort, phi); }
+		for (size_t i = 0; i < size(); i++) { _data[i].simulateP(effort, phi); }
 	} else {
 		// case 2: parse distributions. "Poisson(1), uniform(a,b), zero-poisson(p, lambda) -> p: p(not 0),
 		coretools::str::TSplitter sp(effortString, '(');
@@ -230,18 +228,23 @@ void TSpecies::simulate(const std::vector<double> &phi) {
 		params             = coretools::str::extractBefore(params, ')');
 		if (distr == "Poisson") {
 			coretools::probdist::TPoissonDistr poisDistr(params);
-			for (size_t i = 0; i < size(); i++) { _data[i].simulate(poisDistr, phi); }
+			for (size_t i = 0; i < size(); i++) { _data[i].simulateP(poisDistr, phi); }
 		} else if (distr == "uniform") {
 			coretools::probdist::TUniformDistr uniformDist(params);
-			for (size_t i = 0; i < size(); i++) { _data[i].simulate(uniformDist, phi); }
+			for (size_t i = 0; i < size(); i++) { _data[i].simulateP(uniformDist, phi); }
 		} else if (distr == "zeroPoisson") {
 			TZeroPoisDistr zeroPoisDist(params);
-			for (size_t i = 0; i < size(); i++) { _data[i].simulate(zeroPoisDist, phi); }
+			for (size_t i = 0; i < size(); i++) { _data[i].simulateP(zeroPoisDist, phi); }
 		}
 	}
 }
 
-// TODO make simulateNB function
+void TSpecies::simulateNB(const std::vector<double> &phi, const TUniqueContainer<std::string> &locations,
+                          const TUniqueContainer<std::string> &methods) {
+	std::string effortString = coretools::instances::parameters().getParameterWithDefault("effort", "Poisson(10)");
+	auto effort              = coretools::str::fromString<double>(effortString);
+	for (size_t i = 0; i < _data.size(); i++) { _data[i].simulateNB(effort, phi, a, mu); }
+}
 
 void TSpecies::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
                      const TUniqueContainer<std::string> &Methods, const TUniqueContainer<size_t> &Timepoints) const {
