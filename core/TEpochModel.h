@@ -65,10 +65,9 @@ public:
 	virtual void update(const TSpecies &Data);
 	double calculateLL(const TSpecies &Data) const;
 
-	// simulation
-	void simulateP(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
-	void simulateP(TSpecies &data);
+	virtual void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	               const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) = 0;
+	virtual void simulate(TSpecies &data) = 0;
 
 	// get rho for tests
 	size_t rho(size_t row, size_t col) const;
@@ -86,6 +85,11 @@ protected:
 public:
 	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	                   stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
+
+	// simulation
+	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	               const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) override;
+	void simulate(TSpecies &data) override;
 };
 
 //--------------------------------
@@ -109,6 +113,9 @@ protected:
 	// initialization
 	void _estimateInitialMu(const TSpecies &Data);
 
+	// simulate
+	void _simulate(TSpecies &data, bool SimulateEffort);
+
 public:
 	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, stattools::TParameterTyped<TypeMu, 2> *Mu,
@@ -118,6 +125,11 @@ public:
 	                        const TUniqueContainer<std::string> &Methods) override;
 	virtual void update(const TSpecies &Data);
 	void estimateInitialPriorParameters(const TSpecies &Data) override;
+
+	// simulate
+	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) override;
+	void simulate(TSpecies &data) override;
 };
 
 #endif // BIRP_TEPOCHMODEL_H

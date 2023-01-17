@@ -7,6 +7,7 @@
 
 #include "BirpTypes.h"
 #include "coretools/Files/TOutputFile.h"
+#include "coretools/Math/TProbabilityDistributions.h"
 #include "coretools/Storage/TStorage.h"
 #include <algorithm>
 #include <vector>
@@ -49,6 +50,30 @@ public:
 };
 
 //-------------------------------------------
+// TZeroPoisDistr
+//-------------------------------------------
+
+class TZeroPoisDistr {
+private:
+	coretools::Probability _p;
+	coretools::StrictlyPositive<double> _lambda;
+
+public:
+	TZeroPoisDistr(coretools::Probability p, coretools::StrictlyPositive<double> lambda);
+	TZeroPoisDistr(std::string_view parameterString) { set(parameterString); }
+
+	void set(coretools::Probability p, coretools::StrictlyPositive<double> Lambda);
+	void set(std::string_view parameterString);
+
+	static constexpr std::string_view name = "zeroPoisson";
+
+	size_t sample(coretools::Probability p, coretools::StrictlyPositive<double> lambda) const;
+
+	// functions using member parameters
+	size_t sample() const noexcept;
+};
+
+//-------------------------------------------
 // TDataPoint
 //-------------------------------------------
 
@@ -65,14 +90,17 @@ public:
 	TDataPoint() = default;
 	TDataPoint(size_t Timpoint_id);
 
-	// functions for simulating
-	void simulateP(size_t N0, double phi, double detectionProbs);
-	template<class Object> void simulate(Object obj, double phi) {
-		effort = obj.sample();
-		_simulatePoisson(phi);
-	}
-	void simulateP(double effort, double phi);
-	void simulateNB(double Effort, double phi, double a, double mu_ij);
+	// functions for simulating effort
+	template<class Object> void simulateEffort(Object obj) { effort = obj.sample(); }
+
+	// functions for simulating under Poisson model
+	void simulatePoisson(size_t N0, double phi, double detectionProbs);
+	void simulatePoisson(double phi);
+
+	// functions for simulating under Negative Binomial model
+	void simulateNB(double phi, double a, double mu_ij);
+
+	// write to file
 	void write(coretools::TOutputFile &File, const std::string &SpeciesName, const std::string &Location,
 	           const std::string &Method, const TUniqueContainer<size_t> &Timepoints) const;
 
@@ -117,13 +145,19 @@ public:
 	std::vector<TDataPoint>::const_iterator cend() const;
 	std::vector<TDataPoint>::iterator end();
 
-	// functions for simulating
-	void simulateP(size_t N0, const std::vector<double> &phi, double detectionProbs);
-	template<class Object> void simulate(Object obj, const std::vector<double> &phi) {
-		for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulate(obj, phi[t]); }
+	// functions for simulating effort
+	template<class Object> void simulateEffort(Object obj) {
+		for (auto &dataPoint : _dataPoints) { dataPoint.simulateEffort(obj); }
 	}
-	void simulateP(double effort, const std::vector<double> &phi);
-	void simulateNB(double effort, const std::vector<double> &phi, double a, const std::vector<double>& mu_ij);
+
+	// functions for simulating under Poisson model
+	void simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs);
+	void simulatePoisson(const std::vector<double> &phi);
+
+	// functions for simulating under Negative Binomial model
+	void simulateNB(const std::vector<double> &phi, double a, double mu_ij);
+
+	// write to file
 	void write(coretools::TOutputFile &File, const std::string &SpeciesName,
 	           const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
 	           const TUniqueContainer<size_t> &Timepoints) const;
@@ -137,6 +171,13 @@ class TSpecies {
 private:
 	std::vector<TDataSeries> _data;
 	std::string _name;
+
+	template<class Distribution> void _simulateEffort(const std::string &Params) {
+		Distribution distr(Params);
+		for (size_t i = 0; i < size(); i++) { _data[i].simulateEffort(distr); }
+	}
+
+	void _simulateEffort();
 
 public:
 	explicit TSpecies(const std::string &Name);
@@ -161,38 +202,15 @@ public:
 	std::vector<TDataSeries>::iterator end();
 
 	// functions for simulating
-	void simulateP(size_t N0, const std::vector<double> &phi,
-	              const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
+	void simulatePoisson(size_t N0, const std::vector<double> &phi,
+	               const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	               const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 
-	void simulateP(const std::vector<double> &phi);
-	void write(coretools::TOutputFile &File,
-	           const TUniqueContainer<std::string> &Locations, const TUniqueContainer<std::string> &Methods,
-	           const TUniqueContainer<size_t> &Timepoints) const;
-};
+	void simulatePoisson(const std::vector<double> &phi);
+	void simulateNB(const std::vector<double> &phi, double A, const std::vector<double> &Mu, bool SimulateEffort);
 
-//-------------------------------------------
-// TZeroPoisDistr
-//-------------------------------------------
-
-class TZeroPoisDistr {
-private:
-	coretools::Probability _p;
-	coretools::StrictlyPositive<double> _lambda;
-
-public:
-	TZeroPoisDistr(coretools::Probability p, coretools::StrictlyPositive<double> lambda);
-	TZeroPoisDistr(std::string_view parameterString) { set(parameterString); }
-
-	void set(coretools::Probability p, coretools::StrictlyPositive<double> Lambda);
-	void set(std::string_view parameterString);
-
-	static constexpr std::string_view name = "zeroPoisson";
-
-	size_t sample(coretools::Probability p, coretools::StrictlyPositive<double> lambda) const;
-
-	// functions using member parameters
-	size_t sample() const noexcept;
+	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+	           const TUniqueContainer<std::string> &Methods, const TUniqueContainer<size_t> &Timepoints) const;
 };
 
 #endif /* CORE_TSPECIES_H_ */

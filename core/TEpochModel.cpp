@@ -171,19 +171,6 @@ void TEpochModel::_setSimulatedGammaToZero() {
 	}
 }
 
-void TEpochModel::simulateP(TSpecies &data, size_t N0,
-                           const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                           const TUniqueContainer<std::string> &locations,
-                           const TUniqueContainer<std::string> &methods) {
-	_setSimulatedGammaToZero();
-	data.simulateP(N0, _calculatePhi(), detectionProbs, locations, methods);
-}
-
-void TEpochModel::simulateP(TSpecies &data) {
-	_setSimulatedGammaToZero();
-	data.simulateP(_calculatePhi());
-}
-
 // getters for test functions
 size_t TEpochModel::rho(size_t row, size_t col) const { return _rho(row, col); }
 
@@ -200,6 +187,19 @@ double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, c
 	double LL = 0.0;
 	for (size_t k = 0; k < lm.size(); k++) { LL += (double)lm[k].counts * log(p[k]); }
 	return LL;
+}
+
+void TPoissonEpochModel::simulate(TSpecies &data, size_t N0,
+                                  const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                                  const TUniqueContainer<std::string> &locations,
+                                  const TUniqueContainer<std::string> &methods) {
+	_setSimulatedGammaToZero();
+	data.simulatePoisson(N0, _calculatePhi(), detectionProbs, locations, methods);
+}
+
+void TPoissonEpochModel::simulate(TSpecies &data) {
+	_setSimulatedGammaToZero();
+	data.simulatePoisson(_calculatePhi());
 }
 
 //--------------------------------
@@ -334,6 +334,31 @@ void TNegBinEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
 
 	TEpochModel::estimateInitialPriorParameters(Data);
 }
+
+void TNegBinEpochModel::_simulate(TSpecies &data, bool SimulateEffort) {
+	_setSimulatedGammaToZero();
+	if (!_logA->hasFixedInitialValue()) { _logA->set(0.0); }
+
+	// calculate a = exp(log(a))
+	const double a = exp(_logA->value());
+
+	// collect mu from parameter (only relevant method-location combinations)
+	std::vector<double> mu(data.size());
+	for (size_t c = 0; c < data.size(); ++c) {
+		const size_t ij = _mu->getIndex({data[c].method_id(), data[c].location_id()});
+		mu[c]           = _mu->value(ij);
+	}
+	data.simulateNB(_calculatePhi(), a, mu, SimulateEffort);
+}
+
+void TNegBinEpochModel::simulate(TSpecies &data, size_t /*N0*/,
+                                 const coretools::TMultiDimensionalStorage<double, 2> & /*detectionProbs*/,
+                                 const TUniqueContainer<std::string> & /*locations*/,
+                                 const TUniqueContainer<std::string> & /*methods*/) {
+	_simulate(data, false);
+}
+
+void TNegBinEpochModel::simulate(TSpecies &data) { _simulate(data, true); }
 
 // TODO
 // automatically remove data sets with less than two time points with effort > 0?
