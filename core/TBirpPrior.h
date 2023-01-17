@@ -26,7 +26,7 @@ protected:
 	std::vector<std::unique_ptr<TEpochModel>> _epochModel;
 
 	// locations, methods, timepoints
-	TUniqueContainer<std::string> *_locations = nullptr;
+	TUniqueContainer<std::string> *_locations = nullptr; // these are pointers to the objects that are stored in TBirpCore
 	TUniqueContainer<std::string> *_methods   = nullptr;
 	TUniqueContainer<size_t> *_timepoints     = nullptr;
 
