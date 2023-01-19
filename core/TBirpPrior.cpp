@@ -3,7 +3,6 @@
 //
 
 #include "TBirpPrior.h"
-
 #include "TEpochModel.h"
 #include "coretools/Storage/TDataFile.h"
 #include <utility>

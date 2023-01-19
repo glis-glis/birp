@@ -248,7 +248,7 @@ double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const T
 		term2 += coretools::gammaLog((double)lm[k].counts + alpha_k) -
 		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
 	}
-	return coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2;
+	return coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2;  // (n+1) drops out
 }
 
 void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
