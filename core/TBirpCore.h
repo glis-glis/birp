@@ -59,7 +59,7 @@ protected:
 
 	// read input files
 	std::vector<std::string> _getHeader() const;
-	void _checkHeader(const coretools::TInputFile &Infile);
+	void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts);
 	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title) const;
 	void _readFile(const std::string &Filename, bool hasCounts);
 	void _sortTimepoints();

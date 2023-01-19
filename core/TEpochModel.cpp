@@ -346,7 +346,7 @@ double TNegBinEpochModel::_simulate() {
 void TNegBinEpochModel::simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
                                  const TUniqueContainer<std::string> & locations,
                                  const TUniqueContainer<std::string> & methods) {
-	double A = _simulate(data);
+	double A = _simulate();
 	std::vector<double> phi = _calculatePhi();
 	auto mus = data.simulateNB(N0, phi, detectionProbs, locations, methods, A);
 	coretools::normalize(mus);
@@ -357,7 +357,7 @@ void TNegBinEpochModel::simulate(TSpecies &data, size_t N0, const coretools::TMu
 }
 
 void TNegBinEpochModel::simulate(TSpecies &data) {
-	 double a = _simulate(data);
+	 double a = _simulate();
 	// collect mu from parameter (only relevant method-location combinations)
 	std::vector<double> mu(data.size());
 	for (size_t c = 0; c < data.size(); ++c) {

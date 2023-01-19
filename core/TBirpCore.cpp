@@ -103,8 +103,10 @@ std::vector<std::string> TBirpCore::_getHeader() const {
 	return {"species", "location", "method", "time", "effort", "counts"};
 }
 
-void TBirpCore::_checkHeader(const coretools::TInputFile &Infile) {
+void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts) {
 	std::vector<std::string> headerVec = _getHeader();
+    if(!hasCounts){headerVec.pop_back();}
+    // std::cout << "headerVec: " << headerVec[0] << " " << headerVec[1] << " " << headerVec[2] << " " << headerVec[3] << " " << headerVec[4] << std::endl;
 	for (size_t i = 0; i < headerVec.size(); i++) {
 		if (!_checkHeaderPlacement(Infile, i, headerVec[i])) {
 			UERROR("Error in header of file", Infile.name(), " , please make sure header at column ", i + 1, " is ",
@@ -129,7 +131,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	} else if (!hasCounts && infile.numCols() != 5) {
 		UERROR("Expected file ", infile.name(), " to have 5 columns, but found ", infile.numCols(), ".");
 	}
-	_checkHeader(infile);
+	_checkHeader(infile, hasCounts);
 
 	std::vector<std::string> vec;
 	while (infile.read(vec)) {
