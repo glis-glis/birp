@@ -202,12 +202,18 @@ public:
 	std::vector<TDataSeries>::iterator end();
 
 	// functions for simulating
+	std::pair<size_t,size_t> getIndexToSimulate(const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	                                  const TUniqueContainer<std::string> &locations,
+	                                  const TUniqueContainer<std::string> &methods, size_t i);
 	void simulatePoisson(size_t N0, const std::vector<double> &phi,
 	               const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	               const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 
 	void simulatePoisson(const std::vector<double> &phi);
 	void simulateNB(const std::vector<double> &phi, double A, const std::vector<double> &Mu, bool SimulateEffort);
+	std::vector<double> simulateNB(size_t N0, const std::vector<double> &phi, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	                          const TUniqueContainer<std::string> &locations,
+	                          const TUniqueContainer<std::string> &methods, double A);
 
 	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
 	           const TUniqueContainer<std::string> &Methods, const TUniqueContainer<size_t> &Timepoints) const;

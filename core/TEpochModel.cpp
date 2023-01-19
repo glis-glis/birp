@@ -335,30 +335,38 @@ void TNegBinEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
 	TEpochModel::estimateInitialPriorParameters(Data);
 }
 
-void TNegBinEpochModel::_simulate(TSpecies &data, bool SimulateEffort) {
+double TNegBinEpochModel::_simulate() {
 	_setSimulatedGammaToZero();
 	if (!_logA->hasFixedInitialValue()) { _logA->set(0.0); }
-
 	// calculate a = exp(log(a))
 	const double a = exp(_logA->value());
+	return a;
+}
 
+void TNegBinEpochModel::simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                                 const TUniqueContainer<std::string> & locations,
+                                 const TUniqueContainer<std::string> & methods) {
+	double A = _simulate(data);
+	std::vector<double> phi = _calculatePhi();
+	auto mus = data.simulateNB(N0, phi, detectionProbs, locations, methods, A);
+	coretools::normalize(mus);
+	for (size_t c = 0; c < data.size(); ++c) {
+		const size_t ij = _mu->getIndex({data[c].method_id(), data[c].location_id()});
+		_mu->set(ij, mus[c]);
+	}
+}
+
+void TNegBinEpochModel::simulate(TSpecies &data) {
+	 double a = _simulate(data);
 	// collect mu from parameter (only relevant method-location combinations)
 	std::vector<double> mu(data.size());
 	for (size_t c = 0; c < data.size(); ++c) {
 		const size_t ij = _mu->getIndex({data[c].method_id(), data[c].location_id()});
 		mu[c]           = _mu->value(ij);
 	}
-	data.simulateNB(_calculatePhi(), a, mu, SimulateEffort);
-}
+	data.simulateNB(_calculatePhi(), a, mu, true);
 
-void TNegBinEpochModel::simulate(TSpecies &data, size_t /*N0*/,
-                                 const coretools::TMultiDimensionalStorage<double, 2> & /*detectionProbs*/,
-                                 const TUniqueContainer<std::string> & /*locations*/,
-                                 const TUniqueContainer<std::string> & /*methods*/) {
-	_simulate(data, false);
 }
-
-void TNegBinEpochModel::simulate(TSpecies &data) { _simulate(data, true); }
 
 // TODO
 // automatically remove data sets with less than two time points with effort > 0?

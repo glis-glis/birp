@@ -114,7 +114,7 @@ protected:
 	void _estimateInitialMu(const TSpecies &Data);
 
 	// simulate
-	void _simulate(TSpecies &data, bool SimulateEffort);
+	double _simulate();
 
 public:
 	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,

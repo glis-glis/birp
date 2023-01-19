@@ -41,8 +41,10 @@ void TDataPoint::simulateNB(double phi, double a, double mu_ij) {
 	// first draw lambda from a Gamma distr and then from there draw counts from Pois
 	double alpha  = a * mu_ij * phi * effort;
 	double beta   = a;
-	double lambda = coretools::instances::randomGenerator().getGammaRand(alpha, beta);
-	counts        = coretools::instances::randomGenerator().getPoissonRandom(lambda);
+	double lambda = coretools::instances::randomGenerator().getGammaRand(alpha, 1.0 / beta);
+	if (lambda == 0.0) { lambda = 1e-10; }
+	std::cout << "lambda: " << lambda << std::endl;
+	counts = coretools::instances::randomGenerator().getPoissonRandom(lambda);
 }
 
 void TDataPoint::write(coretools::TOutputFile &File, const std::string &SpeciesName, const std::string &Location,
@@ -222,15 +224,23 @@ void TSpecies::_simulateEffort() {
 	}
 }
 
+std::pair<size_t,size_t> TSpecies::getIndexToSimulate(const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                                  const TUniqueContainer<std::string> &locations,
+                                  const TUniqueContainer<std::string> &methods, size_t i){
+	std::string locName  = locations[_data[i].location_id()];
+	std::string methName = methods[_data[i].method_id()];
+	size_t locIndex      = detectionProbs.getDimensionName(0)->getIndex(locName);
+	size_t methIndex     = detectionProbs.getDimensionName(1)->getIndex(methName);
+	return {locIndex,methIndex};
+}
+
+
 void TSpecies::simulatePoisson(size_t N0, const std::vector<double> &phi,
                                const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
                                const TUniqueContainer<std::string> &locations,
                                const TUniqueContainer<std::string> &methods) {
 	for (size_t i = 0; i < size(); i++) {
-		std::string locName  = locations[_data[i].location_id()];
-		std::string methName = methods[_data[i].method_id()];
-		size_t locIndex      = detectionProbs.getDimensionName(0)->getIndex(locName);
-		size_t methIndex     = detectionProbs.getDimensionName(1)->getIndex(methName);
+		auto [locIndex, methIndex] = getIndexToSimulate(detectionProbs, locations, methods, i);
 		_data[i].simulatePoisson(N0, phi, detectionProbs(locIndex, methIndex));
 	}
 }
@@ -238,6 +248,20 @@ void TSpecies::simulatePoisson(size_t N0, const std::vector<double> &phi,
 void TSpecies::simulatePoisson(const std::vector<double> &phi) {
 	_simulateEffort();
 	for (size_t i = 0; i < size(); i++) { _data[i].simulatePoisson(phi); }
+}
+
+
+std::vector<double> TSpecies::simulateNB(size_t N0, const std::vector<double> &phi,
+                               const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                               const TUniqueContainer<std::string> &locations,
+                               const TUniqueContainer<std::string> &methods, double A) {
+	std::vector<double> mus(_data.size());
+	for (size_t i = 0; i < size(); i++) {  // i is one DataSeries here (ij)
+		auto [locIndex, methIndex] = getIndexToSimulate(detectionProbs, locations, methods, i);
+		mus[i] = (double)N0 * detectionProbs(locIndex, methIndex);
+		_data[i].simulateNB(phi, A, mus[i]);
+	}
+	return mus;
 }
 
 void TSpecies::simulateNB(const std::vector<double> &phi, double a, const std::vector<double> &mu,
