@@ -42,7 +42,7 @@ void TDataPoint::simulateNB(double phi, double a, double mu_ij) {
 	double alpha  = a * mu_ij * phi * effort;
 	double beta   = a;
 	double lambda = coretools::instances::randomGenerator().getGammaRand(alpha, 1.0 / beta);
-	if (lambda == 0.0) { lambda = 1e-10; }
+	if (lambda < 1e-10) { lambda = 1e-10; }
 	std::cout << "lambda: " << lambda << std::endl;
 	counts = coretools::instances::randomGenerator().getPoissonRandom(lambda);
 }
