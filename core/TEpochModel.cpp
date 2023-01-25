@@ -265,7 +265,7 @@ void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
 		const size_t ij1 = _mu->getIndex({lm1.method_id(), lm1.location_id()});
 		const size_t ij2 = _mu->getIndex({lm2.method_id(), lm2.location_id()});
 
-		_mu->updatePairWiseSumOneVector(ij1, ij2);
+		_mu->updatePairWiseSumOneVector<false>(ij1, ij2);  // if true: updates in log
 
 		std::vector<double> phi    = _calculatePhi();
 		std::vector<double> sigma1 = calcSigma(lm1, phi);
@@ -335,9 +335,9 @@ void TNegBinEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
 	TEpochModel::estimateInitialPriorParameters(Data);
 }
 
-double TNegBinEpochModel::_simulate() {
+double TNegBinEpochModel::_simulate(TSpecies &data) {
 	_setSimulatedGammaToZero();
-	if (!_logA->hasFixedInitialValue()) { _logA->set(0.0); }
+	if (!_logA->hasFixedInitialValue()) { _logA->set(log(data.size())); }
 	// calculate a = exp(log(a))
 	const double a = exp(_logA->value());
 	return a;
@@ -346,7 +346,7 @@ double TNegBinEpochModel::_simulate() {
 void TNegBinEpochModel::simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
                                  const TUniqueContainer<std::string> & locations,
                                  const TUniqueContainer<std::string> & methods) {
-	double A = _simulate();
+	double A = _simulate(data);
 	std::vector<double> phi = _calculatePhi();
 	auto mus = data.simulateNB(N0, phi, detectionProbs, locations, methods, A);
 	coretools::normalize(mus);
@@ -357,8 +357,9 @@ void TNegBinEpochModel::simulate(TSpecies &data, size_t N0, const coretools::TMu
 }
 
 void TNegBinEpochModel::simulate(TSpecies &data) {
-	 double a = _simulate();
+	 double a = _simulate(data);
 	// collect mu from parameter (only relevant method-location combinations)
+	 _mu->normalizeToSum1AfterUpdate();
 	std::vector<double> mu(data.size());
 	for (size_t c = 0; c < data.size(); ++c) {
 		const size_t ij = _mu->getIndex({data[c].method_id(), data[c].location_id()});
