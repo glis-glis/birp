@@ -15,6 +15,7 @@
 
 // types of parameters/observations
 typedef coretools::UnsignedInt<uint16_t> TypeCounts;
+typedef coretools::UnsignedInt<uint32_t> TypeNu;
 typedef coretools::UnsignedInt<uint16_t> TypeIndex;
 typedef coretools::WeakType<double> TypeGamma;
 typedef coretools::Positive<double> TypeEffort;

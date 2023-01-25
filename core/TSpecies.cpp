@@ -79,7 +79,7 @@ TDataSeries::TDataSeries(size_t Location_id, size_t Method_id, size_t numTimepoi
 
 void TDataSeries::add(const TDataPoint &Datapoint) {
 	_dataPoints.push_back(Datapoint);
-	_nu += Datapoint.counts;
+	_nu += (uint32_t)Datapoint.counts;
 }
 
 size_t TDataSeries::size() const { return _dataPoints.size(); }
@@ -96,7 +96,7 @@ size_t TDataSeries::location_id() const { return _location_id; }
 
 size_t TDataSeries::method_id() const { return _method_id; }
 
-TypeCounts TDataSeries::nu() const { return _nu; }
+TypeNu TDataSeries::nu() const { return _nu; }
 
 void TDataSeries::sorttimes(const std::vector<size_t> &index) {
 	std::vector<size_t> positionOfTimepointIds;

@@ -116,7 +116,7 @@ private:
 	std::vector<TDataPoint> _dataPoints;
 	size_t _location_id = 0;
 	size_t _method_id   = 0;
-	TypeCounts _nu; // sums of counts at one location and method (ij) across all time points (k)
+	TypeNu _nu; // sums of counts at one location and method (ij) across all time points (k)
 
 public:
 	explicit TDataSeries(size_t Location_id, size_t Method_id);
@@ -136,7 +136,7 @@ public:
 
 	size_t location_id() const;
 	size_t method_id() const;
-	TypeCounts nu() const;
+	TypeNu nu() const;
 
 	const TDataPoint &operator[](const size_t index) const { return _dataPoints[index]; }
 
