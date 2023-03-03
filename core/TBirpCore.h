@@ -64,7 +64,8 @@ protected:
 	std::vector<std::string> _getHeader() const;
 	void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts);
 	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title) const;
-	void _readFile(const std::string &Filename, bool hasCounts);
+	void _readCountFile(const std::string &Filename, bool hasCounts);
+    void _readEffortFile(const std::string &Filename);
 	void _sortTimepoints();
 	void _readForInference();
 

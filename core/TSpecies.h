@@ -69,6 +69,8 @@ public:
 	           const std::string &Method, const TUniqueContainer<size_t> &Timepoints) const;
 
 	bool operator<(const TDataPoint &other) const;
+
+    bool timepointExists(size_t timepointIndex);
 };
 
 //-------------------------------------------
@@ -91,6 +93,8 @@ public:
 
 	void checkData(const std::string &name, const TUniqueContainer<std::string> &locations,
 	               const TUniqueContainer<std::string> &methods);
+
+    bool IJK_exists(size_t methodIndex, size_t locationIndex, size_t timepointIndex);
 
 	// setters
 	void add(const TDataPoint &Datapoint);
@@ -153,6 +157,8 @@ public:
 
 	void checkData(const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 	void sorttimes(const std::vector<size_t> &index);
+    bool IJK_exists(size_t methodIndex, size_t locationIndex, size_t timepointIndex);
+    void checkCovExists();
 
 	// getters
 	std::string name() const;
