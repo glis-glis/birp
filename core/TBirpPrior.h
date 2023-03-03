@@ -6,6 +6,7 @@
 #define TBIRPPRIOR_H
 
 #include "BirpTypes.h"
+#include "TCovariates.h"
 #include "TEpochModel.h"
 #include "TSpecies.h"
 #include "coretools/Files/TFile.h"
@@ -22,13 +23,17 @@ protected:
 	// data
 	std::vector<TSpecies> *_species = nullptr;
 
+	// regression coefficients of covariates: todo: figure out!
+	stattools::TParameterTyped<TypeBeta, 1> *_beta = nullptr;
+
 	// model
 	std::vector<std::unique_ptr<TEpochModel>> _epochModel;
 
 	// locations, methods, timepoints
-	TUniqueContainer<std::string> *_locations = nullptr; // these are pointers to the objects that are stored in TBirpCore
-	TUniqueContainer<std::string> *_methods   = nullptr;
-	TUniqueContainer<size_t> *_timepoints     = nullptr;
+	TUniqueContainer<std::string> *_locations =
+	    nullptr; // these are pointers to the objects that are stored in TBirpCore
+	TUniqueContainer<std::string> *_methods = nullptr;
+	TUniqueContainer<size_t> *_timepoints   = nullptr;
 
 	// prefix for writing
 	std::string _out;

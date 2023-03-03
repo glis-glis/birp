@@ -10,6 +10,7 @@
 
 #include "BirpTypes.h"
 #include "TBirpPrior.h"
+#include "TCovariates.h"
 #include "coretools/Main/TParameters.h"
 #include "coretools/Main/TTask.h"
 #include "stattools/DAG/TDAGBuilder.h"
@@ -51,11 +52,13 @@ protected:
 
 	// data
 	std::vector<TSpecies> _species;
+	TCovariate _covariates;
 
 	// locations, methods, timepoints
 	TUniqueContainer<std::string> _locations;
 	TUniqueContainer<std::string> _methods;
 	TUniqueContainer<size_t> _timepoints;
+	TUniqueContainer<std::string> _covariateNames;
 
 	// read input files
 	std::vector<std::string> _getHeader() const;

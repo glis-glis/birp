@@ -14,6 +14,7 @@
 //-------------------------------
 
 // types of parameters/observations
+typedef coretools::WeakType<double> TypeCovariate;
 typedef coretools::UnsignedInt<uint16_t> TypeCounts;
 typedef coretools::UnsignedInt<uint32_t> TypeNu;
 typedef coretools::UnsignedInt<uint16_t> TypeIndex;
@@ -23,5 +24,6 @@ typedef coretools::UnsignedInt<uint16_t> TypeTime;
 typedef coretools::StrictlyPositiveWithMax<double> TypeMu;
 typedef coretools::StrictlyPositive<double> TypeSigmaMu;
 typedef coretools::MinMaxVariable<double> TypeLogA;
+typedef coretools::WeakType<double> TypeBeta;
 
 #endif // BIRPTYPES_H

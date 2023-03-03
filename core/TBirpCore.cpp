@@ -105,8 +105,9 @@ std::vector<std::string> TBirpCore::_getHeader() const {
 
 void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts) {
 	std::vector<std::string> headerVec = _getHeader();
-    if(!hasCounts){headerVec.pop_back();}
-    // std::cout << "headerVec: " << headerVec[0] << " " << headerVec[1] << " " << headerVec[2] << " " << headerVec[3] << " " << headerVec[4] << std::endl;
+	if (!hasCounts) { headerVec.pop_back(); }
+	// std::cout << "headerVec: " << headerVec[0] << " " << headerVec[1] << " " << headerVec[2] << " " << headerVec[3]
+	// << " " << headerVec[4] << std::endl;
 	for (size_t i = 0; i < headerVec.size(); i++) {
 		if (!_checkHeaderPlacement(Infile, i, headerVec[i])) {
 			UERROR("Error in header of file", Infile.name(), " , please make sure header at column ", i + 1, " is ",
@@ -119,6 +120,8 @@ void TBirpCore::_readForInference() {
 	std::string filenameCounts = parameters().getParameterFilename("counts");
 	_readFile(filenameCounts, true);
 	_sortTimepoints();
+
+	// -> read effort
 }
 
 void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
@@ -152,6 +155,25 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		}
 		if (!speciesExists) { _species.emplace_back(vec[0], pt, locationIndex, methodIndex); }
 	}
+}
+
+void TBirpCore::_readEffortFile() {
+	// 1) open file, check header
+	// 2) fill _covariateNames from corresponding header column
+	// 3) for each row, check if this combination of method, location and timepoint exists somewhere in TSpecies
+	//   -> if no: just go to next row
+	// 4) store in TCovariates
+	//   -> use function addTimePoint
+	//   -> loop over all covariates
+	//   -> to get timepoint_id: ask unique container _timepoints for the index of the current timepoint with getIndex()
+	//   -> for each value: create an object TCovariate_icjk and give it the value of the covariate and the timepoint id
+	//   -> to get location_id: ask unique container _locations for the index of the current location with getIndex()
+	//   -> addTimePoint(Covariate_icjk, Method_id, Covariate_id, Location_id)
+
+	// 5) finished reading file
+	// 6) loop over all species and method/locations and timepoints -> check if that particular combination of location
+	// - method - timepoint exists in TCovariates, throw error if not
+	// TODO: timepoints inside vector will not be sorted, but will have the correct timepoint_id -> is this a problem?
 }
 
 void TBirpCore::_sortTimepoints() {
