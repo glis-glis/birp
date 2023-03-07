@@ -100,12 +100,16 @@ bool TBirpCore::_checkHeaderPlacement(const coretools::TInputFile &Infile, size_
     return Infile.headerAt(index) == Title;
 }
 
-std::vector<std::string> TBirpCore::_getHeader() const {
+std::vector<std::string> TBirpCore::_getHeaderCounts() const {
     return {"species", "location", "method", "time", "counts"};
 }
 
-void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts) {
-    std::vector<std::string> headerVec = _getHeader();
+std::vector<std::string> TBirpCore::_getHeaderEffort() const{
+	return {"method", "location", "time"};
+}
+
+void TBirpCore::_checkHeaderCounts(const coretools::TInputFile &Infile, bool hasCounts) {
+    std::vector<std::string> headerVec = _getHeaderCounts();
     if (!hasCounts) { headerVec.pop_back(); }
     // std::cout << "headerVec: " << headerVec[0] << " " << headerVec[1] << " " << headerVec[2] << " " << headerVec[3]
     // << " " << headerVec[4] << std::endl;
@@ -117,12 +121,26 @@ void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts
     }
 }
 
+void TBirpCore::_checkHeaderEffort(const coretools::TInputFile &Infile){
+	if(Infile.numCols() < 4){ UERROR("Error in reading header of effort file, please make sure to have at least 4 columns: method, location, time and at least one covariate.");}
+	std::vector<std::string> headerVec = _getHeaderEffort();
+	for (size_t i = 0; i < headerVec.size(); i++) {
+		if (!_checkHeaderPlacement(Infile, i, headerVec[i])) {
+			UERROR("Error in header of file", Infile.name(), " , please make sure header at column ", i + 1, " is ",
+			       headerVec[i], ". Found: '", Infile.headerAt(i), "'");
+		}
+	}
+}
+
+
 void TBirpCore::_readForInference() {
     std::string filenameCounts = parameters().getParameterFilename("counts");
     _readCountFile(filenameCounts, true);
     _sortTimepoints();
 
-    // TODO -> read effort
+	std::string filenameEffort = parameters().getParameterFilename("effort");
+	_readEffortFile(filenameEffort);
+	// TODO -> sort effort?
 }
 
 void TBirpCore::_readCountFile(const std::string &Filename, bool hasCounts) {
@@ -135,7 +153,7 @@ void TBirpCore::_readCountFile(const std::string &Filename, bool hasCounts) {
     } else if (!hasCounts && infile.numCols() != 4) {
         UERROR("Expected file ", infile.name(), " to have 4 columns, but found ", infile.numCols(), ".");
     }
-    _checkHeader(infile, hasCounts);
+	_checkHeaderCounts(infile, hasCounts);
 
     std::vector<std::string> vec;
     while (infile.read(vec)) {
@@ -144,7 +162,7 @@ void TBirpCore::_readCountFile(const std::string &Filename, bool hasCounts) {
         size_t timepointIndex = _timepoints.add(coretools::str::fromStringCheck<size_t>(vec[3]));
         size_t counts = 0;
         if (hasCounts) { counts = coretools::str::fromStringCheck<size_t>(vec[4]); }
-        TDataPoint pt(timepointIndex, counts, 0);  //TODO write new constructor
+        TDataPoint pt(timepointIndex, counts);
         // loop over all species and check if it already exists
         bool speciesExists = false;
         for (auto &species: _species) {
@@ -164,7 +182,7 @@ void TBirpCore::_readEffortFile(const std::string &Filename) {
     std::string_view ending = coretools::str::readAfterLast(Filename, '.');
     if (ending == "csv") { delim = ","; }
     coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
-    // TODO how to check header? check that first three cols are correct + at least 4 cols.
+    _checkHeaderEffort(infile);
     size_t numCov = infile.numCols() - 3;  // the first three columns are not covariates
 
     // 2) fill _covariateNames from corresponding header column
@@ -196,7 +214,7 @@ void TBirpCore::_readEffortFile(const std::string &Filename) {
     }
     // TODO 6) loop over all species and meth/locs & timepoints: check if that combination of ijk exists in TCovariates, throw error if not
     for (auto &species: _species){
-        species.checkCovExists();
+        species.checkCovExists(_covariates);
     }
     // TODO: timepoints inside vector will not be sorted, but will have the correct timepoint_id -> is this a problem?
 
@@ -232,7 +250,7 @@ void TBirpCore::infer() {
 // Simulate
 
 void TBirpCore::_writeFile(const std::string &Filename) {
-    auto header = _getHeader();
+    auto header = _getHeaderCounts();
     coretools::TOutputFile outfile(Filename, header);
     // write file line by line
     for (auto &species: _species) { species.write(outfile, _locations, _methods, _timepoints); }

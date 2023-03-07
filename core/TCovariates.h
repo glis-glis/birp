@@ -125,6 +125,9 @@ public:
 	// setters
 	void addTimePoint(const TCovariate_icjk &Covariate_icjk, size_t Method_id, size_t Covariate_id, size_t Location_id);
 
+	// checkers
+	bool IDexists();
+
 	// getters
 	size_t size() const;
 

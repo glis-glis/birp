@@ -128,6 +128,22 @@ void TCovariate::addTimePoint(const TCovariate_icjk &Covariate_icjk, size_t Meth
 	if (!methodExists) { _covariates_i.emplace_back(Covariate_icjk, Method_id, Covariate_id, Location_id); }
 }
 
+void TCovariate::IDexists(size_t method_id, size_t location_id) {
+	bool methodExists   = false;
+	bool locationExists = false;
+	bool timePointExists = false;
+	for (auto &c : _covariates_i) {
+		// TODO implement function that checks whether covID exists similar to addTimePoint
+		if (c.method_id() == Method_id) {
+			methodExists = true;
+			c.addTimePoint(Covariate_icjk, Covariate_id, Location_id);
+			break;
+		}
+	}
+	if (!methodExists) { _covariates_i.emplace_back(Covariate_icjk, Method_id, Covariate_id, Location_id); }
+}
+
+
 size_t TCovariate::size() const { return _covariates_i.size(); }
 
 std::vector<TCovariate_i>::const_iterator TCovariate::cbegin() const { return _covariates_i.cbegin(); }

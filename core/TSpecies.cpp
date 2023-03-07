@@ -8,6 +8,7 @@
 #include "coretools/Math/TProbabilityDistributions.h"
 #include "coretools/Strings/splitters.h"
 #include "coretools/algorithms.h"
+#include "TCovariates.h"
 
 //-------------------------------------------
 // TDataPoint
@@ -20,6 +21,11 @@ TDataPoint::TDataPoint(size_t Timpoint_id, TypeCounts Counts, TypeEffort Effort)
 }
 
 TDataPoint::TDataPoint(size_t Timpoint_id) { timepoint_id = Timpoint_id; }
+
+TDataPoint::TDataPoint(size_t Timpoint_id, TypeCounts Counts) {
+	timepoint_id = Timpoint_id;
+	counts = Counts;
+}
 
 void TDataPoint::_simulatePoisson(double lambda) {
     lambda *= effort;
@@ -142,6 +148,10 @@ bool TDataSeries::IJK_exists(size_t methodIndex, size_t locationIndex, size_t ti
     return false;
 }
 
+void TDataSeries::checkCovExists(){
+
+}
+
 void TDataSeries::simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs) {
     for (size_t t = 0; t < _dataPoints.size(); t++) { _dataPoints[t].simulatePoisson(N0, phi[t], detectionProbs); }
 }
@@ -211,8 +221,11 @@ bool TSpecies::IJK_exists(size_t methodIndex, size_t locationIndex, size_t timep
     }
 }
 
-void checkCovExists(){
-    // TODO implement
+void TSpecies::checkCovExists(const TCovariate &covariate){
+	for (auto &ds: _data){
+		//TODO give covariate a method and loc id (function) and a timepoint id and it checks whether it is present. similar to addTimePoint
+		if (covariate.IDexists(ds.method_id(),ds.location_id())){ UERROR("blabla");}
+	}
 }
 
 std::vector<TDataSeries>::const_iterator TSpecies::cbegin() const { return _data.cbegin(); }

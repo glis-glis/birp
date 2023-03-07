@@ -53,6 +53,7 @@ public:
 	TDataPoint(size_t Timpoint_id, TypeCounts Counts, TypeEffort Effort);
 	TDataPoint() = default;
 	TDataPoint(size_t Timpoint_id);
+	TDataPoint (size_t Timepoint_id, TypeCounts Counts);
 
 	// functions for simulating effort
 	template<class Object> void simulateEffort(Object obj) { effort = obj.sample(); }
@@ -95,6 +96,7 @@ public:
 	               const TUniqueContainer<std::string> &methods);
 
     bool IJK_exists(size_t methodIndex, size_t locationIndex, size_t timepointIndex);
+	void checkCovExists();
 
 	// setters
 	void add(const TDataPoint &Datapoint);
@@ -158,7 +160,7 @@ public:
 	void checkData(const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 	void sorttimes(const std::vector<size_t> &index);
     bool IJK_exists(size_t methodIndex, size_t locationIndex, size_t timepointIndex);
-    void checkCovExists();
+    void checkCovExists(TCovariate covariate);
 
 	// getters
 	std::string name() const;
