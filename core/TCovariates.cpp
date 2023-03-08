@@ -13,7 +13,6 @@ TCovariate_icjk::TCovariate_icjk(size_t Timpoint_id, TypeCovariate Covariate) {
 	covariate    = Covariate;
 }
 
-
 //-------------------------------------------
 // TCovariate_icj
 //-------------------------------------------
@@ -37,14 +36,17 @@ std::vector<TCovariate_icjk>::iterator TCovariate_icj::end() { return _covariate
 
 size_t TCovariate_icj::location_id() const { return _location_id; }
 
-void TCovariate_icj::checkCovExists(size_t timepoint_id){
-    bool timepointExists = false;
-    for (auto c: _covariates_icjk){
-        if(timepoint_id == c.timepoint_id){
-            timepointExists = true;
-        }
-    }
-    if (!timepointExists){ UERROR("Error! Not all timepoints used in counts file are also present in effort (covariate) file.");}
+void TCovariate_icj::checkCovExists(size_t timepoint_id) {
+	bool timepointExists = false;
+	for (auto c : _covariates_icjk) {
+		if (timepoint_id == c.timepoint_id) {
+			timepointExists = true;
+			break;
+		}
+	}
+	if (!timepointExists) {
+		UERROR("Not all timepoints used in counts file are also present in effort (covariate) file.");
+	}
 }
 
 //-------------------------------------------
@@ -82,16 +84,18 @@ std::vector<TCovariate_icj>::iterator TCovariate_ic::end() { return _covariates_
 size_t TCovariate_ic::covariate_id() const { return _covariate_id; }
 
 void TCovariate_ic::checkCovExists(size_t location_id, size_t timepoint_id) {
-    bool locationExists = false;
-    for (auto c: _covariates_icj) {
-        if (location_id == c.location_id()){
-            locationExists = true;
-            c.checkCovExists(timepoint_id);
-        }
-    }
-    if (!locationExists){ UERROR("Error! Not all locations used in counts file are also present in effort (covariate) file.");}
+	bool locationExists = false;
+	for (auto c : _covariates_icj) {
+		if (location_id == c.location_id()) {
+			locationExists = true;
+			c.checkCovExists(timepoint_id);
+			break;
+		}
+	}
+	if (!locationExists) {
+		UERROR("Not all locations used in counts file are also present in effort (covariate) file.");
+	}
 }
-
 
 //-------------------------------------------
 // TCovariate_i
@@ -116,14 +120,17 @@ void TCovariate_i::addTimePoint(const TCovariate_icjk &Covariate_icjk, size_t Co
 	if (!covariateExists) { _covariates_ic.emplace_back(Covariate_icjk, Covariate_id, Location_id); }
 }
 
-void TCovariate_i::checkCovExists(size_t location_id, size_t timepoint_id){
-    for(auto c:_covariates_ic){
-        c.checkCovExists(location_id, timepoint_id);
-    }
+void TCovariate_i::checkCovExists(size_t location_id, size_t timepoint_id) {
+	for (auto c : _covariates_ic) { c.checkCovExists(location_id, timepoint_id); }
 }
 
-
 size_t TCovariate_i::size() const { return _covariates_ic.size(); }
+
+bool TCovariate_i::covariateIsEffort() const {
+	// for one method: if a single covariate -> this is simply the effort
+	// else: learn regression coefficients of covariates to get effort
+	return _covariates_ic.size() == 1;
+}
 
 std::vector<TCovariate_ic>::const_iterator TCovariate_i::cbegin() const { return _covariates_ic.cbegin(); }
 
@@ -159,16 +166,16 @@ void TCovariate::addTimePoint(const TCovariate_icjk &Covariate_icjk, size_t Meth
 }
 
 void TCovariate::IDexists(size_t method_id, size_t location_id, size_t timepoint_id) {
-	bool methodExists   = false;
+	bool methodExists = false;
 	for (auto &c : _covariates_i) {
 		if (c.method_id() == method_id) {
-            methodExists = true;
-            c.checkCovExists(location_id, timepoint_id);
-        }
-    }
-    if(!methodExists){UERROR("Error! Not all methods used in counts file are also present in effort (covariate) file.");}
+			methodExists = true;
+			c.checkCovExists(location_id, timepoint_id);
+			break;
+		}
+	}
+	if (!methodExists) { UERROR("Not all methods used in counts file are also present in effort (covariate) file."); }
 }
-
 
 size_t TCovariate::size() const { return _covariates_i.size(); }
 
