@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <vector>
 #include "TUniqueContainer.h"
+#include "TCovariates.h"
 
 //-------------------------------------------
 // TZeroPoisDistr
@@ -49,6 +50,7 @@ public:
 	size_t timepoint_id = 0;
 	TypeCounts counts   = 0;
 	TypeEffort effort   = 0;
+    TypeEffort effort_old   = 0;
 
 	TDataPoint(size_t Timpoint_id, TypeCounts Counts, TypeEffort Effort);
 	TDataPoint() = default;
@@ -96,7 +98,7 @@ public:
 	               const TUniqueContainer<std::string> &methods);
 
     bool IJK_exists(size_t methodIndex, size_t locationIndex, size_t timepointIndex);
-	void checkCovExists();
+    void checkCovExists(TCovariate covariate);
 
 	// setters
 	void add(const TDataPoint &Datapoint);
@@ -160,7 +162,7 @@ public:
 	void checkData(const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods);
 	void sorttimes(const std::vector<size_t> &index);
     bool IJK_exists(size_t methodIndex, size_t locationIndex, size_t timepointIndex);
-    void checkCovExists(TCovariate covariate);
+    void checkCovExists(const TCovariate &covariate);
 
 	// getters
 	std::string name() const;

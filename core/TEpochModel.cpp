@@ -91,8 +91,9 @@ std::vector<double> TEpochModel::_calculatePhi() const {
 	return phi;
 }
 
+// TODO changed nu from TypeCounts to TypeNu, Madi is this ok
 arma::mat TEpochModel::_calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma,
-                                       TypeCounts nu) const {
+                                       TypeNu nu) const {
 	arma::mat R(p.size(), _numEpochs);
 	arma::mat RtP(_numEpochs, p.size());
 	for (size_t k = 0; k < p.size(); k++) {
@@ -265,7 +266,7 @@ void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
 		const size_t ij1 = _mu->getIndex({lm1.method_id(), lm1.location_id()});
 		const size_t ij2 = _mu->getIndex({lm2.method_id(), lm2.location_id()});
 
-		_mu->updatePairWiseSumOneVector<false>(ij1, ij2);  // if true: updates in log
+		_mu->updatePairWiseSumOneVector(ij1, ij2);
 
 		std::vector<double> phi    = _calculatePhi();
 		std::vector<double> sigma1 = calcSigma(lm1, phi);
@@ -314,7 +315,7 @@ void TNegBinEpochModel::_estimateInitialMu(const TSpecies &Data) {
 	// initialize mu: relative nu's
 	std::vector<double> nus(Data.size());
 	for (size_t c = 0; c < Data.size(); ++c) {
-		nus[c] = std::max(coretools::UnsignedInt<uint16_t>(1), Data[c].nu()); // do not allow 0: problem for Dirichlet
+		nus[c] = std::max(coretools::UnsignedInt<uint32_t>(1), Data[c].nu()); // do not allow 0: problem for Dirichlet
 	}
 	coretools::normalize(nus);
 

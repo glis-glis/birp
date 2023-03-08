@@ -21,6 +21,7 @@ public:
 
 	TCovariate_icjk(size_t Timpoint_id, TypeCovariate Covariate);
 	TCovariate_icjk() = default;
+
 };
 
 //-------------------------------------------
@@ -38,6 +39,8 @@ public:
 
 	// setters
 	void addTimePoint(const TCovariate_icjk &Covariate_icjk);
+
+    void checkCovExists(size_t timepoint);
 
 	// getters
 	size_t size() const;
@@ -66,6 +69,8 @@ public:
 
 	// setters
 	void addTimePoint(const TCovariate_icjk &Covariate_icjk, size_t Location_id);
+
+    void checkCovExists(size_t location_id, size_t timepoint_id);
 
 	// getters
 	size_t size() const;
@@ -100,6 +105,8 @@ public:
 	size_t size() const;
 	size_t method_id() const;
 
+    void checkCovExists(size_t location_id, size_t timepoint_id);
+
 	const TCovariate_ic &operator[](const size_t index) const { return _covariates_ic[index]; }
 
 	std::vector<TCovariate_ic>::const_iterator cbegin() const;
@@ -126,7 +133,7 @@ public:
 	void addTimePoint(const TCovariate_icjk &Covariate_icjk, size_t Method_id, size_t Covariate_id, size_t Location_id);
 
 	// checkers
-	bool IDexists();
+    void IDexists(size_t method_id, size_t location_id, size_t timepoint_id);
 
 	// getters
 	size_t size() const;

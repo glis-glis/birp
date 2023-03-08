@@ -39,7 +39,7 @@ protected:
 	[[nodiscard]] std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const;
 	[[nodiscard]] double _calculateLogPhi_k(size_t k) const;
 	[[nodiscard]] std::vector<double> _calculatePhi() const;
-	arma::mat _calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeCounts nu) const;
+	arma::mat _calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeNu nu) const;
 	std::pair<std::vector<double>, double> _calculateLLandJP(const TSpecies &Data) const;
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 

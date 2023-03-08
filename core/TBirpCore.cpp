@@ -212,7 +212,7 @@ void TBirpCore::_readEffortFile(const std::string &Filename) {
         }
 
     }
-    // TODO 6) loop over all species and meth/locs & timepoints: check if that combination of ijk exists in TCovariates, throw error if not
+    // loop over every species and check if that index also exists in the covariates, if not throw UERROR
     for (auto &species: _species){
         species.checkCovExists(_covariates);
     }

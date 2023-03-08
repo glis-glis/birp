@@ -61,9 +61,8 @@ void TDataPoint::write(coretools::TOutputFile &File, const std::string &SpeciesN
 
 bool TDataPoint::operator<(const TDataPoint &other) const { return timepoint_id < other.timepoint_id; }
 
-bool TDataPoint::checkTimepoint(size_t timepointIndex) {
-    if (timepointIndex == ?) { return true; }
-    else { return false; }
+bool TDataPoint::timepointExists(size_t timepointIndex){
+    return timepointIndex == timepoint_id;
 }
 
 //-------------------------------------------
@@ -148,8 +147,10 @@ bool TDataSeries::IJK_exists(size_t methodIndex, size_t locationIndex, size_t ti
     return false;
 }
 
-void TDataSeries::checkCovExists(){
-
+void TDataSeries::checkCovExists(TCovariate covariate){
+    for (auto k:_dataPoints){
+        covariate.IDexists(_method_id, _location_id, k.timepoint_id);
+    }
 }
 
 void TDataSeries::simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs) {
@@ -223,8 +224,7 @@ bool TSpecies::IJK_exists(size_t methodIndex, size_t locationIndex, size_t timep
 
 void TSpecies::checkCovExists(const TCovariate &covariate){
 	for (auto &ds: _data){
-		//TODO give covariate a method and loc id (function) and a timepoint id and it checks whether it is present. similar to addTimePoint
-		if (covariate.IDexists(ds.method_id(),ds.location_id())){ UERROR("blabla");}
+		ds.checkCovExists(covariate);
 	}
 }
 
