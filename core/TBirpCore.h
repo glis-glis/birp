@@ -61,13 +61,11 @@ protected:
 	TUniqueContainer<std::string> _covariateNames;
 
 	// read input files
-	std::vector<std::string> _getHeaderCounts() const;
-	std::vector<std::string> _getHeaderEffort() const;
-	void _checkHeaderCounts(const coretools::TInputFile &Infile, bool hasCounts);
-	void _checkHeaderEffort(const coretools::TInputFile &Infile);
+	std::vector<std::string> _getHeader() const;
 	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title) const;
-	void _readCountFile(const std::string &Filename, bool hasCounts);
-    void _readEffortFile(const std::string &Filename);
+    void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts);
+	void _readMethodFiles(const std::string &Filename);
+    void _setEffort_singleCovariate(); // never implemented
 	void _sortTimepoints();
 	void _readForInference();
 

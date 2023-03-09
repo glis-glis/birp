@@ -163,6 +163,7 @@ public:
 	void sorttimes(const std::vector<size_t> &index);
     bool IJK_exists(size_t methodIndex, size_t locationIndex, size_t timepointIndex);
     void checkCovExists(const TCovariate &covariate);
+    void setFixedEffort(const TCovariate &covariate);
 
 	// getters
 	std::string name() const;

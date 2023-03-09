@@ -92,7 +92,6 @@ class TCovariate_i {
 private:
 	std::vector<TCovariate_ic> _covariates_ic;
 	size_t _method_id       = 0;
-	bool _covariateIsEffort = false;
 
 public:
 	explicit TCovariate_i(const TCovariate_icjk &Covariate_icjk, size_t Method_id, size_t Covariate_id,

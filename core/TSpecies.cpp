@@ -223,6 +223,8 @@ void TSpecies::checkCovExists(const TCovariate &covariate) {
 	for (auto &ds : _data) { ds.checkCovExists(covariate); }
 }
 
+
+
 std::vector<TDataSeries>::const_iterator TSpecies::cbegin() const { return _data.cbegin(); }
 
 std::vector<TDataSeries>::iterator TSpecies::begin() { return _data.begin(); }
