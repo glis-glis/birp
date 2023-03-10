@@ -123,6 +123,21 @@ void TBirpCore::_readForInference() {
     _readEffortFile(filenameEffort);
 }
 
+std::vector<size_t> TBirpCore::getColumnIndex( coretools::TInputFile infile, std::string string){
+    std::vector<int> countIndex(infile.numCols(), -1);
+    size_t counter = 0;
+    for(size_t i = 0; i < infile.numCols(); i++){
+        if(coretools::str::stringContains(infile.headerAt(i), string)){
+            countIndex[counter] = i;
+            counter = counter + 1;
+        }
+    }
+    // now delete empty cells at end of vector
+    auto it = std::find(countIndex.begin(), countIndex.end(), -1);
+    countIndex.erase(it, countIndex.end());
+    return countIndex;
+}
+
 void TBirpCore::_readMethodFiles(const std::string &Filename, bool hasCounts){
     std::string delim = "\t";
     std::string_view ending = coretools::str::readAfterLast(Filename, '.');
@@ -130,19 +145,9 @@ void TBirpCore::_readMethodFiles(const std::string &Filename, bool hasCounts){
     coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
     // TODO how to check for expected number of columns?
 
-    // get number and position of columns that contain counts
+    // get position of columns that contain counts
     if (hasCounts){
-        std::vector<int> countIndex(infile.numCols(), -1);
-        size_t counter = 0;
-        for(size_t i = 0; i < infile.numCols(); i++){
-            if(coretools::str::stringContains(infile.headerAt(i), "count")){
-                countIndex[counter] = i;
-                counter = counter + 1;
-            }
-        }
-        // now delete empty cells at end of vector OR just push back?
-        countIndex[countIndex != -1];
-
+        std::vector<int> countIndex = getColumnIndex(infile, "counts");
     }
 
     // if (infile.numCols() != 4) {

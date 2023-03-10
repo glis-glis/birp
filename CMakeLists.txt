@@ -46,7 +46,7 @@ FetchContent_MakeAvailable(genometools)
 file(GLOB_RECURSE CORE_SOURCES core/*.h core/*.cpp)
 
 #Core library
-add_library(coreLib STATIC ${CORE_SOURCES} core/TEpochModel.cpp core/TEpochModel.h core/TSpecies.h core/TSpecies.cpp)
+add_library(coreLib STATIC ${CORE_SOURCES} core/TEpochModel.cpp core/TEpochModel.h core/TSpecies.h core/TSpecies.cpp core/TData.cpp core/TData.h)
 
 target_sources(coreLib PRIVATE ${CORE_SOURCES})
 target_include_directories(coreLib PRIVATE core SYSTEM INTERFACE core)

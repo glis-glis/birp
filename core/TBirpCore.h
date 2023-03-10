@@ -64,7 +64,8 @@ protected:
 	std::vector<std::string> _getHeader() const;
 	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title) const;
     void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts);
-	void _readMethodFiles(const std::string &Filename);
+    std::vector<size_t> getColumnIndex( coretools::TInputFile infile, std::string string);
+	void _readMethodFiles(const std::string &Filename, bool hasCounts);
     void _setEffort_singleCovariate(); // never implemented
 	void _sortTimepoints();
 	void _readForInference();
