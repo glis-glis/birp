@@ -101,16 +101,26 @@ bool TBirpCore::_checkHeaderPlacement(const coretools::TInputFile &Infile, size_
 }
 
 std::vector<std::string> TBirpCore::_getHeader() const {
-    return {"location", "time"};
+    return {"location", "timepoint"};
 }
 
-void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts) {
+void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts, std::vector<size_t> countIndices,
+                             std::vector<size_t> effortIndices) {
     std::vector<std::string> headerVec = _getHeader();
     for (size_t i = 0; i < headerVec.size(); i++) {
         if (!_checkHeaderPlacement(Infile, i, headerVec[i])) {
             UERROR("Error in header of file", Infile.name(), " , please make sure header at column ", i + 1, " is ",
                    headerVec[i], ". Found: '", Infile.headerAt(i), "'");
         }
+    }
+    // check if number of columns in file are as expected
+    if (hasCounts) {
+        size_t expectedCols = 2 + countIndices.size() + effortIndices.size();
+    } else {
+        size_t expectedCols = 2 + effortIndices.size();
+    }
+    if (Infile.numCols() != expectedCols){
+        UERROR("Error in header of file", Infile.name(), " , please make sure to only have counts and/or covariates (effort) after the first two columns and make sure they are indidated containing the words 'counts' and 'cov', respectively.");
     }
 }
 
@@ -123,11 +133,11 @@ void TBirpCore::_readForInference() {
     _readEffortFile(filenameEffort);
 }
 
-std::vector<size_t> TBirpCore::getColumnIndex( coretools::TInputFile infile, std::string string){
-    std::vector<int> countIndex(infile.numCols(), -1);
+std::vector<size_t> TBirpCore::getColumnIndex(coretools::TInputFile infile, std::string string) {
+    std::vector<size_t> countIndex(infile.numCols(), -1);
     size_t counter = 0;
-    for(size_t i = 0; i < infile.numCols(); i++){
-        if(coretools::str::stringContains(infile.headerAt(i), string)){
+    for (size_t i = 0; i < infile.numCols(); i++) {
+        if (coretools::str::stringContains(infile.headerAt(i), string)) {
             countIndex[counter] = i;
             counter = counter + 1;
         }
@@ -138,30 +148,31 @@ std::vector<size_t> TBirpCore::getColumnIndex( coretools::TInputFile infile, std
     return countIndex;
 }
 
-void TBirpCore::_readMethodFiles(const std::string &Filename, bool hasCounts){
+void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
     std::string delim = "\t";
     std::string_view ending = coretools::str::readAfterLast(Filename, '.');
     if (ending == "csv") { delim = ","; }
     coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
+
     // TODO how to check for expected number of columns?
-
     // get position of columns that contain counts
-    if (hasCounts){
-        std::vector<int> countIndex = getColumnIndex(infile, "counts");
+    if (hasCounts) {
+        std::vector<size_t> countIndices = getColumnIndex(infile, "counts");
     }
+    // get position of columns that contain covariates (efforts)
+    std::vector<size_t> effortIndices = getColumnIndex(infile, "cov");
 
-    // if (infile.numCols() != 4) {
-    //    UERROR("Expected file ", infile.name(), " to have 4 columns, but found ", infile.numCols(), ".");
-    // }
-    _checkHeader(infile, hasCounts); // this for now only checks the first two columns: location and time
+    _checkHeader(infile, bool
+    hasCounts, countIndices, effortIndices);
 
     std::vector<std::string> row;
     while (infile.read(row)) {
-        size_t locationIndex = _locations.add(row[1]);
-        size_t methodIndex = _methods.add(row[2]);
-        size_t timepointIndex = _timepoints.add(coretools::str::fromStringCheck<size_t>(row[3]));
+        size_t locationIndex = _locations.add(row[0]);
+        size_t timepointIndex = _timepoints.add(coretools::str::fromStringCheck<size_t>(row[1]));
         size_t counts = 0;
-        if (hasCounts) { counts = coretools::str::fromStringCheck<size_t>(row[4]); }
+        if (hasCounts) {
+            counts = coretools::str::fromStringCheck<size_t>(row[4]);
+        }
         TDataPoint pt(timepointIndex, counts);
         // loop over all species and check if it already exists
         bool speciesExists = false;
