@@ -18,20 +18,32 @@
 
 class TTimepoints {
 private:
-    std::vector<double> _covariates;
-    std::vector<size_t> _counts_per_species;
+    std::vector<TypeCovariate> _covariates;
+    std::vector<size_t> _covariate_id;
+    std::vector<TypeCounts> _counts_per_species;
+    std::vector<size_t> _species_id;
     TypeEffort _effort   = 0;
     TypeEffort _effort_old   = 0;
     size_t _timepoint_id = 0;
-    std::vector<size_t> _covariateName_id; // TODO: ds wär ä vektor: eine pro Element i de covariates. so?
+
+
 
 public:
     TTimepoints() = default;
+    TTimepoints(std::vector<TypeCounts> countVec, std::vector<TypeCovariate> covVec);
+    TTimepoints(size_t timepoint_id);
 
     // setters
 
     // getters
+    std::vector<TypeCovariate> covariates();
+    std::vector<size_t> covariate_id();
+    std::vector<TypeCounts> counts_per_species();
+    std::vector<size_t> species_id();
+    TypeEffort effort();
+    TypeEffort effort_old();
     size_t timepoint_id();
+
 
 };
 
@@ -51,7 +63,7 @@ public:
     TLocations() = default;
 
     // setters
-    void add(const TTimepoints &pt);
+    void add(const TTimepoints &pt, size_t timepoint_id);
 
     // getters
     size_t size() const;
@@ -74,10 +86,9 @@ public:
 class TMethods {
 private:
     std::string _methodName;
-    std::vector<std::string> _speciesNames;
+    size_t _method_id;
     std::vector<double> _beta;
     std::vector<TLocations> _locations;
-    // TODO species_id?
 
 public:
     explicit TMethods(const std::string &MethodsName);
@@ -87,9 +98,8 @@ public:
 
     // getters
     size_t size() const;
-    std::vector<std::string> speciesNames();
 
-    void add(const TTimepoints &pt, size_t location_id);
+    void add(const TTimepoints &pt, size_t location_id, size_t timepoint_id);
 
     const TLocations &operator[](const size_t index) const { return _locations[index]; }
 

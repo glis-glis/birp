@@ -10,6 +10,7 @@
 #include "stattools/MCMC/TMCMC.h"
 #include "stattools/Priors/TPriorDirichlet.h"
 #include "stattools/Priors/TPriorExponential.h"
+#include "TData.h"
 
 using namespace coretools::instances;
 using namespace stattools;
@@ -107,45 +108,41 @@ std::vector<std::string> TBirpCore::_getHeader() const {
 void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts, std::vector<size_t> countIndices,
                              std::vector<size_t> effortIndices) {
     std::vector<std::string> headerVec = _getHeader();
+    // check whether first two columns are correct
     for (size_t i = 0; i < headerVec.size(); i++) {
         if (!_checkHeaderPlacement(Infile, i, headerVec[i])) {
             UERROR("Error in header of file", Infile.name(), " , please make sure header at column ", i + 1, " is ",
                    headerVec[i], ". Found: '", Infile.headerAt(i), "'");
         }
     }
-    // check if number of columns in file are as expected
+    // check if number of columns is at least 4 (with counts) or 3 (without counts)
     if (hasCounts) {
-        size_t expectedCols = 2 + countIndices.size() + effortIndices.size();
+        if (2 + countIndices.size() + effortIndices.size() < 4) {
+            UERROR("Header of file", Infile.name(),
+                   " , should contain at least 4 columns: 'method', 'location' and at least two more columns starting with 'counts' and 'cov', respectively.");
+        }
     } else {
-        size_t expectedCols = 2 + effortIndices.size();
-    }
-    if (Infile.numCols() != expectedCols){
-        UERROR("Error in header of file", Infile.name(), " , please make sure to only have counts and/or covariates (effort) after the first two columns and make sure they are indidated containing the words 'counts' and 'cov', respectively.");
+        if (2 + countIndices.size() + effortIndices.size() < 3) {
+            UERROR("Header of file", Infile.name(),
+                   " , should contain at least 3 columns: 'method', 'location' and at least one column starting with 'cov'.");
+        }
     }
 }
 
-void TBirpCore::_readForInference() {
-    std::string filenameCounts = parameters().getParameterFilename("counts");
-    _readCountFile(filenameCounts, true);
+void TBirpCore::_readForInference(bool hasCounts) {
+    std::string filename = parameters().getParameterFilename("counts");
+    _readFile(filename, hasCounts);
     _sortTimepoints();
-
-    std::string filenameEffort = parameters().getParameterFilename("effort");
-    _readEffortFile(filenameEffort);
 }
 
 std::vector<size_t> TBirpCore::getColumnIndex(coretools::TInputFile infile, std::string string) {
-    std::vector<size_t> countIndex(infile.numCols(), -1);
-    size_t counter = 0;
+    std::vector<size_t> countIndices;
     for (size_t i = 0; i < infile.numCols(); i++) {
-        if (coretools::str::stringContains(infile.headerAt(i), string)) {
-            countIndex[counter] = i;
-            counter = counter + 1;
+        if (coretools::str::stringStartsWith(infile.headerAt(i), string)) {
+            countIndices.push_back(i);
         }
     }
-    // now delete empty cells at end of vector
-    auto it = std::find(countIndex.begin(), countIndex.end(), -1);
-    countIndex.erase(it, countIndex.end());
-    return countIndex;
+    return countIndices;
 }
 
 void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
@@ -154,36 +151,34 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
     if (ending == "csv") { delim = ","; }
     coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
 
-    // TODO how to check for expected number of columns?
-    // get position of columns that contain counts
-    if (hasCounts) {
-        std::vector<size_t> countIndices = getColumnIndex(infile, "counts");
-    }
+    // get position of columns that contain counts: might be an empty vector in case the file has no counts
+    std::vector<size_t> countIndices = getColumnIndex(infile, "counts");
+
     // get position of columns that contain covariates (efforts)
     std::vector<size_t> effortIndices = getColumnIndex(infile, "cov");
 
-    _checkHeader(infile, bool
-    hasCounts, countIndices, effortIndices);
+    _checkHeader(infile, bool hasCounts, countIndices, effortIndices);
 
     std::vector<std::string> row;
     while (infile.read(row)) {
         size_t locationIndex = _locations.add(row[0]);
         size_t timepointIndex = _timepoints.add(coretools::str::fromStringCheck<size_t>(row[1]));
-        size_t counts = 0;
-        if (hasCounts) {
-            counts = coretools::str::fromStringCheck<size_t>(row[4]);
+
+        // boot one vector together (stiflä) of all species counts, and one of all covariates
+        std::vector<TypeCounts> countVec(countIndices.size());
+        std::vector<TypeCovariate> covVec(effortIndices.size());
+        for (size_t c = 0; c < countVec.size(); c++) {
+            countVec[c] = (TypeCounts) row[countIndices[c]];
         }
-        TDataPoint pt(timepointIndex, counts);
-        // loop over all species and check if it already exists
-        bool speciesExists = false;
-        for (auto &species: _species) {
-            if (species.name() == vec[0]) { // did find it
-                speciesExists = true;
-                species.add(pt, locationIndex, methodIndex);
-                break;
-            }
+        for (size_t c = 0; c < covVec.size(); c++) {
+            countVec[c] = (TypeCovariate) row[effortIndices[c]];
         }
-        if (!speciesExists) { _species.emplace_back(vec[0], pt, locationIndex, methodIndex); }
+        // create timepoint
+        TTimepoints pt(countVec, covVec);
+        // add timepoint to data, either in existing object or create new one
+        _methods[0].add(pt, locationIndex, timepointIndex); // TODO how to know which  method?
+
+        // TODO ignoriere hasCounts for a start
     }
 }
 

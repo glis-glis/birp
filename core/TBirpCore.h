@@ -50,15 +50,11 @@ class TBirpCore {
 protected:
 	std::string _outname;
 
-	// data
-	std::vector<TSpecies> _species;
-	TCovariate _covariates;
-
 	// locations, methods, timepoints
 	TUniqueContainer<std::string> _locations;
-	TUniqueContainer<std::string> _methods;
+    std::vector<TUniqueContainer> _methods; // TODO correct?
 	TUniqueContainer<size_t> _timepoints;
-	TUniqueContainer<std::string> _covariateNames;
+	TUniqueContainer<std::string> _covariateNames; // we can delete this here?
 
 	// read input files
 	std::vector<std::string> _getHeader() const;
@@ -69,7 +65,7 @@ protected:
 	void _readFile(const std::string &Filename, bool hasCounts);
     void _setEffort_singleCovariate(); // never implemented
 	void _sortTimepoints();
-	void _readForInference();
+	void _readForInference(bool hasCounts);
 
 	// simulate
 	std::vector<size_t> _readN0() const;
