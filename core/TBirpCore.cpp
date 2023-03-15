@@ -159,6 +159,11 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
     _checkHeader(infile, bool hasCounts, countIndices, effortIndices);
 
+    // add new method: name is derived from filename
+    std::string_view methodNameFull = coretools::str::readAfterLast(Filename, '/');
+    std::string_view methodName = coretools::str::readBeforeLast(methodNameFull, '.');
+    _methods.emplace_back(methodName);
+
     std::vector<std::string> row;
     while (infile.read(row)) {
         size_t locationIndex = _locations.add(row[0]);
@@ -171,12 +176,12 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
             countVec[c] = (TypeCounts) row[countIndices[c]];
         }
         for (size_t c = 0; c < covVec.size(); c++) {
-            countVec[c] = (TypeCovariate) row[effortIndices[c]];
+            covVec[c] = (TypeCovariate) row[effortIndices[c]];
         }
         // create timepoint
         TTimepoints pt(countVec, covVec);
         // add timepoint to data, either in existing object or create new one
-        _methods[0].add(pt, locationIndex, timepointIndex); // TODO how to know which  method?
+        _methods.back().add(pt, locationIndex, timepointIndex); // back: goes to last element
 
         // TODO ignoriere hasCounts for a start
     }

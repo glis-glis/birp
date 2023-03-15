@@ -18,6 +18,7 @@
 #include "stattools/ParametersObservations/TParameterTyped.h"
 #include "stattools/Priors/TPriorExponential.h"
 #include "stattools/Priors/TPriorUniform.h"
+#include "TData.h"
 
 //------------------------------------------
 // TBirpModel
@@ -52,7 +53,7 @@ protected:
 
 	// locations, methods, timepoints
 	TUniqueContainer<std::string> _locations;
-    std::vector<TUniqueContainer> _methods; // TODO correct?
+    std::vector<TMethods> _methods;
 	TUniqueContainer<size_t> _timepoints;
 	TUniqueContainer<std::string> _covariateNames; // we can delete this here?
 

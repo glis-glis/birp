@@ -33,23 +33,28 @@ size_t TTimepoints::timepoint_id(){return _timepoint_id;}
 size_t TLocations::size() const{return _timepoints.size();}
 size_t TLocations::location_id(){return _location_id;}
 
-const &TLocations::operator[](const size_t index) const { return _timepoints[index]; }  // TODO ??
+TLocations::TLocations(const TTimepoints &pt, size_t location_id){
+    _location_id = location_id;
+    add(pt);
+}
 
-void TLocations::add(const TTimepoints &pt, size_t timepoint_id) {
-    bool dataPointExists = false;
+const TTimepoints &TLocations::operator[](const size_t index) const { return _timepoints[index]; }
+
+void TLocations::add(TTimepoints pt) {
     for (auto &t : _timepoints) {
-        if (t.timepoint_id() == timepoint_id) {
-            dataPointExists = true;
-            t.push_back(pt);
-            _nu += (uint32_t)t.counts_per_species()[0]; // TODO which species to add to?
-            break;
+        // TODO if timepoint already exists; throw error. same method, loc and time should not occur
+        if (t.timepoint_id() == pt.timepoint_id()) {
+            UERROR("Make sure your ipnut file does not contain multiple rows with identical method, location and timepoints");
         }
     }
-    if (!dataPointExists) { _timepoints.emplace_back(pt, timepoint_id); }  // TODO how to add constructor
-
-
+    // when we are here: timpoint is uniqe -> push it back
     _timepoints.push_back(pt);
-    _nu += (uint32_t)pt.counts; //TODO how to sum up per species?
+    // now add nu
+    //TODO make loop over all species
+    for(auto c:pt.counts_per_species()){
+        _nu[c] += (uint32_t)pt.counts_per_species()[c];
+    }
+
 }
 
 std::vector<TTimepoints>::const_iterator TLocations::cbegin() const { return _timepoints.cbegin(); }
@@ -61,22 +66,22 @@ std::vector<TTimepoints>::iterator TLocations::end() { return _timepoints.end();
 // TMethods
 //-------------------------------------------
 
-TMethods::TMethods(const std::string &MethodsName) { _methodName = MethodsName; }
+TMethods::TMethods(const std::string_view &methodName) { _methodName = methodName; }
 
 
 size_t TMethods::size() const{ return _locations.size();}
 
 
-void TMethods::add(const TTimepoints &pt, size_t locationIndex, size_t timepointIndex) {  //TODO location and timepoints are not indices?
+void TMethods::add(const TTimepoints &pt, size_t locationIndex) {
     bool dataPointExists = false;
     for (auto &loc : _locations) {
         if (loc.location_id() == locationIndex) {
             dataPointExists = true;
-            loc.add(pt, timepointIndex);
+            loc.add(pt);
             break;
         }
     }
-    if (!dataPointExists) { _locations.emplace_back(pt, location_id); } //TODO  write constructor
+    if (!dataPointExists) { _locations.emplace_back(pt, locationIndex); }
 }
 
 std::vector<TLocations>::const_iterator TMethods::cbegin() const { return _locations.cbegin(); }

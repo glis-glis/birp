@@ -61,15 +61,16 @@ private:
 
 public:
     TLocations() = default;
+    TLocations(const TTimepoints &pt, size_t location_id);
 
     // setters
-    void add(const TTimepoints &pt, size_t timepoint_id);
+    void add(const TTimepoints &pt);
 
     // getters
     size_t size() const;
     size_t location_id();
 
-    const TLocations &operator[](const size_t index) const;
+    const TTimepoints &operator[](const size_t index) const;
 
 
     std::vector<TTimepoints>::const_iterator cbegin() const;
@@ -91,7 +92,7 @@ private:
     std::vector<TLocations> _locations;
 
 public:
-    explicit TMethods(const std::string &MethodsName);
+    explicit TMethods(const std::string_view &methodName);
     TMethods() = default;
 
     // setters
@@ -99,7 +100,7 @@ public:
     // getters
     size_t size() const;
 
-    void add(const TTimepoints &pt, size_t location_id, size_t timepoint_id);
+    void add(const TTimepoints &pt, size_t location_id);
 
     const TLocations &operator[](const size_t index) const { return _locations[index]; }
 
