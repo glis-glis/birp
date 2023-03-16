@@ -22,28 +22,51 @@ private:
     std::vector<size_t> _covariate_id;
     std::vector<TypeCounts> _counts_per_species;
     std::vector<size_t> _species_id;
-    TypeEffort _effort   = 0;
-    TypeEffort _effort_old   = 0;
+    TypeEffort _effort = 0;  // TODO how to store effort and distinguish betewen covariate?
+    TypeEffort _effort_old = 0;
     size_t _timepoint_id = 0;
-
 
 
 public:
     TTimepoints() = default;
-    TTimepoints(std::vector<TypeCounts> countVec, std::vector<TypeCovariate> covVec);
-    TTimepoints(size_t timepoint_id);
+
+    TTimepoints(std::vector<TypeCounts> countVec, std::vector<TypeCovariate> covVec, size_t timepoint_id);
+
+    explicit TTimepoints(size_t timepoint_id);
 
     // setters
+    void setTimepoint(size_t timepointToAdd);
+
+    void _simulatePoisson(double lambda);
+
+    void write(coretools::TOutputFile &File, std::string location, const TUniqueContainer<size_t> &Timepoints) const;
 
     // getters
     std::vector<TypeCovariate> covariates();
+
     std::vector<size_t> covariate_id();
+
     std::vector<TypeCounts> counts_per_species();
+
     std::vector<size_t> species_id();
+
     TypeEffort effort();
+
     TypeEffort effort_old();
+
     size_t timepoint_id();
 
+    // functions for simulating effort
+    template<class Object>
+    void simulateEffort(Object obj) { _effort = obj.sample(); }
+
+    // functions for simulating under Poisson model
+    void simulatePoisson(size_t N0, double phi, double detectionProbs);
+
+    void simulatePoisson(double phi);
+
+    // functions for simulating under Negative Binomial model
+    void simulateNB(double phi, double a, double mu_ij);
 
 };
 
@@ -61,22 +84,57 @@ private:
 
 public:
     TLocations() = default;
+
     TLocations(const TTimepoints &pt, size_t location_id);
 
+    TLocations(size_t TimepointSize);
+
     // setters
-    void add(const TTimepoints &pt);
+    void add(TTimepoints pt);
+
+    void checkEffortBiggerThanZero();
+
+    void sorttimes(const std::vector<size_t> &index);
 
     // getters
     size_t size() const;
-    size_t location_id();
+
+    size_t location_id() const;
 
     const TTimepoints &operator[](const size_t index) const;
 
+    void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations, const TUniqueContainer<size_t> &Timepoints) const;
+
 
     std::vector<TTimepoints>::const_iterator cbegin() const;
+
     std::vector<TTimepoints>::iterator begin();
+
     std::vector<TTimepoints>::const_iterator cend() const;
+
     std::vector<TTimepoints>::iterator end();
+
+    // functions for simulating effort
+    template<class Object>
+    void simulateEffort(Object obj) {
+        for (auto &timepoint: _timepoints) { timepoint.simulateEffort(obj); }
+    }
+
+    // functions for simulating under Poisson model
+    void simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs);
+
+    void simulatePoisson(const std::vector<double> &phi);
+
+    // functions for simulating under Negative Binomial model
+    void simulateNB(const std::vector<double> &phi, double a, double mu_ij);
+
+    // functions for simulating
+    void simulatePoisson(size_t N0, const std::vector<double> &phi,
+                         const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                         const TUniqueContainer<std::string> &locations, const size_t methodIndex);
+
+    void simulateNB(const std::vector<double> &phi, double A, const std::vector<double> &Mu, bool SimulateEffort);
+
 };
 
 
@@ -91,23 +149,49 @@ private:
     std::vector<double> _beta;
     std::vector<TLocations> _locations;
 
+    void _simulateEffort();
+
 public:
     explicit TMethods(const std::string_view &methodName);
+
+    TMethods(std::string methodName, size_t locationSize, size_t TimepointSize);
+
     TMethods() = default;
 
     // setters
+
 
     // getters
     size_t size() const;
 
     void add(const TTimepoints &pt, size_t location_id);
 
+    void sorttimes(std::vector<size_t> sortingIndex);
+
+    void checkEffortBiggerThanZero();
+
+    void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+               const TUniqueContainer<size_t> &Timepoints) const;
+
     const TLocations &operator[](const size_t index) const { return _locations[index]; }
 
     std::vector<TLocations>::const_iterator cbegin() const;
+
     std::vector<TLocations>::iterator begin();
+
     std::vector<TLocations>::const_iterator cend() const;
+
     std::vector<TLocations>::iterator end();
+
+    // functions for simulating
+    void simulatePoisson(size_t N0, const std::vector<double> &phi,
+                         const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                         const TUniqueContainer<std::string> &locations);
+
+    void simulatePoisson(const std::vector<double> &phi);
+
+    void simulateNB(const std::vector<double> &phi, double A, const std::vector<double> &Mu, bool SimulateEffort);
+
 };
 
 #endif //BIRP_TDATA_H

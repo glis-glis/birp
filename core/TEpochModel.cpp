@@ -123,7 +123,7 @@ std::vector<double> TEpochModel::calcSigma(const TDataSeries &lm, const std::vec
 	return sigma;
 }
 
-std::pair<std::vector<double>, double> TEpochModel::_calculateLLandJP(const TSpecies &Data) const {
+std::pair<std::vector<double>, double> TEpochModel::_calculateLLandJP(const TMethods &Data) const {
 	std::vector<double> phi = _calculatePhi();
 	std::vector<double> LL(Data.size(), 0.0);
 	arma::mat fisherInfo(_numEpochs, _numEpochs, arma::fill::zeros);
@@ -142,12 +142,12 @@ std::pair<std::vector<double>, double> TEpochModel::_calculateLLandJP(const TSpe
 	return {LL, JP};
 }
 
-double TEpochModel::calculateLL(const TSpecies &Data) const {
+double TEpochModel::calculateLL(const TMethods &Data) const {
 	const auto [newLL, newJP] = _calculateLLandJP(Data);
 	return coretools::containerSum(newLL);
 }
 
-void TEpochModel::_updateGamma(const TSpecies &Data) {
+void TEpochModel::_updateGamma(const TMethods &Data) {
 	for (size_t m = 0; m < _numEpochs; m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma->updateSpecificIndex(m)) {
 			const auto [newLL, newJP]  = _calculateLLandJP(Data);
@@ -164,7 +164,7 @@ void TEpochModel::_updateGamma(const TSpecies &Data) {
 	}
 }
 
-void TEpochModel::update(const TSpecies &Data) { _updateGamma(Data); }
+void TEpochModel::update(const TMethods &Data) { _updateGamma(Data); }
 
 void TEpochModel::_setSimulatedGammaToZero() {
 	if (!_gamma->hasFixedInitialValue()) {
@@ -183,14 +183,14 @@ TPoissonEpochModel::TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> 
                                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
     : TEpochModel(Gamma, TimesOfChange){};
 
-double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, const TDataSeries &lm,
+double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, const TTimepoints &lm,
                                         const std::vector<double> &p) const {
 	double LL = 0.0;
 	for (size_t k = 0; k < lm.size(); k++) { LL += (double)lm[k].counts * log(p[k]); }
 	return LL;
 }
 
-void TPoissonEpochModel::simulate(TSpecies &data, size_t N0,
+void TPoissonEpochModel::simulate(TMethods &data, size_t N0,
                                   const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
                                   const TUniqueContainer<std::string> &locations,
                                   const TUniqueContainer<std::string> &methods) {
@@ -198,7 +198,7 @@ void TPoissonEpochModel::simulate(TSpecies &data, size_t N0,
 	data.simulatePoisson(N0, _calculatePhi(), detectionProbs, locations, methods);
 }
 
-void TPoissonEpochModel::simulate(TSpecies &data) {
+void TPoissonEpochModel::simulate(TMethods &data) {
 	_setSimulatedGammaToZero();
 	data.simulatePoisson(_calculatePhi());
 }

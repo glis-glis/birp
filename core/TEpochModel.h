@@ -7,12 +7,12 @@
 #define BIRP_TEPOCHMODEL_H
 
 #include "BirpTypes.h"
-#include "TSpecies.h"
 #include "coretools/Math/TMatrix.h"
 #include "stattools/ParametersObservations/TObservationTyped.h"
 #include "stattools/ParametersObservations/TParameterTyped.h"
 #include <armadillo>
 #include <vector>
+#include "TData.h"
 
 //--------------------------------
 // TEpochModel
@@ -40,15 +40,15 @@ protected:
 	[[nodiscard]] double _calculateLogPhi_k(size_t k) const;
 	[[nodiscard]] std::vector<double> _calculatePhi() const;
 	arma::mat _calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeNu nu) const;
-	std::pair<std::vector<double>, double> _calculateLLandJP(const TSpecies &Data) const;
+	std::pair<std::vector<double>, double> _calculateLLandJP(const TMethods &Data) const;
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 
 	// simulation
 	void _setSimulatedGammaToZero();
 
-	virtual double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm,
+	virtual double _calculateLL(const std::vector<double> &sigma, const TTimepoints &lm,
 	                            const std::vector<double> &p) const = 0;
-	void _updateGamma(const TSpecies &Data);
+	void _updateGamma(const TMethods &Data);
 
 public:
 	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
@@ -58,16 +58,16 @@ public:
 	                                const TUniqueContainer<std::string> &Locations,
 	                                const TUniqueContainer<std::string> &Methods);
 
-	virtual void estimateInitialPriorParameters(const TSpecies &Data);
+	virtual void estimateInitialPriorParameters(const TMethods &Data);
 
-	std::vector<double> calcSigma(const TDataSeries &lm, const std::vector<double> &phi) const;
+	std::vector<double> calcSigma(const TTimepoints &lm, const std::vector<double> &phi) const;
 
-	virtual void update(const TSpecies &Data);
-	double calculateLL(const TSpecies &Data) const;
+	virtual void update(const TMethods &Data);
+	double calculateLL(const TMethods &Data) const;
 
-	virtual void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	virtual void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	               const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) = 0;
-	virtual void simulate(TSpecies &data) = 0;
+	virtual void simulate(TMethods &data) = 0;
 
 	// get rho for tests
 	size_t rho(size_t row, size_t col) const;
@@ -79,7 +79,7 @@ public:
 
 class TPoissonEpochModel : public TEpochModel {
 protected:
-	double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm,
+	double _calculateLL(const std::vector<double> &sigma, const TTimepoints &lm,
 	                    const std::vector<double> &p) const override;
 
 public:
@@ -87,9 +87,9 @@ public:
 	                   stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 
 	// simulation
-	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	               const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) override;
-	void simulate(TSpecies &data) override;
+	void simulate(TMethods &data) override;
 };
 
 //--------------------------------
@@ -103,18 +103,18 @@ protected:
 	stattools::TParameterTyped<TypeLogA, 1> *_logA = nullptr;
 
 	// likelihood
-	double _calculateLL(const std::vector<double> &sigma, const TDataSeries &lm,
+	double _calculateLL(const std::vector<double> &sigma, const TTimepoints &lm,
 	                    const std::vector<double> &p) const override;
 
 	// update functions
-	void _updateMu(const TSpecies &Data);
-	void _updateLogA(const TSpecies &Data);
+	void _updateMu(const TMethods &Data);
+	void _updateLogA(const TMethods &Data);
 
 	// initialization
-	void _estimateInitialMu(const TSpecies &Data);
+	void _estimateInitialMu(const TMethods &Data);
 
 	// simulate
-	double _simulate(TSpecies &data);
+	double _simulate(TMethods &data);
 
 public:
 	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
@@ -123,13 +123,13 @@ public:
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
 	                        const TUniqueContainer<std::string> &Methods) override;
-	virtual void update(const TSpecies &Data);
-	void estimateInitialPriorParameters(const TSpecies &Data) override;
+	virtual void update(const TMethods &Data);
+	void estimateInitialPriorParameters(const TMethods &Data) override;
 
 	// simulate
-	void simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) override;
-	void simulate(TSpecies &data) override;
+	void simulate(TMethods &data) override;
 };
 
 #endif // BIRP_TEPOCHMODEL_H

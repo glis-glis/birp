@@ -26,21 +26,21 @@
 
 class TBirpModel {
 private:
-	// all parameters of model (including prior parameters)
-	stattools::TParameterTyped<TypeGamma, 1> _gamma;
-	stattools::TParameterTyped<TypeTime, 1> _timesOfChange;
+    // all parameters of model (including prior parameters)
+    stattools::TParameterTyped<TypeGamma, 1> _gamma;
+    stattools::TParameterTyped<TypeTime, 1> _timesOfChange;
 
-	// only relevant for negative binomial model
-	stattools::TParameterTyped<TypeSigmaMu, 1> _sigmaMu;
-	stattools::TParameterTyped<TypeMu, 2> _mu;
-	stattools::TParameterTyped<TypeLogA, 1> _logA;
+    // only relevant for negative binomial model
+    stattools::TParameterTyped<TypeSigmaMu, 1> _sigmaMu;
+    stattools::TParameterTyped<TypeMu, 2> _mu;
+    stattools::TParameterTyped<TypeLogA, 1> _logA;
 
-	std::unique_ptr<stattools::TObservationTyped<TypeCounts, 2>> _data;
+    std::unique_ptr<stattools::TObservationTyped<TypeCounts, 2>> _data;
 
 public:
-	TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
-	           TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
-	           const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial);
+    TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
+               TUniqueContainer<std::size_t> *TimePoints,
+               const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial);
 };
 
 //--------------------------------------
@@ -49,40 +49,48 @@ public:
 
 class TBirpCore {
 protected:
-	std::string _outname;
+    std::string _outname;
 
-	// locations, methods, timepoints
-	TUniqueContainer<std::string> _locations;
+    // locations, methods, timepoints
+    TUniqueContainer<std::string> _locations;
     std::vector<TMethods> _methods;
-	TUniqueContainer<size_t> _timepoints;
-	TUniqueContainer<std::string> _covariateNames; // we can delete this here?
+    TUniqueContainer<size_t> _timepoints;
+    TUniqueContainer<std::string> _covariateNames;
 
-	// read input files
-	std::vector<std::string> _getHeader() const;
-	bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title) const;
-    void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts, std::vector<size_t> countIndices,
-                                 std::vector<size_t> effortIndices);
-    std::vector<size_t> getColumnIndex( coretools::TInputFile infile, std::string string);
-	void _readFile(const std::string &Filename, bool hasCounts);
-    void _setEffort_singleCovariate(); // never implemented
-	void _sortTimepoints();
-	void _readForInference(bool hasCounts);
+    // read input files
+    [[nodiscard]] std::vector<std::string> _getHeader() const;
 
-	// simulate
-	std::vector<size_t> _readN0() const;
-	void _fillTimepointsFromCommandLine();
-	void _fillLocationsFromCommandLine();
-	void _fillMethodsFromCommandLine();
+    [[nodiscard]] bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index, const std::string &Title) const;
 
-	// write
-	void _writeFile(const std::string &Filename);
+    void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
+                      const std::vector<size_t> &effortIndices);
+
+    std::vector<size_t>
+    getColumnIndex(const coretools::TInputFile &infile, const std::string &string); //
+    void _readFile(const std::string &Filename, bool hasCounts);
+
+    void _sortTimepoints();
+
+    void _readForInference(bool hasCounts);
+
+    // simulate
+    std::vector<size_t> _readN0() const;
+
+    void _fillTimepointsFromCommandLine();
+
+    void _fillLocationsFromCommandLine();
+
+
+    // write
+    void _writeFile(const std::string &Filename);
 
 public:
-	TBirpCore();
+    TBirpCore();
 
-	// main tasks
-	void infer();
-	void simulate();
+    // main tasks
+    void infer();
+
+    void simulate();
 };
 
 //--------------------------------------
@@ -91,22 +99,22 @@ public:
 
 class TTask_infer : public coretools::TTask {
 public:
-	TTask_infer() { _explanation = "Inferring rates of change in species densities from count data."; };
+    TTask_infer() { _explanation = "Inferring rates of change in species densities from count data."; };
 
-	void run() override {
-		TBirpCore birp;
-		birp.infer();
-	};
+    void run() override {
+        TBirpCore birp;
+        birp.infer();
+    };
 };
 
 class TTask_simulate : public coretools::TTask {
 public:
-	TTask_simulate() { _explanation = "Simulating count data under Birp model."; };
+    TTask_simulate() { _explanation = "Simulating count data under Birp model."; };
 
-	void run() override {
-		TBirpCore birp;
-		birp.simulate();
-	};
+    void run() override {
+        TBirpCore birp;
+        birp.simulate();
+    };
 };
 
 #endif /* TEXAMPLETASK_H_ */

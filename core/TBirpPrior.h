@@ -8,11 +8,11 @@
 #include "BirpTypes.h"
 #include "TCovariates.h"
 #include "TEpochModel.h"
-#include "TSpecies.h"
 #include "coretools/Files/TFile.h"
 #include "coretools/Files/TOutputFile.h"
 #include "stattools/ParametersObservations/TObservationTyped.h"
 #include "stattools/ParametersObservations/TParameterTyped.h"
+#include "TData.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
@@ -21,7 +21,7 @@ private:
 
 protected:
 	// data
-	std::vector<TSpecies> *_species = nullptr;
+	std::vector<TMethods> *_methods = nullptr;
 
 	// regression coefficients of covariates: todo: figure out!
 	stattools::TParameterTyped<TypeBeta, 1> *_beta = nullptr;
@@ -29,10 +29,9 @@ protected:
 	// model
 	std::vector<std::unique_ptr<TEpochModel>> _epochModel;
 
-	// locations, methods, timepoints
+	// locations, timepoints
 	TUniqueContainer<std::string> *_locations =
 	    nullptr; // these are pointers to the objects that are stored in TBirpCore
-	TUniqueContainer<std::string> *_methods = nullptr;
 	TUniqueContainer<size_t> *_timepoints   = nullptr;
 
 	// prefix for writing
@@ -47,7 +46,7 @@ protected:
 
 public:
 	TBirpPrior() = default;
-	TBirpPrior(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
+	TBirpPrior(, TUniqueContainer<std::string> *Locations,
 	           TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
 	           stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
 	           std::string Prefix);

@@ -32,8 +32,8 @@ std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretool
     UERROR("Size of argument '", ArgName, "' (", alphas.size(), ") does not match expected size (", Size, ").");
 }
 
-TBirpModel::TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::string> *Methods, TUniqueContainer<std::size_t> *TimePoints,
+TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
+                       TUniqueContainer<std::size_t> *TimePoints,
                        const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial)
 // TODO: change to improper prior!
         : _gamma("gamma", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeGamma, 1>>(),
@@ -51,24 +51,23 @@ TBirpModel::TBirpModel(std::vector<TSpecies> *Species, TUniqueContainer<std::str
           _logA("logA", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogA, 1>>(),
                 {Filename}) {
 
-    // currently only allow for single species
-    if (Species->size() != 1) { UERROR("Currently only supports single species!"); }
 
     // create birp prior (Poisson or Negative Binomial)
     std::shared_ptr<TBirpPrior> birp;
     if (NegativeBinomial) {
-        birp = std::make_shared<TBirpPrior>(Species, Locations, Methods, TimePoints, &_gamma, &_timesOfChange, &_mu,
+        birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, &_gamma, &_timesOfChange, &_mu,
                                             &_logA, Filename);
     } else {
         birp =
-                std::make_shared<TBirpPrior>(Species, Locations, Methods, TimePoints, &_gamma, &_timesOfChange,
+                std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, &_gamma, &_timesOfChange,
                                              Filename);
     }
 
     // create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
     coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;
-    _data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>("data", birp, fakeData,
-                                                                          stattools::TObservationDefinition(Filename));
+    _data = std::make_unique<stattools::TObservationTyped < TypeCounts, 2>>
+    ("data", birp, fakeData,
+            stattools::TObservationDefinition(Filename));
 
     // add to DAG
     DAGBuilder.addToDAG({&_gamma, &_timesOfChange});
@@ -105,8 +104,9 @@ std::vector<std::string> TBirpCore::_getHeader() const {
     return {"location", "timepoint"};
 }
 
-void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts, std::vector<size_t> countIndices,
-                             std::vector<size_t> effortIndices) {
+void
+TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
+                        const std::vector<size_t> &effortIndices) {
     std::vector<std::string> headerVec = _getHeader();
     // check whether first two columns are correct
     for (size_t i = 0; i < headerVec.size(); i++) {
@@ -130,12 +130,28 @@ void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts
 }
 
 void TBirpCore::_readForInference(bool hasCounts) {
-    std::string filename = parameters().getParameterFilename("counts");
-    _readFile(filename, hasCounts);
+    std::string input = parameters().getParameterFilename("data");
+    bool dataIsFile = std::filesystem::exists(input);
+    std::vector<std::string> filenames;
+    if (!dataIsFile) {
+        coretools::str::fillContainerFromString(input, filenames, ',');
+    } else {
+        coretools::TInputFile infile(input, coretools::TFile_Filetype::fixed); // fixed: no header
+        if (infile.numCols() != 1) {
+            UERROR("Expected only one column in file ", input, " .");
+        }
+        std::vector<std::string> row;
+        while (infile.read(row)) {
+            filenames.push_back(row[0]);
+        }
+    }
+    for (auto name: filenames) {
+        _readFile(name, hasCounts);
+    }
     _sortTimepoints();
 }
 
-std::vector<size_t> TBirpCore::getColumnIndex(coretools::TInputFile infile, std::string string) {
+std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infile, const std::string &string) {
     std::vector<size_t> countIndices;
     for (size_t i = 0; i < infile.numCols(); i++) {
         if (coretools::str::stringStartsWith(infile.headerAt(i), string)) {
@@ -157,7 +173,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
     // get position of columns that contain covariates (efforts)
     std::vector<size_t> effortIndices = getColumnIndex(infile, "cov");
 
-    _checkHeader(infile, bool hasCounts, countIndices, effortIndices);
+    _checkHeader(infile, hasCounts, countIndices, effortIndices);
 
     // add new method: name is derived from filename
     std::string_view methodNameFull = coretools::str::readAfterLast(Filename, '/');
@@ -166,8 +182,8 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
     std::vector<std::string> row;
     while (infile.read(row)) {
-        size_t locationIndex = _locations.add(row[0]);
-        size_t timepointIndex = _timepoints.add(coretools::str::fromStringCheck<size_t>(row[1]));
+        size_t location_id = _locations.add(row[0]);
+        size_t timepoint_id = _timepoints.add(coretools::str::fromStringCheck<size_t>(row[1]));
 
         // boot one vector together (stiflä) of all species counts, and one of all covariates
         std::vector<TypeCounts> countVec(countIndices.size());
@@ -179,52 +195,35 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
             covVec[c] = (TypeCovariate) row[effortIndices[c]];
         }
         // create timepoint
-        TTimepoints pt(countVec, covVec);
+        TTimepoints pt(countVec, covVec, timepoint_id);
         // add timepoint to data, either in existing object or create new one
-        _methods.back().add(pt, locationIndex, timepointIndex); // back: goes to last element
+        _methods.back().add(pt, location_id); // back: goes to last element
 
         // TODO ignoriere hasCounts for a start
     }
 }
 
 
-void TBirpCore::_setEffort_singleCovariate() {
-    // if effort is fixed: write the corresponding values (for each location & timepoint) to TDataPoint
-    for (auto &method: _covariates) {
-        if (method.covariateIsEffort()) {
-            auto cov = method.begin(); // we know there is only one, so no need for loop
-            for (auto &loc: *cov) {
-                for (auto &time: loc) {
-                    for (auto &species: _species) {
-                        // _species[method_id][location_id][time_id].effort = value; --> does this work?
-                        species[][time.timepoint_id].effort = time.covariate;
-                    }
-                }
-            }
-
-        }
-    } else {
-        // do nothing for the moment
-    }
-}
-
 void TBirpCore::_sortTimepoints() {
-    // sort timepoints and corresponding dataseries for every species
-    // check if data has more than one entry with effort > 0
-    for (auto &species: _species) { species.checkData(_locations, _methods); }
+    // sort timepoints and corresponding locations(?) for every method/species
+    // check if data (location) has more than one entry with effort > 0
+
     std::vector<size_t> sortingIndex = coretools::rankSort(_timepoints);
     _timepoints = coretools::sortContainerByRank(_timepoints, sortingIndex);
-    for (auto &species: _species) { species.sorttimes(sortingIndex); }
+    for (auto method: _methods) {
+        method.checkEffortBiggerThanZero();
+        method.sorttimes(sortingIndex);
+    }
 }
 
 void TBirpCore::infer() {
     // read data
-    _readForInference();
+    _readForInference(true);
 
     // create model
     stattools::TDAGBuilder dagBuilder;
     bool negBinom = parameters().parameterExists("negativeBinomial");
-    TBirpModel model(&_species, &_locations, &_methods, &_timepoints, _outname, dagBuilder, negBinom);
+    TBirpModel model(&_methods, &_locations, &_timepoints, _outname, dagBuilder, negBinom);
 
     // run MCMC
     stattools::TMCMC mcmc;
@@ -235,10 +234,11 @@ void TBirpCore::infer() {
 // Simulate
 
 void TBirpCore::_writeFile(const std::string &Filename) {
-    auto header = _getHeaderCounts();
+    // TODO loop over all methods, ask for header of loc and times, species and covs, then write file. in the end: write file that list all filenames
+    auto header = _getHeader();
     coretools::TOutputFile outfile(Filename, header);
     // write file line by line
-    for (auto &species: _species) { species.write(outfile, _locations, _methods, _timepoints); }
+    for (auto &method: _methods) { method.write(outfile, _locations, _timepoints); }
 }
 
 void TBirpCore::_fillTimepointsFromCommandLine() {
@@ -255,28 +255,26 @@ void TBirpCore::_fillLocationsFromCommandLine() {
     for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l)); }
 }
 
-void TBirpCore::_fillMethodsFromCommandLine() {
-    size_t numMethods = parameters().getParameterWithDefault("numMethods", 2);
-    for (size_t m = 0; m < numMethods; ++m) { _methods.add("Method_" + coretools::str::toString(m)); }
-}
-
 void TBirpCore::simulate() {
     // read incomplete counts file (if provided)
     if (parameters().parameterExists("simulationFile")) {
         std::string filename = parameters().getParameterFilename("simulationFile");
-        _readCountFile(filename, false);
+        _readFile(filename, false);
     } else {
         // else read main dimensions from command line
         _fillTimepointsFromCommandLine();
         _fillLocationsFromCommandLine();
-        _fillMethodsFromCommandLine();
-        _species.emplace_back("Seal", _locations.size(), _methods.size(), _timepoints.size());
+        size_t numMethods = parameters().getParameterWithDefault("numMethods", 2);
+        for (size_t m = 0; m < numMethods; ++m) {
+            _methods.emplace_back("Method_" + coretools::str::toString(m), _locations.size(),
+                                  _timepoints.size()); //TODO write empty constructor
+        }
     }
 
     // create model
     stattools::TDAGBuilder dagBuilder;
     bool negBinom = parameters().parameterExists("negativeBinomial");
-    TBirpModel model(&_species, &_locations, &_methods, &_timepoints, _outname, dagBuilder, negBinom);
+    TBirpModel model(&_methods, &_locations, &_timepoints, _outname, dagBuilder, negBinom);
 
     // run simulator
     stattools::TSimulator simulator;
