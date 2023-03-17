@@ -178,7 +178,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
     // add new method: name is derived from filename
     std::string_view methodNameFull = coretools::str::readAfterLast(Filename, '/');
     std::string_view methodName = coretools::str::readBeforeLast(methodNameFull, '.');
-    _methods.emplace_back(methodName);
+    _methods.emplace_back(methodName, _methods.size());
 
     std::vector<std::string> row;
     while (infile.read(row)) {

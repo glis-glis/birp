@@ -91,7 +91,6 @@ std::vector<double> TEpochModel::_calculatePhi() const {
 	return phi;
 }
 
-// TODO changed nu from TypeCounts to TypeNu, Madi is this ok
 arma::mat TEpochModel::_calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma,
                                        TypeNu nu) const {
 	arma::mat R(p.size(), _numEpochs);
@@ -192,10 +191,9 @@ double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, c
 
 void TPoissonEpochModel::simulate(TMethods &data, size_t N0,
                                   const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                                  const TUniqueContainer<std::string> &locations,
-                                  const TUniqueContainer<std::string> &methods) {
+                                  const TUniqueContainer<std::string> &locations) {
 	_setSimulatedGammaToZero();
-	data.simulatePoisson(N0, _calculatePhi(), detectionProbs, locations, methods);
+	data.simulatePoisson(N0, _calculatePhi(), detectionProbs, locations);
 }
 
 void TPoissonEpochModel::simulate(TMethods &data) {
@@ -336,7 +334,7 @@ void TNegBinEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
 	TEpochModel::estimateInitialPriorParameters(Data);
 }
 
-double TNegBinEpochModel::_simulate(TSpecies &data) {
+double TNegBinEpochModel::_simulate(TMethods &data) {
 	_setSimulatedGammaToZero();
 	if (!_logA->hasFixedInitialValue()) { _logA->set(log(data.size())); }
 	// calculate a = exp(log(a))
@@ -344,26 +342,27 @@ double TNegBinEpochModel::_simulate(TSpecies &data) {
 	return a;
 }
 
-void TNegBinEpochModel::simulate(TSpecies &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                                 const TUniqueContainer<std::string> & locations,
-                                 const TUniqueContainer<std::string> & methods) {
+
+void TNegBinEpochModel::simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                                 const TUniqueContainer<std::string> & locations) {
 	double A = _simulate(data);
 	std::vector<double> phi = _calculatePhi();
-	auto mus = data.simulateNB(N0, phi, detectionProbs, locations, methods, A);
+	auto mus = data.simulateNB(N0, phi, detectionProbs, locations, A); // simulate mus based on detectionProb and a
 	coretools::normalize(mus);
 	for (size_t c = 0; c < data.size(); ++c) {
-		const size_t ij = _mu->getIndex({data[c].method_id(), data[c].location_id()});
-		_mu->set(ij, mus[c]);
+		const size_t ij = _mu->getIndex({data.method_id(), data[c].location_id()});
+		_mu->set(ij, mus[c]); // store those mus here
 	}
 }
 
-void TNegBinEpochModel::simulate(TSpecies &data) {
+
+void TNegBinEpochModel::simulate(TMethods &data) {
 	 double a = _simulate(data);
 	// collect mu from parameter (only relevant method-location combinations)
 	 _mu->normalizeToSum1AfterUpdate();
 	std::vector<double> mu(data.size());
 	for (size_t c = 0; c < data.size(); ++c) {
-		const size_t ij = _mu->getIndex({data[c].method_id(), data[c].location_id()});
+		const size_t ij = _mu->getIndex({data.method_id(), data[c].location_id()});
 		mu[c]           = _mu->value(ij);
 	}
 	data.simulateNB(_calculatePhi(), a, mu, true);

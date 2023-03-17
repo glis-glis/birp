@@ -36,6 +36,7 @@ public:
 
     // setters
     void setTimepoint(size_t timepointToAdd);
+    void setEffort(TypeEffort effortToAdd);
 
     void _simulatePoisson(double lambda);
 
@@ -128,12 +129,6 @@ public:
     // functions for simulating under Negative Binomial model
     void simulateNB(const std::vector<double> &phi, double a, double mu_ij);
 
-    // functions for simulating
-    void simulatePoisson(size_t N0, const std::vector<double> &phi,
-                         const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                         const TUniqueContainer<std::string> &locations, const size_t methodIndex);
-
-    void simulateNB(const std::vector<double> &phi, double A, const std::vector<double> &Mu, bool SimulateEffort);
 
 };
 
@@ -145,16 +140,20 @@ public:
 class TMethods {
 private:
     std::string _methodName;
-    size_t _method_id;
     std::vector<double> _beta;
     std::vector<TLocations> _locations;
+    size_t _method_id;
 
+    template<class Distribution> void _simulateEffort(const std::string &Params) {
+        Distribution distr(Params);
+        for (size_t i = 0; i < size(); i++) { _locations[i].simulateEffort(distr); }
+    }
     void _simulateEffort();
 
 public:
-    explicit TMethods(const std::string_view &methodName);
+    explicit TMethods(const std::string_view &methodName, size_t index);
 
-    TMethods(std::string methodName, size_t locationSize, size_t TimepointSize);
+    TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index);
 
     TMethods() = default;
 
@@ -163,6 +162,7 @@ public:
 
     // getters
     size_t size() const;
+    size_t method_id() const;
 
     void add(const TTimepoints &pt, size_t location_id);
 
@@ -184,11 +184,18 @@ public:
     std::vector<TLocations>::iterator end();
 
     // functions for simulating
+    std::pair<size_t,size_t> getIndexToSimulate(const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                                                const TUniqueContainer<std::string> &locations, size_t i);
+
     void simulatePoisson(size_t N0, const std::vector<double> &phi,
                          const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
                          const TUniqueContainer<std::string> &locations);
 
     void simulatePoisson(const std::vector<double> &phi);
+
+    std::vector<double> simulateNB(size_t N0, const std::vector<double> &phi,
+                                             const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                                             const TUniqueContainer<std::string> &locations, double A);
 
     void simulateNB(const std::vector<double> &phi, double A, const std::vector<double> &Mu, bool SimulateEffort);
 

@@ -66,7 +66,7 @@ public:
 	double calculateLL(const TMethods &Data) const;
 
 	virtual void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	               const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) = 0;
+	               const TUniqueContainer<std::string> &locations) = 0;
 	virtual void simulate(TMethods &data) = 0;
 
 	// get rho for tests
@@ -88,7 +88,7 @@ public:
 
 	// simulation
 	void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	               const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) override;
+	               const TUniqueContainer<std::string> &locations) override;
 	void simulate(TMethods &data) override;
 };
 
@@ -128,7 +128,7 @@ public:
 
 	// simulate
 	void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	              const TUniqueContainer<std::string> &locations, const TUniqueContainer<std::string> &methods) override;
+	              const TUniqueContainer<std::string> &locations) override;
 	void simulate(TMethods &data) override;
 };
 
