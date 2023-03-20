@@ -30,6 +30,8 @@ protected:
 	// rho
 	coretools::TMatrix<size_t> _rho;
 
+    size_t _species_id = 0;
+
 	// temporary values, stored for speed
 	// TODO: make sure old LL and old JP refer to correct species in case of multi species inference
 	std::vector<double> _oldLL;
@@ -46,8 +48,8 @@ protected:
 	// simulation
 	void _setSimulatedGammaToZero();
 
-	virtual double _calculateLL(const std::vector<double> &sigma, const TTimepoints &lm,
-	                            const std::vector<double> &p) const = 0;
+	virtual double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
+	                            const std::vector<double> &p, size_t method_id) const = 0;
 	void _updateGamma(const TMethods &Data);
 
 public:
@@ -56,11 +58,11 @@ public:
 	~TEpochModel() = default;
 	virtual void initializeInferred(const TUniqueContainer<size_t> &Timepoints,
 	                                const TUniqueContainer<std::string> &Locations,
-	                                const TUniqueContainer<std::string> &Methods);
+	                                const std::vector<TMethods> &Methods);
 
 	virtual void estimateInitialPriorParameters(const TMethods &Data);
 
-	std::vector<double> calcSigma(const TTimepoints &lm, const std::vector<double> &phi) const;
+	std::vector<double> calcSigma(const TLocations &loc, const std::vector<double> &phi) const;
 
 	virtual void update(const TMethods &Data);
 	double calculateLL(const TMethods &Data) const;
@@ -79,8 +81,8 @@ public:
 
 class TPoissonEpochModel : public TEpochModel {
 protected:
-	double _calculateLL(const std::vector<double> &sigma, const TTimepoints &lm,
-	                    const std::vector<double> &p) const override;
+	double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
+	                    const std::vector<double> &p, size_t method_id) const override;
 
 public:
 	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
@@ -103,8 +105,8 @@ protected:
 	stattools::TParameterTyped<TypeLogA, 1> *_logA = nullptr;
 
 	// likelihood
-	double _calculateLL(const std::vector<double> &sigma, const TTimepoints &lm,
-	                    const std::vector<double> &p) const override;
+	double _calculateLL(const std::vector<double> &sigma, const TLocations &lm,
+	                    const std::vector<double> &p, size_t method_id) const override;
 
 	// update functions
 	void _updateMu(const TMethods &Data);
@@ -122,7 +124,7 @@ public:
 	                  stattools::TParameterTyped<TypeLogA, 1> *LogA);
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
-	                        const TUniqueContainer<std::string> &Methods) override;
+	                        const std::vector<TMethods> &Methods) override;
 	virtual void update(const TMethods &Data);
 	void estimateInitialPriorParameters(const TMethods &Data) override;
 

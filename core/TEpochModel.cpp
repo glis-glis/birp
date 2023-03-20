@@ -29,14 +29,14 @@ TEpochModel::TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 
 void TEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
                                      const TUniqueContainer<std::string> & /*Locations*/,
-                                     const TUniqueContainer<std::string> & /*Methods*/) {
+                                     const std::vector<TMethods> & /*Methods*/) {
 	_timesOfChange->initStorage({_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
 	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
 
 	_fillRho(Timepoints);
 }
 
-void TEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
+void TEpochModel::estimateInitialPriorParameters(const TMethods &Data) {
 	// TODO: something more sophisticated?
 	for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->set(g, 0.0); }
 
@@ -113,11 +113,11 @@ arma::mat TEpochModel::_calcFisherInfo(const std::vector<double> &p, const std::
 	return nu * tmp;
 }
 
-std::vector<double> TEpochModel::calcSigma(const TDataSeries &lm, const std::vector<double> &phi) const {
-	std::vector<double> sigma(lm.size());
-	for (size_t k = 0; k < lm.size(); k++) {
+std::vector<double> TEpochModel::calcSigma(const TLocations &loc, const std::vector<double> &phi) const {
+	std::vector<double> sigma(loc.size());
+	for (size_t k = 0; k < loc.size(); k++) {
 		// calculate sigma and fill into p (will normalize later)
-		sigma[k] = phi[k] * lm[k].effort;
+		sigma[k] = phi[k] * loc[k].effort();
 	}
 	return sigma;
 }
@@ -126,16 +126,16 @@ std::pair<std::vector<double>, double> TEpochModel::_calculateLLandJP(const TMet
 	std::vector<double> phi = _calculatePhi();
 	std::vector<double> LL(Data.size(), 0.0);
 	arma::mat fisherInfo(_numEpochs, _numEpochs, arma::fill::zeros);
-	for (size_t ij = 0; ij < Data.size(); ij++) {
-		const auto &lm        = Data[ij];
-		std::vector sigma     = calcSigma(lm, phi);
+	for (size_t m = 0; m < Data.size(); m++) {
+		const auto &loc        = Data[m];
+		std::vector sigma     = calcSigma(loc, phi);
 		std::vector<double> p = sigma;
 		// now normalize by row sum!
 		coretools::normalize(p);
 		// add to Likelihood
-		LL[ij] = _calculateLL(sigma, lm, p);
+		LL[m] = _calculateLL(sigma, loc, p, Data.method_id());
 		// add to JP
-		fisherInfo += _calcFisherInfo(p, sigma, lm.nu());
+		fisherInfo += _calcFisherInfo(p, sigma, loc.nu(_species_id));
 	}
 	double JP = log(arma::det(fisherInfo)); // sqrt drops out in hastings ratio
 	return {LL, JP};
@@ -182,10 +182,10 @@ TPoissonEpochModel::TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> 
                                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
     : TEpochModel(Gamma, TimesOfChange){};
 
-double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, const TTimepoints &lm,
-                                        const std::vector<double> &p) const {
+double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, const TLocations &loc,
+                                        const std::vector<double> &p, size_t method_id) const {
 	double LL = 0.0;
-	for (size_t k = 0; k < lm.size(); k++) { LL += (double)lm[k].counts * log(p[k]); }
+	for (size_t k = 0; k < loc.size(); k++) { LL += (double)loc[k].counts_per_species(_species_id) * log(p[k]); }
 	return LL;
 }
 
@@ -219,38 +219,38 @@ TNegBinEpochModel::TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *G
 
 void TNegBinEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
                                            const TUniqueContainer<std::string> &Locations,
-                                           const TUniqueContainer<std::string> &Methods) {
+                                           const std::vector<TMethods> &Methods) {
 	// initialize gamma and timepoints
-	TEpochModel::initializeInferred(Timepoints, Methods, Locations);
+	TEpochModel::initializeInferred(Timepoints, Locations, Methods);
 
 	// initialize mu
 	auto locationNames = std::make_shared<coretools::TNamesStrings>();
 	auto methodNames   = std::make_shared<coretools::TNamesStrings>();
 	for (size_t j = 0; j < Locations.size(); ++j) { locationNames->addName({Locations[j]}); }
-	for (size_t i = 0; i < Methods.size(); ++i) { methodNames->addName({Methods[i]}); }
+	for (size_t i = 0; i < Methods.size(); ++i) { methodNames->addName({Methods[i].name()}); }
 	_mu->initStorage({Methods.size(), Locations.size()}, {methodNames, locationNames});
 
 	// initialize a: single element
 	_logA->initStorage({1});
 }
 
-double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const TDataSeries &lm,
-                                       const std::vector<double> & /*p*/) const {
+double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const TLocations &loc,
+                                       const std::vector<double> & /*p*/, size_t method_id) const {
 	double sum_a    = 0.0;
 	double term2    = 0.0;
-	int n           = lm.nu();
+	TypeNu n           = loc.nu(_species_id); //TODO when multispecies make sure id is correct
 	const double a  = exp(_logA->value());
-	const size_t ij = _mu->getIndex({lm.method_id(), lm.location_id()});
-	for (size_t k = 0; k < lm.size(); k++) {
+	const size_t ij = _mu->getIndex({method_id, loc.location_id()});
+	for (size_t k = 0; k < loc.size(); k++) {
 		double alpha_k = a * _mu->value(ij) * sigma[k];
 		sum_a += alpha_k; // summing up alphas
-		term2 += coretools::gammaLog((double)lm[k].counts + alpha_k) -
+		term2 += coretools::gammaLog((double)loc[k].counts_per_species(_species_id) + alpha_k) -
 		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
 	}
 	return coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2;  // (n+1) drops out
 }
 
-void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
+void TNegBinEpochModel::_updateMu(const TMethods &Data) {
 	stattools::TIndexSampler sampler(Data.size());
 	sampler.sampleIndices();
 
@@ -261,8 +261,8 @@ void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
 		const auto &lm1 = Data[c1];
 		const auto &lm2 = Data[c2];
 
-		const size_t ij1 = _mu->getIndex({lm1.method_id(), lm1.location_id()});
-		const size_t ij2 = _mu->getIndex({lm2.method_id(), lm2.location_id()});
+		const size_t ij1 = _mu->getIndex({Data.method_id(), lm1.location_id()});
+		const size_t ij2 = _mu->getIndex({Data.method_id(), lm2.location_id()});
 
 		_mu->updatePairWiseSumOneVector(ij1, ij2);
 
@@ -270,8 +270,8 @@ void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
 		std::vector<double> sigma1 = calcSigma(lm1, phi);
 		std::vector<double> sigma2 = calcSigma(lm2, phi);
 
-		const auto newLL1 = _calculateLL(sigma1, lm1, {});
-		const auto newLL2 = _calculateLL(sigma2, lm2, {});
+		const auto newLL1 = _calculateLL(sigma1, lm1, {}, Data.method_id());
+		const auto newLL2 = _calculateLL(sigma2, lm2, {}, Data.method_id());
 
 		const double LLRatio = newLL1 + newLL2 - _oldLL[c1] - _oldLL[c2]; // in log
 		const double logH    = LLRatio + _mu->getLogPriorRatio(ij1) + _mu->getLogPriorRatio(ij2);
@@ -285,14 +285,14 @@ void TNegBinEpochModel::_updateMu(const TSpecies &Data) {
 	}
 }
 
-void TNegBinEpochModel::_updateLogA(const TSpecies &Data) {
+void TNegBinEpochModel::_updateLogA(const TMethods &Data) {
 	if (_logA->update()) {
 		std::vector<double> phi = _calculatePhi();
 		std::vector<double> newLL(Data.size());
 		for (size_t ij = 0; ij < Data.size(); ++ij) {
-			const auto &lm    = Data[ij];
-			std::vector sigma = calcSigma(lm, phi);
-			newLL[ij]         = _calculateLL(sigma, lm, {});
+			const auto &loc    = Data[ij];
+			std::vector sigma = calcSigma(loc, phi);
+			newLL[ij]         = _calculateLL(sigma, loc, {}, Data.method_id());
 		}
 		const double LLRatio = coretools::containerSum(newLL) - coretools::containerSum(_oldLL);
 		const double logH    = LLRatio + _logA->getLogPriorRatio();
@@ -303,30 +303,30 @@ void TNegBinEpochModel::_updateLogA(const TSpecies &Data) {
 	}
 }
 
-void TNegBinEpochModel::update(const TSpecies &Data) {
+void TNegBinEpochModel::update(const TMethods &Data) {
 	if (_gamma->isUpdated()) { _updateGamma(Data); }
 	if (_mu->isUpdated()) { _updateMu(Data); }
 	if (_logA->isUpdated()) { _updateLogA(Data); }
 }
 
-void TNegBinEpochModel::_estimateInitialMu(const TSpecies &Data) {
+void TNegBinEpochModel::_estimateInitialMu(const TMethods &Data) {
 	// initialize mu: relative nu's
 	std::vector<double> nus(Data.size());
 	for (size_t c = 0; c < Data.size(); ++c) {
-		nus[c] = std::max(coretools::UnsignedInt<uint32_t>(1), Data[c].nu()); // do not allow 0: problem for Dirichlet
+		nus[c] = std::max(coretools::UnsignedInt<uint32_t>(1), Data[c].nu(_species_id)); // do not allow 0: problem for Dirichlet
 	}
 	coretools::normalize(nus);
 
 	// initialize to very small value: not all i-j-combinations exists
 	for (size_t ij = 0; ij < _mu->totalSize(); ++ij) { _mu->setInitial(ij, 1e-10); }
 	for (size_t c = 0; c < Data.size(); ++c) {
-		const size_t ij = _mu->getIndex({Data[c].method_id(), Data[c].location_id()});
+		const size_t ij = _mu->getIndex({Data.method_id(), Data[c].location_id()});
 		_mu->setInitial(ij, nus[c]);
 	}
 	_mu->normalizeToSum1AfterUpdate();
 }
 
-void TNegBinEpochModel::estimateInitialPriorParameters(const TSpecies &Data) {
+void TNegBinEpochModel::estimateInitialPriorParameters(const TMethods &Data) {
 	// initialize mu
 	_estimateInitialMu(Data);
 	_logA->setInitial(0.0); // log(1) = 0

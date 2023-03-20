@@ -21,6 +21,7 @@ private:
     std::vector<TypeCovariate> _covariates;
     std::vector<size_t> _covariate_id;
     std::vector<TypeCounts> _counts_per_species;
+    size_t _numSpecies;
     std::vector<size_t> _species_id;
     TypeEffort _effort = 0;  // TODO how to store effort and distinguish betewen covariate?
     TypeEffort _effort_old = 0;
@@ -47,11 +48,12 @@ public:
 
     std::vector<size_t> covariate_id();
 
-    std::vector<TypeCounts> counts_per_species();
+    size_t numSpecies() const;
+    TypeCounts counts_per_species(size_t species_id) const ;
 
     std::vector<size_t> species_id();
 
-    TypeEffort effort();
+    TypeEffort effort() const ;
 
     TypeEffort effort_old();
 
@@ -99,7 +101,7 @@ public:
 
     // getters
     size_t size() const;
-
+    TypeNu nu(size_t species_id) const;
     size_t location_id() const;
 
     const TTimepoints &operator[](const size_t index) const;
@@ -165,6 +167,7 @@ public:
     size_t method_id() const;
 
     void add(const TTimepoints &pt, size_t location_id);
+    std::string name() const;
 
     void sorttimes(std::vector<size_t> sortingIndex);
 

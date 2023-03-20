@@ -56,12 +56,12 @@ TTimepoints::TTimepoints(size_t timepoint_id) {
 std::vector<TypeCovariate> TTimepoints::covariates() { return _covariates; }
 
 std::vector<size_t> TTimepoints::covariate_id() { return _covariate_id; }
-
-std::vector<TypeCounts> TTimepoints::counts_per_species() { return _counts_per_species; }
+size_t TTimepoints::numSpecies() const{return _species_id.size();}
+TypeCounts TTimepoints::counts_per_species(size_t species_id) const { return _counts_per_species[species_id]; }
 
 std::vector<size_t> TTimepoints::species_id() { return _species_id; }
 
-TypeEffort TTimepoints::effort() { return _effort; }
+TypeEffort TTimepoints::effort() const { return _effort; }
 
 TypeEffort TTimepoints::effort_old() { return _effort_old; }
 
@@ -114,7 +114,7 @@ void TTimepoints::simulateNB(double phi, double a, double mu_ij) {
 //-------------------------------------------
 
 size_t TLocations::size() const { return _timepoints.size(); }
-
+TypeNu TLocations::nu(size_t species_id) const {return _nu[species_id];}
 size_t TLocations::location_id() const { return _location_id; }
 
 TLocations::TLocations(const TTimepoints &pt, size_t location_id) {
@@ -138,10 +138,14 @@ void TLocations::add(TTimepoints pt) {
     // when we are here: timpoint is unique -> push it back
     _timepoints.push_back(pt);
     // now add nu
-    for (auto c: pt.counts_per_species()) {
-        _nu[c] += (uint32_t) pt.counts_per_species()[c];
+
+    for(size_t i = 0; i < pt.numSpecies(); i++){
+        _nu[i] += (uint32_t) pt.counts_per_species(i);
     }
+
 }
+
+
 
 
 
@@ -231,6 +235,10 @@ void TMethods::add(const TTimepoints &pt, size_t location_id) {
         }
     }
     if (!dataPointExists) { _locations.emplace_back(pt, location_id); }
+}
+
+std::string TMethods::name() const{
+    return _methodName;
 }
 
 

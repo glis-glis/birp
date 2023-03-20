@@ -9,7 +9,7 @@
 
 using namespace coretools::instances;
 
-TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints,
+TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, std::string Prefix)
     : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _out(std::move(Prefix)) {
@@ -19,7 +19,7 @@ TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::str
 	_epochModel.emplace_back(std::make_unique<TPoissonEpochModel>(Gamma, TimesOfChange));
 }
 
-TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints,
+TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                        stattools::TParameterTyped<TypeMu, 2> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
@@ -41,20 +41,20 @@ void TBirpPrior::initializeInferred() {
 }
 
 void TBirpPrior::estimateInitialPriorParameters() {
-	for (size_t s = 0; s < _species->size(); ++s) { _epochModel[s]->estimateInitialPriorParameters((*_species)[s]); }
+	for (size_t m = 0; m < _methods->size(); ++m) { _epochModel[m]->estimateInitialPriorParameters((*_methods)[m]); }
 }
 
 //------------------------------------
 // MCMC
 
 void TBirpPrior::updateParams() {
-	for (size_t s = 0; s < _species->size(); ++s) { _epochModel[s]->update((*_species)[s]); }
+	for (size_t m = 0; m < _methods->size(); ++m) { _epochModel[m]->update((*_methods)[m]); }
 }
 
 double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 	// TODO: is this correct for multi-species case?
 	double sum = 0.0;
-	for (size_t s = 0; s < _species->size(); ++s) { sum += _epochModel[s]->calculateLL((*_species)[s]); }
+	for (size_t m = 0; m < _methods->size(); ++m) { sum += _epochModel[m]->calculateLL((*_methods)[m]); }
 	return sum;
 }
 
@@ -89,7 +89,7 @@ coretools::TMultiDimensionalStorage<double, 2> TBirpPrior::_readDetectionProbFil
 		auto locationNames = std::make_shared<coretools::TNamesStrings>();
 		auto methodNames   = std::make_shared<coretools::TNamesStrings>();
 		for (const auto &location : *_locations) { locationNames->addName({location}); }
-		for (const auto &method : *_methods) { methodNames->addName({method}); }
+		for (const auto &method : *_methods) { methodNames->addName({method.name()}); }
 		storage.setDimensionNames({locationNames, methodNames});
 		return storage;
 	}
@@ -107,12 +107,12 @@ void TBirpPrior::_simulateFromFile() {
 	auto detectionProbs = _readDetectionProbFile();
 	auto N0             = _readN0FromCommandLine();
 	for (size_t i = 0; i < _epochModel.size(); i++) {
-		_epochModel[i]->simulate((*_species)[i], N0[i], detectionProbs, *_locations, *_methods);
+		_epochModel[i]->simulate((*_methods)[i], N0[i], detectionProbs, *_locations);
 	}
 }
 
 void TBirpPrior::_simulateFromCommandLine() {
-	for (size_t i = 0; i < _epochModel.size(); i++) { _epochModel[i]->simulate((*_species)[i]); }
+	for (size_t i = 0; i < _epochModel.size(); i++) { _epochModel[i]->simulate((*_methods)[i]); }
 }
 
 //------------------------------------
@@ -120,8 +120,6 @@ void TBirpPrior::_simulateFromCommandLine() {
 
 const TUniqueContainer<std::string> &TBirpPrior::locations() const { return *_locations; }
 
-const TUniqueContainer<std::string> &TBirpPrior::methods() const { return *_methods; }
+const std::vector<TMethods> &TBirpPrior::methods() const { return *_methods; }
 
 const TUniqueContainer<size_t> &TBirpPrior::timepoints() const { return *_timepoints; }
-
-const std::vector<TSpecies> &TBirpPrior::species() const { return *_species; }

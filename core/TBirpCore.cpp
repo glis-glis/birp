@@ -267,7 +267,7 @@ void TBirpCore::simulate() {
         size_t numMethods = parameters().getParameterWithDefault("numMethods", 2);
         for (size_t m = 0; m < numMethods; ++m) {
             _methods.emplace_back("Method_" + coretools::str::toString(m), _locations.size(),
-                                  _timepoints.size()); //TODO write empty constructor
+                                  _timepoints.size(), _methods.size());
         }
     }
 
