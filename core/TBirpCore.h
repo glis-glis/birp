@@ -66,7 +66,8 @@ protected:
                       const std::vector<size_t> &effortIndices);
 
     std::vector<size_t>
-    getColumnIndex(const coretools::TInputFile &infile, const std::string &string); //
+    getColumnIndex(const coretools::TInputFile &infile, const std::string &string);
+    std::vector<std::string> _getSpeciesNames(const coretools::TInputFile &infile, const std::vector<size_t>& countIndices);
     void _readFile(const std::string &Filename, bool hasCounts);
 
     void _sortTimepoints();

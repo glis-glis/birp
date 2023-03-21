@@ -21,8 +21,6 @@ private:
     std::vector<TypeCovariate> _covariates;
     std::vector<size_t> _covariate_id;
     std::vector<TypeCounts> _counts_per_species;
-    size_t _numSpecies;
-    std::vector<size_t> _species_id;
     TypeEffort _effort = 0;  // TODO how to store effort and distinguish betewen covariate?
     TypeEffort _effort_old = 0;
     size_t _timepoint_id = 0;
@@ -31,12 +29,14 @@ private:
 public:
     TTimepoints() = default;
 
-    TTimepoints(std::vector<TypeCounts> countVec, std::vector<TypeCovariate> covVec, size_t timepoint_id);
+    TTimepoints(const std::vector<TypeCounts> &countVec, const std::vector<TypeCovariate> &covVec,
+                const size_t &timepoint_id);
 
     explicit TTimepoints(size_t timepoint_id);
 
     // setters
     void setTimepoint(size_t timepointToAdd);
+
     void setEffort(TypeEffort effortToAdd);
 
     void _simulatePoisson(double lambda);
@@ -49,11 +49,12 @@ public:
     std::vector<size_t> covariate_id();
 
     size_t numSpecies() const;
-    TypeCounts counts_per_species(size_t species_id) const ;
+
+    TypeCounts counts_per_species(size_t species_id) const;
 
     std::vector<size_t> species_id();
 
-    TypeEffort effort() const ;
+    TypeEffort effort() const;
 
     TypeEffort effort_old();
 
@@ -101,12 +102,15 @@ public:
 
     // getters
     size_t size() const;
+
     TypeNu nu(size_t species_id) const;
+
     size_t location_id() const;
 
     const TTimepoints &operator[](const size_t index) const;
 
-    void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations, const TUniqueContainer<size_t> &Timepoints) const;
+    void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+               const TUniqueContainer<size_t> &Timepoints) const;
 
 
     std::vector<TTimepoints>::const_iterator cbegin() const;
@@ -145,17 +149,21 @@ private:
     std::vector<double> _beta;
     std::vector<TLocations> _locations;
     size_t _method_id;
+    std::vector<std::string> _speciesNames;
 
-    template<class Distribution> void _simulateEffort(const std::string &Params) {
+    template<class Distribution>
+    void _simulateEffort(const std::string &Params) {
         Distribution distr(Params);
         for (size_t i = 0; i < size(); i++) { _locations[i].simulateEffort(distr); }
     }
+
     void _simulateEffort();
 
 public:
-    explicit TMethods(const std::string_view &methodName, size_t index);
+    explicit TMethods(const std::string_view &methodName, size_t index, const std::vector<std::string>& speciesNames);
 
-    TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index);
+    TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index,
+             const std::vector<std::string>& speciesNames);
 
     TMethods() = default;
 
@@ -164,9 +172,11 @@ public:
 
     // getters
     size_t size() const;
+    std::string methodName() const;
     size_t method_id() const;
 
     void add(const TTimepoints &pt, size_t location_id);
+
     std::string name() const;
 
     void sorttimes(std::vector<size_t> sortingIndex);
@@ -187,8 +197,8 @@ public:
     std::vector<TLocations>::iterator end();
 
     // functions for simulating
-    std::pair<size_t,size_t> getIndexToSimulate(const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                                                const TUniqueContainer<std::string> &locations, size_t i);
+    std::pair<size_t, size_t> getIndexToSimulate(const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                                                 const TUniqueContainer<std::string> &locations, size_t i);
 
     void simulatePoisson(size_t N0, const std::vector<double> &phi,
                          const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
@@ -197,8 +207,8 @@ public:
     void simulatePoisson(const std::vector<double> &phi);
 
     std::vector<double> simulateNB(size_t N0, const std::vector<double> &phi,
-                                             const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                                             const TUniqueContainer<std::string> &locations, double A);
+                                   const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                                   const TUniqueContainer<std::string> &locations, double A);
 
     void simulateNB(const std::vector<double> &phi, double A, const std::vector<double> &Mu, bool SimulateEffort);
 

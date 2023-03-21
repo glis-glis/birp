@@ -65,9 +65,9 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
 
     // create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
     coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;
-    _data = std::make_unique<stattools::TObservationTyped < TypeCounts, 2>>
-    ("data", birp, fakeData,
-            stattools::TObservationDefinition(Filename));
+    _data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>
+            ("data", birp, fakeData,
+             stattools::TObservationDefinition(Filename));
 
     // add to DAG
     DAGBuilder.addToDAG({&_gamma, &_timesOfChange});
@@ -92,6 +92,7 @@ TBirpCore::TBirpCore() {
     }
 }
 
+
 //-----------------------------------
 // Infer
 
@@ -101,7 +102,7 @@ bool TBirpCore::_checkHeaderPlacement(const coretools::TInputFile &Infile, size_
 }
 
 std::vector<std::string> TBirpCore::_getHeader() const {
-    return {"location", "timepoint"};
+    return {"Location", "Timepoint"};
 }
 
 void
@@ -161,6 +162,15 @@ std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infil
     return countIndices;
 }
 
+std::vector<std::string>
+TBirpCore::_getSpeciesNames(const coretools::TInputFile &infile, const std::vector<size_t> &countIndices) {
+    std::vector<std::string> names(countIndices.size());
+    for (size_t s = 0; s < countIndices.size(); s++){
+        names[s] = coretools::str::readAfter(infile.headerAt(s), '_');
+    }
+    return names;
+}
+
 void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
     std::string delim = "\t";
     std::string_view ending = coretools::str::readAfterLast(Filename, '.');
@@ -175,10 +185,12 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
     _checkHeader(infile, hasCounts, countIndices, effortIndices);
 
+    std::vector<std::string> speciesNames = _getSpeciesNames(infile, countIndices);
+
     // add new method: name is derived from filename
     std::string_view methodNameFull = coretools::str::readAfterLast(Filename, '/');
     std::string_view methodName = coretools::str::readBeforeLast(methodNameFull, '.');
-    _methods.emplace_back(methodName, _methods.size());
+    _methods.emplace_back(methodName, _methods.size(), speciesNames);
 
     std::vector<std::string> row;
     while (infile.read(row)) {
@@ -265,9 +277,15 @@ void TBirpCore::simulate() {
         _fillTimepointsFromCommandLine();
         _fillLocationsFromCommandLine();
         size_t numMethods = parameters().getParameterWithDefault("numMethods", 2);
+        size_t numSpecies = parameters().getParameterWithDefault("numSpecies", 1);
+        // create vector of speciesnames species_1, species_2 ... as many as there are
+        std::vector<std::string> speciesNames(numSpecies);
+        for(size_t n = 0; n < speciesNames.size(); n++){
+            speciesNames[n] = "Species_" + coretools::str::toString(n);
+        }
         for (size_t m = 0; m < numMethods; ++m) {
             _methods.emplace_back("Method_" + coretools::str::toString(m), _locations.size(),
-                                  _timepoints.size(), _methods.size());
+                                  _timepoints.size(), m, speciesNames);
         }
     }
 

@@ -22,7 +22,7 @@ public:
 		return TPoissonEpochModel::_getEpochStarts(Timepoints);
 	}
 
-	std::pair<std::vector<double>, double> _calculateLLandJP(const TSpecies &Data) const {
+	std::pair<std::vector<double>, double> _calculateLLandJP(const TMethods &Data) const {
 		return TPoissonEpochModel::_calculateLLandJP(Data);
 	}
 };
@@ -138,7 +138,7 @@ TEST_F(TEpochModelPoissonTest, _getEpochStarts_easy1) {
 TEST_F(TEpochModelPoissonTest, _calculateLLandJP_1) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_calcLLandJP1.csv");
-	auto data                         = test.species();
+	auto data                         = test.methods();
 	auto times                        = test.timepoints();
 	std::vector<size_t> timesOfChange = {2};
 	std::vector<double> NewGamma      = {-2, 1.5};
@@ -158,7 +158,7 @@ TEST_F(TEpochModelPoissonTest, _calculateLLandJP_1) {
 TEST_F(TEpochModelPoissonTest, _calculateLLandJP_2) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_calcLLandJP2.csv");
-	auto data                         = test.species();
+	auto data                         = test.methods();
 	auto times                        = test.timepoints();
 	std::vector<size_t> timesOfChange = {4};
 	std::vector<double> NewGamma      = {-1, 1};
@@ -183,10 +183,10 @@ class TNegBinEpochModelBridge : public TNegBinEpochModel {
 public:
 	TNegBinEpochModelBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-	                        stattools::TParameterTyped<TypeMu, 2> *Mu)
-	    : TNegBinEpochModel(Gamma, TimesOfChange, Mu) {}
+	                        stattools::TParameterTyped<TypeMu, 2> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA)
+	    : TNegBinEpochModel(Gamma, TimesOfChange, Mu, LogA) {}
 
-	std::pair<std::vector<double>, double> _calculateLLandJP(const TSpecies &Data) const {
+	std::pair<std::vector<double>, double> _calculateLLandJP(const TMethods &Data) const {
 		return TNegBinEpochModel::_calculateLLandJP(Data);
 	}
 };
@@ -201,7 +201,7 @@ public:
 	std::shared_ptr<TNegBinEpochModelBridge> epochModel;
 
 	void initialize(const std::vector<size_t> &TimesOfChange, const TUniqueContainer<size_t> &Timepoints,
-	                const TUniqueContainer<std::string> &Methods, const TUniqueContainer<std::string> &Locations,
+	                const std::vector<TMethods> &Methods, const TUniqueContainer<std::string> &Locations,
 	                std::vector<double> NewGamma = {}, std::vector<double> NewMu = {},
 	                std::vector<double> OldGamma = {}, std::vector<double> OldMu = {}) {
 		using namespace stattools::prior;
@@ -235,7 +235,7 @@ public:
 TEST_F(TEpochModelNegBinTest, _calculateLLandJP) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/NB_dirichletMultinomial_LL_test1a.csv");
-	auto data                         = test.species();
+	auto data                         = test.methods();
 	auto times                        = test.timepoints();
 	auto methods                      = test.methods();
 	auto locations                    = test.locations();

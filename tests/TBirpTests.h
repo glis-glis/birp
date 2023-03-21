@@ -6,6 +6,7 @@
 #define BIRP_TBIRPTESTS_H
 
 #include "TBirpCore.h"
+#include "TData.h"
 
 class TBirpCoreBridge : public TBirpCore {
 	// Dummy class inheriting from TBirpCore: allows for testing protected functions
@@ -15,9 +16,8 @@ public:
 
 	// getters for locations, methods, timepoints, species for tests
 	const TUniqueContainer<std::string> &locations() const { return _locations; };
-	const TUniqueContainer<std::string> &methods() const { return _methods; };
+	const std::vector<TMethods> &methods() const { return _methods; };
 	const TUniqueContainer<size_t> &timepoints() const { return _timepoints; };
-	const std::vector<TSpecies> &species() const { return _species; };
 };
 
 #endif // BIRP_TBIRPTESTS_H

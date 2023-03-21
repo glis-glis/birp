@@ -35,7 +35,8 @@ public:
 // TTimepoints
 //-------------------------------------------
 
-TTimepoints::TTimepoints(std::vector<TypeCounts> countVec, std::vector<TypeCovariate> covVec, size_t timepoint_id) {
+TTimepoints::TTimepoints(const std::vector<TypeCounts> &countVec, const std::vector<TypeCovariate> &covVec,
+                         const size_t &timepoint_id) {
     _counts_per_species = countVec;
     _timepoint_id = timepoint_id;
 
@@ -56,10 +57,10 @@ TTimepoints::TTimepoints(size_t timepoint_id) {
 std::vector<TypeCovariate> TTimepoints::covariates() { return _covariates; }
 
 std::vector<size_t> TTimepoints::covariate_id() { return _covariate_id; }
-size_t TTimepoints::numSpecies() const{return _species_id.size();}
-TypeCounts TTimepoints::counts_per_species(size_t species_id) const { return _counts_per_species[species_id]; }
 
-std::vector<size_t> TTimepoints::species_id() { return _species_id; }
+size_t TTimepoints::numSpecies() const { return _counts_per_species.size(); }
+
+TypeCounts TTimepoints::counts_per_species(size_t species_id) const { return _counts_per_species[species_id]; }
 
 TypeEffort TTimepoints::effort() const { return _effort; }
 
@@ -71,7 +72,7 @@ void TTimepoints::setTimepoint(size_t timepointToAdd) {
     _timepoint_id = timepointToAdd;
 }
 
-void TTimepoints::setEffort(TypeEffort effortToAdd){
+void TTimepoints::setEffort(TypeEffort effortToAdd) {
     _effort = effortToAdd;
 }
 
@@ -114,7 +115,9 @@ void TTimepoints::simulateNB(double phi, double a, double mu_ij) {
 //-------------------------------------------
 
 size_t TLocations::size() const { return _timepoints.size(); }
-TypeNu TLocations::nu(size_t species_id) const {return _nu[species_id];}
+
+TypeNu TLocations::nu(size_t species_id) const { return _nu[species_id]; }
+
 size_t TLocations::location_id() const { return _location_id; }
 
 TLocations::TLocations(const TTimepoints &pt, size_t location_id) {
@@ -139,14 +142,11 @@ void TLocations::add(TTimepoints pt) {
     _timepoints.push_back(pt);
     // now add nu
 
-    for(size_t i = 0; i < pt.numSpecies(); i++){
+    for (size_t i = 0; i < pt.numSpecies(); i++) {
         _nu[i] += (uint32_t) pt.counts_per_species(i);
     }
 
 }
-
-
-
 
 
 void TLocations::checkEffortBiggerThanZero() {
@@ -172,7 +172,8 @@ void TLocations::sorttimes(const std::vector<size_t> &index) {
     }
 }
 
-void TLocations::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations, const TUniqueContainer<size_t> &Timepoints) const {
+void TLocations::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+                       const TUniqueContainer<size_t> &Timepoints) const {
     std::string location = Locations[_location_id];
     for (const auto &timepoint: _timepoints) { timepoint.write(File, location, Timepoints); }
 }
@@ -205,22 +206,28 @@ void TLocations::simulateNB(const std::vector<double> &phi, double a, double mu_
 // TMethods
 //-------------------------------------------
 
-TMethods::TMethods(const std::string_view &methodName, size_t index) {
+TMethods::TMethods(const std::string_view &methodName, size_t index, const std::vector<std::string>& speciesNames) {
     _methodName = methodName;
     _method_id = index;
+    _speciesNames = speciesNames;
 }
 
-TMethods::TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index) {
+TMethods::TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index,
+                   const std::vector<std::string>& speciesNames) {
     _methodName = methodName,
             _locations.resize(locationSize);
     for (size_t i = 0; i < TimepointSize; i++) {
         _locations.emplace_back(TimepointSize);
     }
     _method_id = index;
+    _speciesNames = speciesNames;
 }
 
 size_t TMethods::size() const { return _locations.size(); }
-size_t TMethods::method_id() const{
+std::string TMethods::methodName() const {
+    return _methodName;
+}
+size_t TMethods::method_id() const {
     return _method_id;
 }
 
@@ -237,7 +244,7 @@ void TMethods::add(const TTimepoints &pt, size_t location_id) {
     if (!dataPointExists) { _locations.emplace_back(pt, location_id); }
 }
 
-std::string TMethods::name() const{
+std::string TMethods::name() const {
     return _methodName;
 }
 
@@ -275,15 +282,15 @@ void TMethods::_simulateEffort() {
         // case 1: is a number: use it for all efforts
         double effort = coretools::str::fromString<double>(effortString);
         for (size_t i = 0; i < _locations.size(); i++) {
-            for (auto &t : _locations[i]) { t.setEffort(effort); }
+            for (auto &t: _locations[i]) { t.setEffort(effort); }
         }
     } else {
         // case 2: parse distributions. "Poisson(1), uniform(a,b), zero-poisson(p, lambda) -> p: p(not 0),
         coretools::str::TSplitter sp(effortString, '(');
         std::string_view distr = sp.front();          // takes first element
         sp.popFront();                                // takes 'Poisson' away
-        std::string params = (std::string)sp.front(); // now parameters are in front
-        params             = coretools::str::extractBefore(params, ')');
+        std::string params = (std::string) sp.front(); // now parameters are in front
+        params = coretools::str::extractBefore(params, ')');
         if (distr == "Poisson") {
             _simulateEffort<coretools::probdist::TPoissonDistr>(params);
         } else if (distr == "uniform") {
@@ -296,21 +303,22 @@ void TMethods::_simulateEffort() {
 
 
 // function to simulate
-std::pair<size_t,size_t> TMethods::getIndexToSimulate(const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                                                      const TUniqueContainer<std::string> &locations, size_t i){
-    std::string locName  = locations[_locations[i].location_id()];
+std::pair<size_t, size_t>
+TMethods::getIndexToSimulate(const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+                             const TUniqueContainer<std::string> &locations, size_t i) {
+    std::string locName = locations[_locations[i].location_id()];
     std::string methName = _methodName;
-    size_t locIndex      = detectionProbs.getDimensionName(0)->getIndex(locName);
-    size_t methIndex     = detectionProbs.getDimensionName(1)->getIndex(methName);
-    return {locIndex,methIndex};
+    size_t locIndex = detectionProbs.getDimensionName(0)->getIndex(locName);
+    size_t methIndex = detectionProbs.getDimensionName(1)->getIndex(methName);
+    return {locIndex, methIndex};
 }
 
 void TMethods::simulatePoisson(size_t N0, const std::vector<double> &phi,
                                const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                               const TUniqueContainer<std::string> &locations){
+                               const TUniqueContainer<std::string> &locations) {
     for (size_t i = 0; i < size(); i++) {
-        const std::string& locName  = locations[_locations[i].location_id()];
-        size_t locIndex      = detectionProbs.getDimensionName(0)->getIndex(locName);
+        const std::string &locName = locations[_locations[i].location_id()];
+        size_t locIndex = detectionProbs.getDimensionName(0)->getIndex(locName);
         size_t methIndex = detectionProbs.getDimensionName(1)->getIndex(_methodName);
         _locations[i].simulatePoisson(N0, phi, detectionProbs(locIndex, methIndex));
     }
@@ -328,7 +336,7 @@ std::vector<double> TMethods::simulateNB(size_t N0, const std::vector<double> &p
     std::vector<double> mus(_locations.size()); //TODO correct?
     for (size_t i = 0; i < size(); i++) {  // i is one DataSeries here (ij)
         auto [locIndex, methIndex] = getIndexToSimulate(detectionProbs, locations, i);
-        mus[i] = (double)N0 * detectionProbs(locIndex, methIndex);
+        mus[i] = (double) N0 * detectionProbs(locIndex, methIndex);
         _locations[i].simulateNB(phi, A, mus[i]);
     }
     return mus;
