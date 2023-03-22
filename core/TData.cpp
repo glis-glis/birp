@@ -140,8 +140,10 @@ void TLocations::add(TTimepoints pt) {
     }
     // when we are here: timpoint is unique -> push it back
     _timepoints.push_back(pt);
-    // now add nu
-
+    // now add nu, first check if nu exists, otherwise create it
+    if (_nu.empty()){
+     _nu.resize(pt.numSpecies(), 0);
+    }
     for (size_t i = 0; i < pt.numSpecies(); i++) {
         _nu[i] += (uint32_t) pt.counts_per_species(i);
     }

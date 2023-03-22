@@ -198,6 +198,7 @@ public:
 	std::unique_ptr<stattools::TParameterTyped<TypeGamma, 1>> gamma;
 	std::unique_ptr<stattools::TParameterTyped<TypeTime, 1>> timesOfChange;
 	std::unique_ptr<stattools::TParameterTyped<TypeMu, 2>> mu;
+    std::unique_ptr<stattools::TParameterTyped<TypeLogA, 1>> logA; // TODO
 	std::shared_ptr<TNegBinEpochModelBridge> epochModel;
 
 	void initialize(const std::vector<size_t> &TimesOfChange, const TUniqueContainer<size_t> &Timepoints,
@@ -226,7 +227,7 @@ public:
 		testing::initializeStorageParameter(mu, "mu", dimensionsMu, OldMu, NewMu);
 
 		epochModel = std::make_shared<TNegBinEpochModelBridge>(gamma.get(), timesOfChange.get(),
-		                                                       mu.get()); // get(): unique pointer gets raw pointer
+		                                                       mu.get(), logA.get()); // get(): unique pointer gets raw pointer // TODO
 		epochModel->initializeInferred(Timepoints, Locations, Methods);
 	}
 };

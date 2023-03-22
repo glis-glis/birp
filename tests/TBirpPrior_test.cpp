@@ -103,16 +103,15 @@ TEST(TBirpPriorTest, readFile1) {
     // construct birp
     TBirpCoreBridge birp;
     birp._readFile("../tests/test_files/method_examineSlime_threeCovariates.csv");
-    // test locations (not sorted yet!)
+    // test locations (not sorted yet?)
     const auto locations = birp.locations();
     EXPECT_EQ(locations[0], "insideSock");
     EXPECT_EQ(locations[1], "tinyRock");
-    EXPECT_EQ(locations[2], "tinyRock");
-    EXPECT_EQ(locations[3], "insideSock");
+    EXPECT_EQ(locations[2], "branch");
     // test speciesName TODO ??
     // const auto species = birp);
     //EXPECT_EQ(species[0].name(), "snail");
-    // test method
+    // test method name
     // const auto method = birp.methods();
     // EXPECT_EQ(method[0].methodName(), "examineSlime_threeCovariates");
     // test timepoints
@@ -121,6 +120,4 @@ TEST(TBirpPriorTest, readFile1) {
     EXPECT_EQ(times[1], 2);
     EXPECT_EQ(times[2], 1);
     EXPECT_EQ(times[3], 4);
-    EXPECT_EQ(times[4], 3);
-    EXPECT_EQ(times[5], 2);
 }

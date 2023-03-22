@@ -102,7 +102,7 @@ bool TBirpCore::_checkHeaderPlacement(const coretools::TInputFile &Infile, size_
 }
 
 std::vector<std::string> TBirpCore::_getHeader() const {
-    return {"Location", "Timepoint"};
+    return {"location", "timepoint"};
 }
 
 void
@@ -120,7 +120,7 @@ TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts, con
     if (hasCounts) {
         if (2 + countIndices.size() + effortIndices.size() < 4) {
             UERROR("Header of file", Infile.name(),
-                   " , should contain at least 4 columns: 'method', 'location' and at least two more columns starting with 'counts' and 'cov', respectively.");
+                   " , should contain at least 4 columns: 'location', 'timepoint' and at least two more columns starting with 'counts_' and 'cov_', respectively.");
         }
     } else {
         if (2 + countIndices.size() + effortIndices.size() < 3) {
