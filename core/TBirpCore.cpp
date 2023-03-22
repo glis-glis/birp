@@ -186,10 +186,12 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
     _checkHeader(infile, hasCounts, countIndices, effortIndices);
 
     std::vector<std::string> speciesNames = _getSpeciesNames(infile, countIndices);
+    // TODO std::cout << speciesNames[0] << std::endl;
 
     // add new method: name is derived from filename
     std::string_view methodNameFull = coretools::str::readAfterLast(Filename, '/');
-    std::string_view methodName = coretools::str::readBeforeLast(methodNameFull, '.');
+    std::string_view methodNameCropped = coretools::str::readAfter(methodNameFull, '_');
+    std::string_view methodName = coretools::str::readBeforeLast(methodNameCropped, '.');
     _methods.emplace_back(methodName, _methods.size(), speciesNames);
 
     std::vector<std::string> row;
@@ -222,7 +224,7 @@ void TBirpCore::_sortTimepoints() {
 
     std::vector<size_t> sortingIndex = coretools::rankSort(_timepoints);
     _timepoints = coretools::sortContainerByRank(_timepoints, sortingIndex);
-    for (auto method: _methods) {
+    for (auto &method: _methods) {
         method.checkEffortBiggerThanZero();
         method.sorttimes(sortingIndex);
     }

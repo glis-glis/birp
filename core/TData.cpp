@@ -66,7 +66,7 @@ TypeEffort TTimepoints::effort() const { return _effort; }
 
 TypeEffort TTimepoints::effort_old() { return _effort_old; }
 
-size_t TTimepoints::timepoint_id() { return _timepoint_id; }
+size_t TTimepoints::timepoint_id() const { return _timepoint_id; }
 
 void TTimepoints::setTimepoint(size_t timepointToAdd) {
     _timepoint_id = timepointToAdd;
@@ -233,6 +233,10 @@ size_t TMethods::method_id() const {
     return _method_id;
 }
 
+std::vector<std::string> TMethods::speciesNames() const {
+    return _speciesNames;
+}
+
 
 void TMethods::add(const TTimepoints &pt, size_t location_id) {
     bool dataPointExists = false;
@@ -251,8 +255,8 @@ std::string TMethods::name() const {
 }
 
 
-void TMethods::sorttimes(std::vector<size_t> sortingIndex) {
-    for (auto loc: _locations) {
+void TMethods::sorttimes(const std::vector<size_t> &sortingIndex) {
+    for (auto &loc: _locations) {
         loc.sorttimes(sortingIndex);
     }
 }

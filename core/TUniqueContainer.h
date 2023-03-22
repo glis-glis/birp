@@ -35,6 +35,8 @@ public:
 	size_t size() const { return _names.size(); }
 	void resize(size_t size) { _names.resize(size); }
 
+    void print() const{std::cout << coretools::str::toString(_names) << std::endl;}
+
 	const T &operator[](size_t Index) const { return _names[Index]; }
 
 	typename std::vector<T>::const_iterator cbegin() const { return _names.cbegin(); }

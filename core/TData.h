@@ -58,7 +58,7 @@ public:
 
     TypeEffort effort_old();
 
-    size_t timepoint_id();
+    size_t timepoint_id() const;
 
     // functions for simulating effort
     template<class Object>
@@ -174,12 +174,13 @@ public:
     size_t size() const;
     std::string methodName() const;
     size_t method_id() const;
+    std::vector<std::string> speciesNames() const ;
 
     void add(const TTimepoints &pt, size_t location_id);
 
     std::string name() const;
 
-    void sorttimes(std::vector<size_t> sortingIndex);
+    void sorttimes(const std::vector<size_t> & index);
 
     void checkEffortBiggerThanZero();
 

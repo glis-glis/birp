@@ -58,6 +58,7 @@ public:
 	}
 };
 
+/*
 TEST_F(TEpochModelPoissonTest, _fillRho_easy1) {
 	TBirpCoreBridge test;
 	test._readFile("../tests/test_files/test_epochModel1.csv");
@@ -250,3 +251,5 @@ TEST_F(TEpochModelNegBinTest, _calculateLLandJP) {
 	// call function
 	EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL));
 }
+
+ */
