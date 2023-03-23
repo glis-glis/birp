@@ -58,57 +58,60 @@ public:
 	}
 };
 
-/*
 TEST_F(TEpochModelPoissonTest, _fillRho_easy1) {
 	TBirpCoreBridge test;
-	test._readFile("../tests/test_files/test_epochModel1.csv");
+	test._readFile("../tests/test_files/method_lookingForWolves.csv");
 	test._sortTimepoints();
 	auto times                        = test.timepoints();
-	std::vector<size_t> timesOfChange = {2013, 2018};
+	std::vector<size_t> timesOfChange = {2018};
 	initialize(timesOfChange, times);
 
 	// define expected 1D output vector (one row is one epoch)
 	std::vector<std::vector<size_t>> outExp = {
-	    {2010, 2012, 2013, 2013, 2013, 2013, 2013}, {0, 0, 1, 2, 4, 5, 5}, {0, 0, 0, 0, 0, 2, 11}};
+	    {2015, 2016, 2017, 2018, 2018}, {0, 0, 0, 1, 2}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
 		for (size_t j = 0; j < timesOfChange.size() + 1; j++) { EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
 	}
 }
 
+
+
 TEST_F(TEpochModelPoissonTest, _fillRho_easy2) {
 	TBirpCoreBridge test;
-	test._readFile("../tests/test_files/test_epochModel2.csv");
+	test._readFile("../tests/test_files/method_lookingForFloesselhecht.csv");
+    test._sortTimepoints();
 	auto times                        = test.timepoints();
-	std::vector<size_t> timesOfChange = {2};
+	std::vector<size_t> timesOfChange = {2002};
 	initialize(timesOfChange, times);
 
 	// define expected 1D output vector (one row is one epoch)
-	std::vector<std::vector<size_t>> outExp = {{1, 2, 2, 2, 2}, {0, 0, 1, 2, 3}};
+	std::vector<std::vector<size_t>> outExp = {{2000, 2001, 2002, 2002, 2002}, {0, 0, 0, 2, 3}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
-		for (size_t j = 0; j < timesOfChange.size() + 1; j++) { EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
+		for (size_t j = 0; j < timesOfChange.size() + 1; j++) {EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i));}
 	}
 }
 
 TEST_F(TEpochModelPoissonTest, _fillRho_TimesOfChange_same_as_times) {
 	TBirpCoreBridge test;
-	test._readFile("../tests/test_files/test_epochModel2_TOC_same_as_times.csv");
+	test._readFile("../tests/test_files/method_fossilExtraction_TOC_same_as_times.csv");
 	auto times                        = test.timepoints();
-	std::vector<size_t> timesOfChange = {1, 2};
+    test._sortTimepoints();
+	std::vector<size_t> timesOfChange = {3, 7};
 	initialize(timesOfChange, times);
-
 	// define expected 1D output vector (one row is one epoch)
-	std::vector<std::vector<size_t>> outExp = {{1, 1}, {0, 1}, {0, 0}};
+	std::vector<std::vector<size_t>> outExp = {{1,2,3,3,3,3,3,3,3}, {0,0,0,1,2,3,4,4,4}, {0,0,0,0,0,0,0,1,2}};
 	// test if result is as expected
 	for (size_t i = 0; i < times.size(); i++) {
 		for (size_t j = 0; j < timesOfChange.size(); j++) { EXPECT_EQ(epochModel->rho(i, j), outExp.at(j).at(i)); }
 	}
 }
 
+
 TEST_F(TEpochModelPoissonTest, _fillRho_TimesOfChange_empty) {
 	TBirpCoreBridge test;
-	test._readFile("../tests/test_files/test_epochModel2_TOC_empty.csv");
+	test._readFile("../tests/test_files/method_lureWithCake_TOC_empty.csv");
 	auto times                        = test.timepoints();
 	std::vector<size_t> timesOfChange = {};
 	initialize(timesOfChange, times);
@@ -116,10 +119,11 @@ TEST_F(TEpochModelPoissonTest, _fillRho_TimesOfChange_empty) {
 	EXPECT_EQ(timesOfChange.size(), 0);
 }
 
+
 // testing _getEpochStarts
 TEST_F(TEpochModelPoissonTest, _getEpochStarts_easy1) {
 	TBirpCoreBridge test;
-	test._readFile("../tests/test_files/test_epochStarts1.csv");
+	test._readFile("../tests/test_files/method_loudYelling2.csv");
 	auto times                        = test.timepoints();
 	std::vector<size_t> timesOfChange = {3, 8};
 	initialize(timesOfChange, times);
@@ -138,7 +142,7 @@ TEST_F(TEpochModelPoissonTest, _getEpochStarts_easy1) {
 // testing _calculateLLandJP
 TEST_F(TEpochModelPoissonTest, _calculateLLandJP_1) {
 	TBirpCoreBridge test;
-	test._readFile("../tests/test_files/test_calcLLandJP1.csv");
+	test._readFile("../tests/test_files/method_diggingInDirt_LLandJP1.csv");
 	auto data                         = test.methods();
 	auto times                        = test.timepoints();
 	std::vector<size_t> timesOfChange = {2};
@@ -155,10 +159,11 @@ TEST_F(TEpochModelPoissonTest, _calculateLLandJP_1) {
 	EXPECT_FLOAT_EQ(expectedJP, JP);
 }
 
+
 // testing _calculateLLandJP
 TEST_F(TEpochModelPoissonTest, _calculateLLandJP_2) {
 	TBirpCoreBridge test;
-	test._readFile("../tests/test_files/test_calcLLandJP2.csv");
+	test._readFile("../tests/test_files/method_diggingInDirt_LLandJP2.csv");
 	auto data                         = test.methods();
 	auto times                        = test.timepoints();
 	std::vector<size_t> timesOfChange = {4};
@@ -199,7 +204,7 @@ public:
 	std::unique_ptr<stattools::TParameterTyped<TypeGamma, 1>> gamma;
 	std::unique_ptr<stattools::TParameterTyped<TypeTime, 1>> timesOfChange;
 	std::unique_ptr<stattools::TParameterTyped<TypeMu, 2>> mu;
-    std::unique_ptr<stattools::TParameterTyped<TypeLogA, 1>> logA; // TODO
+    std::unique_ptr<stattools::TParameterTyped<TypeLogA, 1>> logA; // TODO?
 	std::shared_ptr<TNegBinEpochModelBridge> epochModel;
 
 	void initialize(const std::vector<size_t> &TimesOfChange, const TUniqueContainer<size_t> &Timepoints,
@@ -251,5 +256,3 @@ TEST_F(TEpochModelNegBinTest, _calculateLLandJP) {
 	// call function
 	EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL));
 }
-
- */

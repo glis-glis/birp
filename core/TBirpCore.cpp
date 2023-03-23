@@ -165,8 +165,9 @@ std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infil
 std::vector<std::string>
 TBirpCore::_getSpeciesNames(const coretools::TInputFile &infile, const std::vector<size_t> &countIndices) {
     std::vector<std::string> names(countIndices.size());
+    std::string test = infile.headerAt(2);
     for (size_t s = 0; s < countIndices.size(); s++){
-        names[s] = coretools::str::readAfter(infile.headerAt(s), '_');
+        names[s] = coretools::str::readAfter(infile.headerAt(countIndices[s]), '_');
     }
     return names;
 }

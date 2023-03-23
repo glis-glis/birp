@@ -17,7 +17,7 @@ TEST(TBirpPriorTest, readFile1) {
     const auto method = birp.methods();
     EXPECT_EQ(method[0].methodName(), "examineSlime_threeCovariates");
     // test species name
-    // TODO EXPECT_EQ(method[0].speciesNames()[0], "snail"); ? speciesName is ""
+    EXPECT_EQ(method[0].speciesNames()[0], "snail");
     // test timepoints
     const auto times = birp.timepoints();
     EXPECT_EQ(times[0], 3);
@@ -26,7 +26,6 @@ TEST(TBirpPriorTest, readFile1) {
     EXPECT_EQ(times[3], 4);
 }
 
-// TODO how to check for multiple methods?
 TEST(TBirpPriorTest, readFile2) {
     // construct birp
     TBirpCoreBridge birp;
@@ -36,10 +35,11 @@ TEST(TBirpPriorTest, readFile2) {
     EXPECT_EQ(locations[0], "mountain");
     EXPECT_EQ(locations[1], "river");
     EXPECT_EQ(locations.size(), 2);
-    // TODO test species
     // test method
     const auto method = birp.methods();
     EXPECT_EQ(method[0].methodName(), "loudYelling");
+    // test species name
+    EXPECT_EQ(method[0].speciesNames()[0], "lion");
 // test timepoints
     const auto times = birp.timepoints();
     EXPECT_EQ(times[0], 1);
