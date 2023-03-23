@@ -97,6 +97,7 @@ rmultinom(n=1, size=100, prob=probs)
 counts <- c(58, 2, 25, 15)
 
 # calculate the density, but do it by hand, because we have to subtract the terms that drop out in the hastings ratio
+LL <- log(gamma(counts + probs)) - log(gamma(probs)) - log(gamma())
 
 
 
