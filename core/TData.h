@@ -19,7 +19,6 @@
 class TTimepoints {
 private:
     std::vector<TypeCovariate> _covariates;
-    std::vector<size_t> _covariate_id;
     std::vector<TypeCounts> _counts_per_species;
     TypeEffort _effort = 0;  // TODO how to store effort and distinguish betewen covariate?
     TypeEffort _effort_old = 0;
@@ -27,12 +26,13 @@ private:
 
 
 public:
+
     TTimepoints() = default;
 
     TTimepoints(const std::vector<TypeCounts> &countVec, const std::vector<TypeCovariate> &covVec,
                 const size_t &timepoint_id);
 
-    explicit TTimepoints(size_t timepoint_id);
+    explicit TTimepoints(size_t timepoint_id, size_t numSpecies, size_t numCovariates);
 
     // setters
     void setTimepoint(size_t timepointToAdd);
@@ -46,7 +46,6 @@ public:
     // getters
     std::vector<TypeCovariate> covariates();
 
-    std::vector<size_t> covariate_id();
 
     size_t numSpecies() const;
 
@@ -91,7 +90,7 @@ public:
 
     TLocations(const TTimepoints &pt, size_t location_id);
 
-    TLocations(size_t TimepointSize);
+    TLocations(size_t TimepointSize, size_t numSpecies, size_t numCovariates);
 
     // setters
     void add(TTimepoints pt);
@@ -150,6 +149,7 @@ private:
     std::vector<TLocations> _locations;
     size_t _method_id;
     std::vector<std::string> _speciesNames;
+    std::vector<std::string> _covariateNames;
 
     template<class Distribution>
     void _simulateEffort(const std::string &Params) {
@@ -162,8 +162,8 @@ private:
 public:
     explicit TMethods(const std::string_view &methodName, size_t index, const std::vector<std::string>& speciesNames);
 
-    TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index,
-             const std::vector<std::string>& speciesNames);
+    TMethods(const std::string& methodName, size_t locationSize, size_t TimepointSize, size_t index,
+             const std::vector<std::string>& speciesNames, const std::vector<std::string>& covariateNames);
 
     TMethods() = default;
 
@@ -173,6 +173,7 @@ public:
     // getters
     size_t size() const;
     std::string methodName() const;
+    std::vector<std::string> covariateNames() const;
     size_t method_id() const;
     std::vector<std::string> speciesNames() const ;
 

@@ -248,12 +248,34 @@ void TBirpCore::infer() {
 //-----------------------------------
 // Simulate
 
-void TBirpCore::_writeFile(const std::string &Filename) {
-    // TODO loop over all methods, ask for header of loc and times, species and covs, then write file. in the end: write file that list all filenames
-    auto header = _getHeader();
-    coretools::TOutputFile outfile(Filename, header);
+std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods& method){
+    std::vector<std::string> header = _getHeader();
+    // add species name to base header vector
+    for(size_t i = 0; i < method.speciesNames().size(); i++){
+        header.push_back("counts_" + method.speciesNames()[i]);
+    }
+    // add covariate name to base header vector
+    for(size_t i = 0; i < method.covariateNames().size(); i++){
+        header.push_back("cov_" + method.covariateNames()[i]);
+    }
+    return header;
+}
+
+void TBirpCore::_writeFile() {
+    // make second file that stores names of all methodFiles generated during the simulation
+    coretools::TOutputFile fileList("allFilesGenerated");
     // write file line by line
-    for (auto &method: _methods) { method.write(outfile, _locations, _timepoints); }
+    for (auto &method: _methods) {
+        // get filename here.
+        std::string Filename = _outname + "_" + method.methodName() + "_simulatedCounts.txt";
+        // get header here
+        std::vector<std::string> header = _getMethodspecificHeader(method);
+        // append to fileList
+        fileList << method.methodName() << coretools::endl; //TODO where is file?
+        // now create actual file with data and write
+        coretools::TOutputFile outfile(Filename, header);
+        method.write(outfile, _locations, _timepoints);
+    }
 }
 
 void TBirpCore::_fillTimepointsFromCommandLine() {
@@ -270,6 +292,7 @@ void TBirpCore::_fillLocationsFromCommandLine() {
     for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l)); }
 }
 
+
 void TBirpCore::simulate() {
     // read incomplete counts file (if provided)
     if (parameters().parameterExists("simulationFile")) {
@@ -279,16 +302,21 @@ void TBirpCore::simulate() {
         // else read main dimensions from command line
         _fillTimepointsFromCommandLine();
         _fillLocationsFromCommandLine();
-        size_t numMethods = parameters().getParameterWithDefault("numMethods", 2);
+        size_t numMethods = parameters().getParameterWithDefault("numMethods", 1);
         size_t numSpecies = parameters().getParameterWithDefault("numSpecies", 1);
-        // create vector of speciesnames species_1, species_2 ... as many as there are
+        size_t numCovariates = parameters().getParameterWithDefault("numCovariates", 1);
+        // create vector of speciesnames species_1, species_2 ... as many as there are. currently only supports one species
         std::vector<std::string> speciesNames(numSpecies);
         for(size_t n = 0; n < speciesNames.size(); n++){
-            speciesNames[n] = "Species_" + coretools::str::toString(n);
+            speciesNames[n] = coretools::str::toString(n);
+        }
+        std::vector<std::string> covariateNames(numCovariates);
+        for(size_t n = 0; n < numCovariates; n++){
+            covariateNames[n] = coretools::str::toString(n);
         }
         for (size_t m = 0; m < numMethods; ++m) {
             _methods.emplace_back("Method_" + coretools::str::toString(m), _locations.size(),
-                                  _timepoints.size(), m, speciesNames);
+                                  _timepoints.size(), m, speciesNames, covariateNames);
         }
     }
 
@@ -302,5 +330,5 @@ void TBirpCore::simulate() {
     simulator.simulate(_outname, &dagBuilder);
 
     // write Birp file
-    _writeFile(_outname + "_simulatedCounts.txt");
+    _writeFile();
 }

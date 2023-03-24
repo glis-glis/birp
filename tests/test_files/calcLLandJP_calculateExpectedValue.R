@@ -100,14 +100,11 @@ n<-1
 rmultinom(n, size=100, prob=probs)
 counts <- c(60,17,6,17)
 
+sum(alpha)
 # calculate the density, but do it by hand, because we have to subtract the terms that drop out in the hastings ratio
 n <- sum(counts)
-term2 <- sum(lgamma(counts+alpha)) - sum(lgamma(alpha)) 
+lgamma(counts)
+term2 <- sum(lgamma(counts+alpha) - lgamma(alpha)) 
 LL <- lgamma(sum(alpha)) - lgamma(n + sum(alpha)) + term2
-
-  
-LL <- lgamma(sum(alpha)) - lgamma(counts+sum(alpha)) + sum(lgamma(counts + alpha)) - sum(lgamma(alpha))
-# 348.79
-
 
 

@@ -83,7 +83,8 @@ protected:
 
 
     // write
-    void _writeFile(const std::string &Filename);
+    std::vector<std::string> _getMethodspecificHeader(const TMethods& method);
+    void _writeFile();
 
 public:
     TBirpCore();

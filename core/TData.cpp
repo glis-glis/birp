@@ -50,13 +50,15 @@ TTimepoints::TTimepoints(const std::vector<TypeCounts> &countVec, const std::vec
     }
 }
 
-TTimepoints::TTimepoints(size_t timepoint_id) {
+TTimepoints::TTimepoints(size_t timepoint_id, size_t numSpecies, size_t numCovariates) {
     _timepoint_id = timepoint_id;
+    _counts_per_species.resize(numSpecies);
+    _covariates.resize(numCovariates);
 }
 
-std::vector<TypeCovariate> TTimepoints::covariates() { return _covariates; }
 
-std::vector<size_t> TTimepoints::covariate_id() { return _covariate_id; }
+
+std::vector<TypeCovariate> TTimepoints::covariates() { return _covariates; }
 
 size_t TTimepoints::numSpecies() const { return _counts_per_species.size(); }
 
@@ -125,8 +127,10 @@ TLocations::TLocations(const TTimepoints &pt, size_t location_id) {
     add(pt);
 }
 
-TLocations::TLocations(size_t TimepointSize) {
-    _timepoints.resize(TimepointSize);
+TLocations::TLocations(size_t TimepointSize, size_t numSpecies, size_t numCovariates) {
+    for (size_t t = 0; t < TimepointSize; t++) {
+        _timepoints.emplace_back(t, numSpecies, numCovariates);
+    }
 }
 
 
@@ -214,21 +218,28 @@ TMethods::TMethods(const std::string_view &methodName, size_t index, const std::
     _speciesNames = speciesNames;
 }
 
-TMethods::TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index,
-                   const std::vector<std::string>& speciesNames) {
+TMethods::TMethods(const std::string& methodName, size_t locationSize, size_t TimepointSize, size_t index,
+                   const std::vector<std::string>& speciesNames, const std::vector<std::string>& covariateNames) {
     _methodName = methodName,
             _locations.resize(locationSize);
     for (size_t i = 0; i < TimepointSize; i++) {
-        _locations.emplace_back(TimepointSize);
+        _locations.emplace_back(TimepointSize, speciesNames.size(), covariateNames.size());
     }
     _method_id = index;
     _speciesNames = speciesNames;
+    _covariateNames = covariateNames;
+
 }
 
 size_t TMethods::size() const { return _locations.size(); }
 std::string TMethods::methodName() const {
     return _methodName;
 }
+
+std::vector<std::string> TMethods::covariateNames() const{
+    return _covariateNames;
+}
+
 size_t TMethods::method_id() const {
     return _method_id;
 }
