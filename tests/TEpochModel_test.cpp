@@ -209,8 +209,8 @@ public:
 
 	void initialize(const std::vector<size_t> &TimesOfChange, const TUniqueContainer<size_t> &Timepoints,
 	                const std::vector<TMethods> &Methods, const TUniqueContainer<std::string> &Locations,
-	                std::vector<double> NewGamma = {}, std::vector<double> NewMu = {},
-	                std::vector<double> OldGamma = {}, std::vector<double> OldMu = {}) {
+	                std::vector<double> NewGamma = {}, std::vector<double> NewMu = {}, std::vector<double> NewLogA = {},
+	                std::vector<double> OldGamma = {}, std::vector<double> OldMu = {}, std::vector<double> OldLogA = {}) {
 		using namespace stattools::prior;
 
 		const size_t numEpochs = TimesOfChange.size() + 1;
@@ -221,6 +221,11 @@ public:
 		if (OldGamma.empty()) { OldGamma.resize(numEpochs, 0.0); }
 		if (NewGamma.empty()) { NewGamma.resize(numEpochs, 0.0); }
 		testing::initializeStorageParameter(gamma, "gamma", {numEpochs}, OldGamma, NewGamma);
+
+        // create a A
+        if (OldLogA.empty()) { OldLogA.resize(1, 0.0); }
+        if (NewLogA.empty()) { NewLogA.resize(1, 0.0); }
+        testing::initializeStorageParameter(logA, "logA", {1}, OldLogA, NewLogA);
 
 		// create times of change
 		testing::initializeStorageParameter(timesOfChange, "timesOfChange", {numEpochs - 1}, TimesOfChange,
@@ -239,20 +244,26 @@ public:
 };
 
 // testing _calculateLLandJP
-TEST_F(TEpochModelNegBinTest, _calculateLLandJP) {
+TEST_F(TEpochModelNegBinTest, _calculateLL) {
 	TBirpCoreBridge test;
-	test._readFile("../tests/test_files/NB_dirichletMultinomial_LL_test1a.csv");
+	test._readFile("../tests/test_files/method_diggingInDirt_LLandJP_NB.csv");
 	auto data                         = test.methods();
 	auto times                        = test.timepoints();
 	auto methods                      = test.methods();
 	auto locations                    = test.locations();
 	std::vector<size_t> timesOfChange = {3};
 	std::vector<double> NewGamma      = {-1, 1};
-	std::vector<double> NewMu         = {3,1,7,8};
+	std::vector<double> NewMu         = {1.0};
+    std::vector<double> NewLogA = {0}; // a=1 -> log(a)=0
 	initialize(timesOfChange, times, methods, locations, NewGamma, NewMu);
 	// define expected result
-	double expectedLL = -361.9808;
+	// double expectedLL = -361.9808; this is from old test -> delete
+    double expectedLL = -108.7528;
 	auto [LL, JP]     = epochModel->_calculateLLandJP(data[0]);
 	// call function
 	EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL));
 }
+
+
+// TODO test JP in NB?
+

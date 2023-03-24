@@ -245,9 +245,9 @@ double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const T
 		double alpha_k = a * _mu->value(ij) * sigma[k];
 		sum_a += alpha_k; // summing up alphas
 		term2 += coretools::gammaLog((double)loc[k].counts_per_species(_species_id) + alpha_k) -
-		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
+                coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
 	}
-	return coretools::gammaLog(sum_a) - coretools::gammaLog(n + sum_a) + term2;  // (n+1) drops out
+	return coretools::gammaLog(sum_a) - coretools::gammaLog((double)n + sum_a) + term2;  // (n+1) drops out
 }
 
 void TNegBinEpochModel::_updateMu(const TMethods &Data) {

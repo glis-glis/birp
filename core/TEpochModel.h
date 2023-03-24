@@ -105,7 +105,7 @@ protected:
 	stattools::TParameterTyped<TypeLogA, 1> *_logA = nullptr;
 
 	// likelihood
-	double _calculateLL(const std::vector<double> &sigma, const TLocations &lm,
+	double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
 	                    const std::vector<double> &p, size_t method_id) const override;
 
 	// update functions

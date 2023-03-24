@@ -78,27 +78,36 @@ rho <- .calculateRho.birp_epochs(times = 1:10, times.of.change = 4)
 calcLLandJPforTest(gamma=gamma, data = data, rho = rho)
 
 
-# test NB LL & JP -> use file method_diggingInDirt_LLandJP1.csv
+# test NB LL & JP -> use file method_diggingInDirt_LLandJP_NB.csv
 gamma <- c(-1, 1)
 times.of.change = 3
-mu <- c(0.2, 0.1, 0.5, 0.2)
+mu <- 1
 a <- 1
 effort <- rep(100,4)
 rho <- .calculateRho.birp_epochs(1:4, times.of.change)
-phi <- exp(rho %*% gamma)
+# before taking the exponent, standardize logPhi so that the mean is zero (this is what we do in c++)
+logPhi <- rho %*% gamma
+phi <- exp(scale(logPhi, center = TRUE, scale = FALSE)[1:4])
 
 # use equation from grant for DM distribution to get counts
-library(dppmix)
-alpha <- a * mu * phi * effort
+library(dirmult)
+alpha <- a * mu * phi * effort  ## these are the parameters of the dirichlet!
+sigma <- phi*effort
 set.seed(420)
-probs <- rdirichlet(n=1, alpha)
+probs <- dirmult::rdirichlet(n=1, alpha)
 # now use these probability to draw counts from a multinomial distr
-rmultinom(n=1, size=100, prob=probs)
-counts <- c(58, 2, 25, 15)
+n<-1
+rmultinom(n, size=100, prob=probs)
+counts <- c(60,17,6,17)
 
 # calculate the density, but do it by hand, because we have to subtract the terms that drop out in the hastings ratio
-LL <- log(gamma(counts + probs)) - log(gamma(probs)) - log(gamma())
+n <- sum(counts)
+term2 <- sum(lgamma(counts+alpha)) - sum(lgamma(alpha)) 
+LL <- lgamma(sum(alpha)) - lgamma(n + sum(alpha)) + term2
 
+  
+LL <- lgamma(sum(alpha)) - lgamma(counts+sum(alpha)) + sum(lgamma(counts + alpha)) - sum(lgamma(alpha))
+# 348.79
 
 
 
