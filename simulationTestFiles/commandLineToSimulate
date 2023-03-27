@@ -1,18 +1,29 @@
 # simulate two epochs under the poisson model (default) with times of change = 3
 ./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3
 
-# now infer
-./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/gamma05Method_0_simulatedCounts.txt
+# now infer Poisson
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/gamma05_Method_1_simulatedCounts.txt
 
-# I did not provide number of locations, so default should be 2? /TBirpCore -> _fillLocationsFromCommandLine();
-# it only ever uses Location_0 and appends 6x6 rows?
-#### tested until here
+# simulate and infer under NB
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_Method_1_simulatedCounts.txt --negativeBinomial
+
+# the signal is not well detected, try again
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_10Locs --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial --numLocations 10
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/inferGamma05_10Locs --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_10Locs_Method_1_simulatedCounts.txt --negativeBinomial
+
+# the first gamma above now well detected; the second one still not; add more methods as well
+ ./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_10Locs_3Meths --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial --numLocations 10 --numMethods 3
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/inferGamma05_10Locs_3Meths --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_10Locs_3Meths_Method_1_simulatedCounts.txt --negativeBinomial --iterations 100000
+
+# now none of the gammas are well detected, try again
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_many --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,29,20 --timesOfChange 10 --negativeBinomial --numLocations 5 --numMethods 5
+# I simnulated 5 methods; so run this to make the filelist: for i in $(realpath *many_Method*); do echo $i >> fileList; done ## realpath adds full path to filename
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/inferGamma05_many --timesOfChange 10 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/fileList --negativeBinomial --iterations 100000
 
 
-./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB/ --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial
 
- # this signal should be detected
-./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20 --timesOfChange 10 --numLocations 5 --numMethods 5
+
 
 
 ############################################################################
