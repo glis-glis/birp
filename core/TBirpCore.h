@@ -56,6 +56,7 @@ protected:
     std::vector<TMethods> _methods;
     TUniqueContainer<size_t> _timepoints;
     TUniqueContainer<std::string> _covariateNames;
+    TUniqueContainer<std::string> _speciesNames;
 
     // read input files
     [[nodiscard]] std::vector<std::string> _getHeader() const;

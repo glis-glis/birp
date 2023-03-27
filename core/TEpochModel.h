@@ -30,7 +30,7 @@ protected:
 	// rho
 	coretools::TMatrix<size_t> _rho;
 
-    size_t _species_id = 0;
+    size_t _species_id = {};
 
 	// temporary values, stored for speed
 	// TODO: make sure old LL and old JP refer to correct species in case of multi species inference
@@ -42,14 +42,14 @@ protected:
 	[[nodiscard]] double _calculateLogPhi_k(size_t k) const;
 	[[nodiscard]] std::vector<double> _calculatePhi() const;
 	arma::mat _calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeNu nu) const;
-	std::pair<std::vector<double>, double> _calculateLLandJP(const TMethods &Data) const;
+	std::pair<std::vector<double>, double> _calculateLLandJP(const std::vector<TMethods> &Methods) const;
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 
 	// simulation
 	void _setSimulatedGammaToZero();
 
 	virtual double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
-	                            const std::vector<double> &p, size_t method_id) const = 0;
+	                            const std::vector<double> &p, size_t method_id, size_t index_in_counts) const = 0;
 	void _updateGamma(const TMethods &Data);
 
 public:
@@ -65,7 +65,7 @@ public:
 	std::vector<double> calcSigma(const TLocations &loc, const std::vector<double> &phi) const;
 
 	virtual void update(const TMethods &Data);
-	double calculateLL(const TMethods &Data) const;
+	double calculateLL(const std::vector<TMethods> &Methods) const;
 
 	virtual void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	               const TUniqueContainer<std::string> &locations) = 0;
@@ -82,7 +82,7 @@ public:
 class TPoissonEpochModel : public TEpochModel {
 protected:
 	double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
-	                    const std::vector<double> &p, size_t method_id) const override;
+	                    const std::vector<double> &p, size_t method_id, size_t index_in_counts) const override;
 
 public:
 	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
@@ -106,7 +106,7 @@ protected:
 
 	// likelihood
 	double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
-	                    const std::vector<double> &p, size_t method_id) const override;
+	                    const std::vector<double> &p, size_t method_id, size_t index_in_counts) const override;
 
 	// update functions
 	void _updateMu(const TMethods &Data);

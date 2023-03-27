@@ -61,7 +61,10 @@ public:
 
     // functions for simulating effort
     template<class Object>
-    void simulateEffort(Object obj) { _effort = obj.sample(); }
+    void simulateEffort(Object obj) {
+        _effort = obj.sample();
+        if(_covariates.size() == 1){_covariates[0] = _effort;} //TODO is this correct
+    }
 
     // functions for simulating under Poisson model
     void simulatePoisson(size_t N0, double phi, double detectionProbs);
@@ -90,7 +93,7 @@ public:
 
     TLocations(const TTimepoints &pt, size_t location_id);
 
-    TLocations(size_t TimepointSize, size_t numSpecies, size_t numCovariates);
+    TLocations(size_t location_id, size_t TimepointSize, size_t numSpecies, size_t numCovariates);
 
     // setters
     void add(TTimepoints pt);
@@ -148,8 +151,11 @@ private:
     std::vector<double> _beta;
     std::vector<TLocations> _locations;
     size_t _method_id;
-    std::vector<std::string> _speciesNames;
     std::vector<std::string> _covariateNames;
+    // variables to identify correct species in epoch model
+    std::vector<size_t > _speciesIDinUniqueContainer;
+    std::vector<bool> _speciesExists;
+    std::vector<size_t> _species_id;
 
     template<class Distribution>
     void _simulateEffort(const std::string &Params) {
@@ -167,15 +173,15 @@ public:
 
     TMethods() = default;
 
-    // setters
-
 
     // getters
     size_t size() const;
     std::string methodName() const;
     std::vector<std::string> covariateNames() const;
     size_t method_id() const;
-    std::vector<std::string> speciesNames() const ;
+    bool speciesExists(size_t species_id) const ;
+    size_t speciesIDinUniqueContainer(size_t species_id) const ;
+    size_t species_id_in_uniqueContainer(size_t species_id) const ;
 
     void add(const TTimepoints &pt, size_t location_id);
 

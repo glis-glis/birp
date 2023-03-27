@@ -22,6 +22,9 @@ private:
 protected:
     // data
     std::vector<TMethods> *_methods = nullptr;
+    size_t _numSpecies = 0;
+    TUniqueContainer<std::string> _speciesNames;
+    std::vector<TEpochModel> _epochModelVector;
 
     // regression coefficients of covariates: todo: figure out!
     stattools::TParameterTyped<TypeBeta, 1> *_beta = nullptr;

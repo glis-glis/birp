@@ -122,27 +122,33 @@ std::vector<double> TEpochModel::calcSigma(const TLocations &loc, const std::vec
 	return sigma;
 }
 
-std::pair<std::vector<double>, double> TEpochModel::_calculateLLandJP(const TMethods &Data) const {
+std::pair<std::vector<double>, double> TEpochModel::_calculateLLandJP(const std::vector<TMethods> &Methods) const {
 	std::vector<double> phi = _calculatePhi();
-	std::vector<double> LL(Data.size(), 0.0);
+    // TODO LL should now be per method and location (before dataseries was already together)
+    // TODO calculate how big LL vector should be -> when initializing EpochModel. additional var: _numMethLoc (for a species)
+	std::vector<double> LL(Methods.size(), 0.0);
 	arma::mat fisherInfo(_numEpochs, _numEpochs, arma::fill::zeros);
-	for (size_t m = 0; m < Data.size(); m++) {
-		const auto &loc        = Data[m];
-		std::vector sigma     = calcSigma(loc, phi);
-		std::vector<double> p = sigma;
-		// now normalize by row sum!
-		coretools::normalize(p);
-		// add to Likelihood
-		LL[m] = _calculateLL(sigma, loc, p, Data.method_id());
-		// add to JP
-		fisherInfo += _calcFisherInfo(p, sigma, loc.nu(_species_id));
+	for (auto m: Methods) {
+        if (m.speciesExists(_species_id)) {
+            size_t index_in_counts = m.species_id_in_uniqueContainer(_species_id);
+            for (auto &loc : m) {
+                std::vector sigma = calcSigma(loc, phi);
+                std::vector<double> p = sigma;
+                // now normalize by row sum!
+                coretools::normalize(p);
+                // add to Likelihood
+                LL[m] = _calculateLL(sigma, loc, p, m.method_id(), index_in_counts);
+                // add to JP
+                fisherInfo += _calcFisherInfo(p, sigma, loc.nu(_species_id));
+            }
+        }
 	}
 	double JP = log(arma::det(fisherInfo)); // sqrt drops out in hastings ratio
 	return {LL, JP};
 }
 
-double TEpochModel::calculateLL(const TMethods &Data) const {
-	const auto [newLL, newJP] = _calculateLLandJP(Data);
+double TEpochModel::calculateLL(const std::vector<TMethods> &Methods) const {
+	const auto [newLL, newJP] = _calculateLLandJP(Methods);
 	return coretools::containerSum(newLL);
 }
 
@@ -183,9 +189,9 @@ TPoissonEpochModel::TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> 
     : TEpochModel(Gamma, TimesOfChange){};
 
 double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, const TLocations &loc,
-                                        const std::vector<double> &p, size_t method_id) const {
+                                        const std::vector<double> &p, size_t method_id, size_t index_in_counts) const {
 	double LL = 0.0;
-	for (size_t k = 0; k < loc.size(); k++) { LL += (double)loc[k].counts_per_species(_species_id) * log(p[k]); }
+	for (size_t k = 0; k < loc.size(); k++) { LL += (double)loc[k].counts_per_species(index_in_counts) * log(p[k]); }
 	return LL;
 }
 
@@ -235,16 +241,16 @@ void TNegBinEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timep
 }
 
 double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const TLocations &loc,
-                                       const std::vector<double> & /*p*/, size_t method_id) const {
+                                       const std::vector<double> & /*p*/, size_t method_id, size_t index_in_counts) const {
 	double sum_a    = 0.0;
 	double term2    = 0.0;
-	TypeNu n           = loc.nu(_species_id); //TODO when multispecies make sure id is correct
+	TypeNu n           = loc.nu(index_in_counts);
 	const double a  = exp(_logA->value());
 	const size_t ij = _mu->getIndex({method_id, loc.location_id()});
 	for (size_t k = 0; k < loc.size(); k++) {
 		double alpha_k = a * _mu->value(ij) * sigma[k];
 		sum_a += alpha_k; // summing up alphas
-		term2 += coretools::gammaLog((double)loc[k].counts_per_species(_species_id) + alpha_k) -
+		term2 += coretools::gammaLog((double)loc[k].counts_per_species(index_in_counts) + alpha_k) -
                 coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
 	}
 	return coretools::gammaLog(sum_a) - coretools::gammaLog((double)n + sum_a) + term2;  // (n+1) drops out

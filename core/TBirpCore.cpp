@@ -66,7 +66,7 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
     // create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
     coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;
     _data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>
-            ("data", birp, fakeData,
+            ("fakeData", birp, fakeData,
              stattools::TObservationDefinition(Filename));
 
     // add to DAG
@@ -132,19 +132,26 @@ TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts, con
 
 void TBirpCore::_readForInference(bool hasCounts) {
     std::string input = parameters().getParameterFilename("data");
-    bool dataIsFile = std::filesystem::exists(input);
+    bool dataIsFile = std::filesystem::exists(
+            input);  // if multiple files are supplied separated by commas, then this will be false
     std::vector<std::string> filenames;
-    if (!dataIsFile) {
-        coretools::str::fillContainerFromString(input, filenames, ',');
-    } else {
-        coretools::TInputFile infile(input, coretools::TFile_Filetype::fixed); // fixed: no header
+    if (dataIsFile) {
+        coretools::TInputFile infile(input, coretools::TFile_Filetype::header);
+        // first check if maybe the file is the actual counts file and not a list of files
         if (infile.numCols() != 1) {
-            UERROR("Expected only one column in file ", input, " .");
+            coretools::str::fillContainerFromString(input, filenames, ',');
+        } else { // if not, then its a list of files (methods), so we fill them in
+            coretools::TInputFile infile(input, coretools::TFile_Filetype::fixed); // fixed: no header
+            if (infile.numCols() != 1) {
+                UERROR("Expected only one column in file ", input, " .");
+            }
+            std::vector<std::string> row;
+            while (infile.read(row)) {
+                filenames.push_back(row[0]);
+            }
         }
-        std::vector<std::string> row;
-        while (infile.read(row)) {
-            filenames.push_back(row[0]);
-        }
+    } else {
+        coretools::str::fillContainerFromString(input, filenames, ',');
     }
     for (auto name: filenames) {
         _readFile(name, hasCounts);
@@ -166,7 +173,7 @@ std::vector<std::string>
 TBirpCore::_getSpeciesNames(const coretools::TInputFile &infile, const std::vector<size_t> &countIndices) {
     std::vector<std::string> names(countIndices.size());
     std::string test = infile.headerAt(2);
-    for (size_t s = 0; s < countIndices.size(); s++){
+    for (size_t s = 0; s < countIndices.size(); s++) {
         names[s] = coretools::str::readAfter(infile.headerAt(countIndices[s]), '_');
     }
     return names;
@@ -248,14 +255,14 @@ void TBirpCore::infer() {
 //-----------------------------------
 // Simulate
 
-std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods& method){
+std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &method) {
     std::vector<std::string> header = _getHeader();
     // add species name to base header vector
-    for(size_t i = 0; i < method.speciesNames().size(); i++){
+    for (size_t i = 0; i < method.speciesNames().size(); i++) {
         header.push_back("counts_" + method.speciesNames()[i]);
     }
     // add covariate name to base header vector
-    for(size_t i = 0; i < method.covariateNames().size(); i++){
+    for (size_t i = 0; i < method.covariateNames().size(); i++) {
         header.push_back("cov_" + method.covariateNames()[i]);
     }
     return header;
@@ -307,15 +314,15 @@ void TBirpCore::simulate() {
         size_t numCovariates = parameters().getParameterWithDefault("numCovariates", 1);
         // create vector of speciesnames species_1, species_2 ... as many as there are. currently only supports one species
         std::vector<std::string> speciesNames(numSpecies);
-        for(size_t n = 0; n < speciesNames.size(); n++){
-            speciesNames[n] = coretools::str::toString(n);
+        for (size_t n = 0; n < speciesNames.size(); n++) {
+            speciesNames[n] = "species_" + coretools::str::toString(n + 1);
         }
         std::vector<std::string> covariateNames(numCovariates);
-        for(size_t n = 0; n < numCovariates; n++){
-            covariateNames[n] = coretools::str::toString(n);
+        for (size_t n = 0; n < numCovariates; n++) {
+            covariateNames[n] = coretools::str::toString(n + 1);
         }
         for (size_t m = 0; m < numMethods; ++m) {
-            _methods.emplace_back("Method_" + coretools::str::toString(m), _locations.size(),
+            _methods.emplace_back("Method_" + coretools::str::toString(m + 1), _locations.size(),
                                   _timepoints.size(), m, speciesNames, covariateNames);
         }
     }
@@ -327,7 +334,7 @@ void TBirpCore::simulate() {
 
     // run simulator
     stattools::TSimulator simulator;
-    simulator.simulate(_outname, &dagBuilder);
+    simulator.simulate(_outname, &dagBuilder); // goes to ... DAG ... TBirpPrior
 
     // write Birp file
     _writeFile();
