@@ -1,0 +1,2 @@
+gamma_1	gamma_2	timesOfChange_1	mu_Method_0_Location_0	mu_Method_0_Location_1	mu_Method_0_Location_2	mu_Method_0_Location_3	mu_Method_0_Location_4	sigmaMu	logA
+-0.5	0.5	5	0.0876926	0.304301	0.437039	0.0773435	0.0936235	0.276126	0

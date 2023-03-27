@@ -1,0 +1,11 @@
+species	location	method	time	effort	counts
+Seal	Location_0	Method_0	1	8	8
+Seal	Location_0	Method_0	2	6	13
+Seal	Location_0	Method_0	3	10	10
+Seal	Location_0	Method_0	4	10	4
+Seal	Location_0	Method_0	5	7	1
+Seal	Location_0	Method_0	6	13	6
+Seal	Location_0	Method_0	7	11	7
+Seal	Location_0	Method_0	8	4	2
+Seal	Location_0	Method_0	9	8	15
+Seal	Location_0	Method_0	10	11	37

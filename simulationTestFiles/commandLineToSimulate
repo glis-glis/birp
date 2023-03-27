@@ -1,0 +1,73 @@
+# simulate two epochs under the poisson model (default) with times of change = 3
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3
+
+# now infer
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/gamma05Method_0_simulatedCounts.txt
+
+# I did not provide number of locations, so default should be 2? /TBirpCore -> _fillLocationsFromCommandLine();
+# it only ever uses Location_0 and appends 6x6 rows?
+#### tested until here
+
+
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB/ --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial
+
+ # this signal should be detected
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20 --timesOfChange 10 --numLocations 5 --numMethods 5
+
+
+############################################################################
+# infer under the NB model
+ ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB --timesOfChange 3 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_simulatedCounts.txt 
+ 
+ ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB --timesOfChange 3 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_simulatedCounts.txt 
+ 
+ # this one should be detected
+ ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many_simulatedCounts.txt
+ 
+ # do 100'000 iterations with NB and Pois as well
+ ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many_simulatedCounts.txt --iterations 100000
+ 
+ ./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_Pois_many --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many_simulatedCounts.txt --iterations 100000
+ 
+  ############################################################################
+ Simulating and infering under NB:
+ 
+ ./birp --task simulate --negativeBinomial --numLocations 10 --numMethods 2 --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_simulated --gamma 0.2,1.5 --timepoints 1,2,3,4,5,6,7,8,9,10 --timesOfChange 6 --logA 5
+ # --> no effort given, so by default it will simulate effort ~Pois(10). logA by default = 0; but maybe we should put it higher
+ 
+./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferred --timesOfChange 6 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_simulated_simulatedCounts.txt --iterations 100000
+
+#### now infer under Pois
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferredPois --timesOfChange 6 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_simulated_simulatedCounts.txt --iterations 100000
+
+###################################################################################################################
+# does not estimate 0.2 that well, try with more power
+./birp --task simulate --negativeBinomial --numLocations 10 --numMethods 2 --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_morePower --gamma 0.2,1.5 --timepoints 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20 --timesOfChange 10 --logA 5
+ 
+./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_morePowerNB --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5__morePower_simulatedCounts.txt --iterations 100000
+
+#### now infer under Pois
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5__morePowerPois --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_simulated_simulatedCounts.txt --iterations 100000
+
+###################################################################################################################
+# simulate poisson counts from existing file
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/simulatingFromFile --timesOfChange 5 --gamma -1,1 --simulationFile /home/liam/ownCloud/institution/project_birp/simulationTestFiles/fileToUseForSims_pois.csv 
+# now infer
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/inferFromFile --timesOfChange 5 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/simulatingFromFile
+
+
+# simulate NB counts from (same) existing file
+./birp --task simulate --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/simulatingFromFileNB --timesOfChange 5 --gamma -1,1 --simulationFile /home/liam/ownCloud/institution/project_birp/simulationTestFiles/fileToUseForSims_NB.csv 
+# now infer
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/inferFromFileNB --timesOfChange 5 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/simulatingFromFileNB_simulatedCounts.txt
+
+#########################################
+# simulate under Pois and infer both under Pois and NB and compare posterior density. Use 100'000 iterations
+
+./birp --task simulate --numLocations 10 --numMethods 4 --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/y-03_05_ --gamma -0.3,0.5 --timepoints 1,2,3,4,5,6,7,8,9,10 --timesOfChange 5
+ 
+./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/y-03_05_NB --timesOfChange 5 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/y-03_05__simulatedCounts.txt --iterations 100000
+# now infer under Pois
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/y-03_05_Pois --timesOfChange 5 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/y-03_05__simulatedCounts.txt --iterations 100000
+
+

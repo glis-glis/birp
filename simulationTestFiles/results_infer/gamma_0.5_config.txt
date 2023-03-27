@@ -1,0 +1,4 @@
+name	priorParameters	traceFile	meanVarFile	statePosteriorsFile	simulationFile	update	propKernel	sharedJumpSize	updatingScheme	relativeBlockSize	logProbRejectBlockLogH	logProbAcceptBlockLogH
+data												
+gamma		/home/liam/ownCloud/institution/project_birp/simulationTestFiles/results_infer/gamma_0.5	/home/liam/ownCloud/institution/project_birp/simulationTestFiles/results_infer/gamma_0.5		/home/liam/ownCloud/institution/project_birp/simulationTestFiles/results_infer/gamma_0.5	1	normal	1	regular	0.01	-20	-2.06115e-09
+timesOfChange		/home/liam/ownCloud/institution/project_birp/simulationTestFiles/results_infer/gamma_0.5	/home/liam/ownCloud/institution/project_birp/simulationTestFiles/results_infer/gamma_0.5		/home/liam/ownCloud/institution/project_birp/simulationTestFiles/results_infer/gamma_0.5	1	normal	1	regular	0.01	-20	-2.06115e-09
