@@ -19,8 +19,8 @@ TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::st
     // determine how many species we have
     std::set<std::string> speciesSet;
     for (auto m: *_methods){
-        for (auto s: m.speciesNames()){
-            speciesSet.insert(s);
+        if (m.speciesExists()){
+         speciesSet.insert(_speciesNames[])
         }
     }
     _numSpecies = speciesSet.size();

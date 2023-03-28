@@ -215,7 +215,6 @@ void TLocations::simulateNB(const std::vector<double> &phi, double a, double mu_
 TMethods::TMethods(const std::string_view &methodName, size_t index, const std::vector<std::string> &speciesNames) {
     _methodName = methodName;
     _method_id = index;
-    _speciesNames = speciesNames;
 }
 
 TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
@@ -226,7 +225,6 @@ TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t Ti
         _locations.emplace_back(i, TimepointSize, speciesNames.size(), covariateNames.size());
     }
     _method_id = index;
-    _speciesNames = speciesNames;
     _covariateNames = covariateNames;
 
 }
@@ -248,10 +246,6 @@ size_t TMethods::method_id() const {
 
 bool TMethods::speciesExists(size_t species_id) const {
     return _speciesExists[species_id];
-}
-
-size_t TMethods::speciesIDinUniqueContainer(size_t species_id) const {
-    return _speciesIDinUniqueContainer[species_id];
 }
 
 size_t TMethods::species_id_in_uniqueContainer(size_t species_id) const {

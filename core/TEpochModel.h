@@ -31,6 +31,7 @@ protected:
 	coretools::TMatrix<size_t> _rho;
 
     size_t _species_id = {};
+    size_t _numMethLoc = {};
 
 	// temporary values, stored for speed
 	// TODO: make sure old LL and old JP refer to correct species in case of multi species inference

@@ -180,7 +180,6 @@ public:
     std::vector<std::string> covariateNames() const;
     size_t method_id() const;
     bool speciesExists(size_t species_id) const ;
-    size_t speciesIDinUniqueContainer(size_t species_id) const ;
     size_t species_id_in_uniqueContainer(size_t species_id) const ;
 
     void add(const TTimepoints &pt, size_t location_id);
