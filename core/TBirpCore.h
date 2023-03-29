@@ -39,7 +39,7 @@ private:
 
 public:
     TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-               TUniqueContainer<std::size_t> *TimePoints,
+               TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
                const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial);
 };
 

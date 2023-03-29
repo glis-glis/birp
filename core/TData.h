@@ -166,7 +166,7 @@ private:
     void _simulateEffort();
 
 public:
-    explicit TMethods(const std::string_view &methodName, size_t index, const std::vector<std::string>& speciesNames);
+    explicit TMethods(const std::string_view &methodName, size_t index, const std::vector<std::size_t>& species_id);
 
     TMethods(const std::string& methodName, size_t locationSize, size_t TimepointSize, size_t index,
              const std::vector<std::string>& speciesNames, const std::vector<std::string>& covariateNames);
@@ -181,6 +181,7 @@ public:
     size_t method_id() const;
     bool speciesExists(size_t species_id) const ;
     size_t species_id_in_uniqueContainer(size_t species_id) const ;
+    size_t numSpecies() const ;
 
     void add(const TTimepoints &pt, size_t location_id);
 

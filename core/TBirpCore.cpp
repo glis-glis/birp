@@ -33,7 +33,7 @@ std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretool
 }
 
 TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints,
+                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
                        const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial)
 // TODO: change to improper prior!
         : _gamma("gamma", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeGamma, 1>>(),
@@ -55,11 +55,11 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
     // create birp prior (Poisson or Negative Binomial)
     std::shared_ptr<TBirpPrior> birp;
     if (NegativeBinomial) {
-        birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, &_gamma, &_timesOfChange, &_mu,
+        birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, speciesNames, &_gamma, &_timesOfChange, &_mu,
                                             &_logA, Filename);
     } else {
         birp =
-                std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, &_gamma, &_timesOfChange,
+                std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, speciesNames, &_gamma, &_timesOfChange,
                                              Filename);
     }
 
@@ -194,13 +194,16 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
     _checkHeader(infile, hasCounts, countIndices, effortIndices);
 
     std::vector<std::string> speciesNames = _getSpeciesNames(infile, countIndices);
-    // TODO std::cout << speciesNames[0] << std::endl;
+    std::vector<size_t> species_id = {};
+    for (auto name: speciesNames){
+        species_id.push_back(_speciesNames.add(name));
+    }
 
     // add new method: name is derived from filename
     std::string_view methodNameFull = coretools::str::readAfterLast(Filename, '/');
     std::string_view methodNameCropped = coretools::str::readAfter(methodNameFull, '_');
     std::string_view methodName = coretools::str::readBeforeLast(methodNameCropped, '.');
-    _methods.emplace_back(methodName, _methods.size(), speciesNames);
+    _methods.emplace_back(methodName, _methods.size(), species_id); // the index of the method is the current size of the _methods vector
 
     std::vector<std::string> row;
     while (infile.read(row)) {
@@ -245,7 +248,7 @@ void TBirpCore::infer() {
     // create model
     stattools::TDAGBuilder dagBuilder;
     bool negBinom = parameters().parameterExists("negativeBinomial");
-    TBirpModel model(&_methods, &_locations, &_timepoints, _outname, dagBuilder, negBinom);
+    TBirpModel model(&_methods, &_locations, &_timepoints, &_speciesNames, _outname, dagBuilder, negBinom);
 
     // run MCMC
     stattools::TMCMC mcmc;
@@ -258,8 +261,8 @@ void TBirpCore::infer() {
 std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &method) {
     std::vector<std::string> header = _getHeader();
     // add species name to base header vector
-    for (size_t i = 0; i < method.speciesNames().size(); i++) {
-        header.push_back("counts_" + method.speciesNames()[i]);
+    for (size_t i = 0; i < _speciesNames.size(); i++) {
+        header.push_back("counts_" + _speciesNames[i]);
     }
     // add covariate name to base header vector
     for (size_t i = 0; i < method.covariateNames().size(); i++) {
@@ -330,7 +333,7 @@ void TBirpCore::simulate() {
     // create model
     stattools::TDAGBuilder dagBuilder;
     bool negBinom = parameters().parameterExists("negativeBinomial");
-    TBirpModel model(&_methods, &_locations, &_timepoints, _outname, dagBuilder, negBinom);
+    TBirpModel model(&_methods, &_locations, &_timepoints, &_speciesNames, _outname, dagBuilder, negBinom);
 
     // run simulator
     stattools::TSimulator simulator;

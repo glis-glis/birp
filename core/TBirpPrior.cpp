@@ -9,26 +9,19 @@
 
 using namespace coretools::instances;
 
-TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints,
+TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, std::string Prefix)
-    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _out(std::move(Prefix)) {
+    : _methods(Methods), _locations(Locations),  _timepoints(TimePoints), _out(std::move(Prefix)) {
 	// constructor for Poisson model
 
 	addPriorParameter({Gamma, TimesOfChange});
-    // determine how many species we have
-    std::set<std::string> speciesSet;
-    for (auto m: *_methods){
-        if (m.speciesExists()){
-         speciesSet.insert(_speciesNames[])
-        }
-    }
-    _numSpecies = speciesSet.size();
     if (_numSpecies > 1){ UERROR("Birp only supports single species at the moment..");}
     _epochModel.emplace_back(std::make_unique<TPoissonEpochModel>(Gamma, TimesOfChange));
 }
 
-TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints,
+
+TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                        stattools::TParameterTyped<TypeMu, 2> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
@@ -37,14 +30,6 @@ TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::st
 	// constructor for Negative Binomial model
 
 	addPriorParameter({Gamma, TimesOfChange, Mu, LogA});
-    // determine how many species we have
-    std::set<std::string> speciesSet;
-    for (auto m: *_methods){
-        for (auto s: m.speciesNames()){
-            speciesSet.insert(s);
-        }
-    }
-    _numSpecies = speciesSet.size();
     if (_numSpecies > 1){ UERROR("Birp only supports single species at the moment..");}
     _epochModel.emplace_back(std::make_unique<TNegBinEpochModel>(Gamma, TimesOfChange, Mu, LogA));
 }
@@ -61,22 +46,24 @@ void TBirpPrior::initializeInferred() {
 }
 
 void TBirpPrior::estimateInitialPriorParameters() {
-	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->estimateInitialPriorParameters((*_methods)[s]); }
+	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->estimateInitialPriorParameters(*_methods); }
 }
 
 //------------------------------------
 // MCMC
 
 void TBirpPrior::updateParams() {
-	for (size_t s = 0; m < _numSpecies; ++s) { _epochModel[s]->update((*_methods)[s]); }
+	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->update((*_methods)); }
 }
 
 double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 	// TODO: is this correct for multi-species case?
 	double sum = 0.0;
-	for (size_t s = 0; s < _numSpecies; ++s) { sum += _epochModel[s]->calculateLL((*_methods)[s]); }
+	for (size_t s = 0; s < _numSpecies; ++s) { sum += _epochModel[s]->calculateLL(*_methods); }
 	return sum;
 }
+
+
 
 //------------------------------------
 // Simulations

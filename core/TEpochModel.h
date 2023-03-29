@@ -51,7 +51,7 @@ protected:
 
 	virtual double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
 	                            const std::vector<double> &p, size_t method_id, size_t index_in_counts) const = 0;
-	void _updateGamma(const TMethods &Data);
+	void _updateGamma(const std::vector<TMethods> &Methods);
 
 public:
 	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
@@ -61,11 +61,11 @@ public:
 	                                const TUniqueContainer<std::string> &Locations,
 	                                const std::vector<TMethods> &Methods);
 
-	virtual void estimateInitialPriorParameters(const TMethods &Data);
+	virtual void estimateInitialPriorParameters(const std::vector<TMethods> &Methods);
 
 	std::vector<double> calcSigma(const TLocations &loc, const std::vector<double> &phi) const;
 
-	virtual void update(const TMethods &Data);
+	virtual void update(const std::vector<TMethods> &Methods);
 	double calculateLL(const std::vector<TMethods> &Methods) const;
 
 	virtual void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
@@ -110,11 +110,12 @@ protected:
 	                    const std::vector<double> &p, size_t method_id, size_t index_in_counts) const override;
 
 	// update functions
-	void _updateMu(const TMethods &Data);
-	void _updateLogA(const TMethods &Data);
+    std::pair<size_t, size_t> _getMethAndLocIndex(size_t mu_index, const std::vector<TMethods>& Methods);
+	void _updateMu(const std::vector<TMethods> &Methods);
+	void _updateLogA(const std::vector<TMethods> &Methods);
 
 	// initialization
-	void _estimateInitialMu(const TMethods &Data);
+	void _estimateInitialMu(const std::vector<TMethods> &Methods);
 
 	// simulate
 	double _simulate(TMethods &data);
@@ -126,8 +127,8 @@ public:
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
 	                        const std::vector<TMethods> &Methods) override;
-	virtual void update(const TMethods &Data);
-	void estimateInitialPriorParameters(const TMethods &Data) override;
+	virtual void update(const std::vector<TMethods> &Data);
+	void estimateInitialPriorParameters(const std::vector<TMethods> &Methods) override;
 
 	// simulate
 	void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
