@@ -18,6 +18,7 @@ public:
 	const TUniqueContainer<std::string> &locations() const { return _locations; };
 	const std::vector<TMethods> &methods() const { return _methods; };
 	const TUniqueContainer<size_t> &timepoints() const { return _timepoints; };
+    const TUniqueContainer<std::string> &speciesNames() const {return _speciesNames;}
 };
 
 #endif // BIRP_TBIRPTESTS_H

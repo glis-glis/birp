@@ -17,7 +17,7 @@ TEST(TBirpPriorTest, readFile1) {
     const auto method = birp.methods();
     EXPECT_EQ(method[0].methodName(), "examineSlime_threeCovariates");
     // test species name
-    EXPECT_EQ(method[0].speciesNames()[0], "snail");
+    EXPECT_EQ(birp.speciesNames()[method[0].speciesIDsinUniqueContainer()[0]], "snail");
     // test timepoints
     const auto times = birp.timepoints();
     EXPECT_EQ(times[0], 3);
@@ -39,7 +39,7 @@ TEST(TBirpPriorTest, readFile2) {
     const auto method = birp.methods();
     EXPECT_EQ(method[0].methodName(), "loudYelling");
     // test species name
-    EXPECT_EQ(method[0].speciesNames()[0], "lion");
+    EXPECT_EQ(birp.speciesNames()[method[0].speciesIDsinUniqueContainer()[0]], "lion");
 // test timepoints
     const auto times = birp.timepoints();
     EXPECT_EQ(times[0], 1);

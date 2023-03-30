@@ -212,22 +212,31 @@ void TLocations::simulateNB(const std::vector<double> &phi, double a, double mu_
 // TMethods
 //-------------------------------------------
 
-TMethods::TMethods(const std::string_view &methodName, size_t index, const std::vector<std::size_t> &species_id) {
+TMethods::TMethods(const std::string_view &methodName, size_t index, const std::vector<std::size_t> &speciesIDsinUniqueContainer) { // infer
     _methodName = methodName;
     _method_id = index;
-    _species_id = species_id;
+    _speciesIDsinUniqueContainer = speciesIDsinUniqueContainer;
 }
 
 TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
-                   const std::vector<std::string> &speciesNames, const std::vector<std::string> &covariateNames) {
-    _methodName = methodName,
+                   const std::vector<size_t>& speciesIDsinUniqueContainer, const std::vector<std::string> &covariateNames) { // simulate
+    _methodName = methodName;
             _locations.resize(locationSize);
+    _speciesIDsinUniqueContainer = speciesIDsinUniqueContainer;
     for (size_t i = 0; i < locationSize; i++) {
-        _locations.emplace_back(i, TimepointSize, speciesNames.size(), covariateNames.size());
+        _locations.emplace_back(i, TimepointSize, _speciesIDsinUniqueContainer.size(), covariateNames.size());
     }
     _method_id = index;
     _covariateNames = covariateNames;
+}
 
+void TMethods::fillIDVectors(size_t totalSizeOfUniqueContainer){
+    _hasDataForSpeciesID.resize(totalSizeOfUniqueContainer, false);
+    _indexInCounts.resize(totalSizeOfUniqueContainer, 0);
+    for (size_t c = 0; c < _speciesIDsinUniqueContainer.size(); c++){
+        _hasDataForSpeciesID[_speciesIDsinUniqueContainer[c]] = true;
+        _indexInCounts[_speciesIDsinUniqueContainer[c]] = c;
+    }
 }
 
 size_t TMethods::size() const { return _locations.size(); }
@@ -245,16 +254,16 @@ size_t TMethods::method_id() const {
 }
 
 
-bool TMethods::speciesExists(size_t species_id) const {
-    return _speciesExists[species_id];
+bool TMethods::hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const {
+    return _hasDataForSpeciesID[speciesIDinUniqueContainer];
 }
 
-size_t TMethods::species_id_in_uniqueContainer(size_t species_id) const {
-    return _species_id[species_id];
+size_t TMethods::getIndexInCounts(size_t speciesIDinUniqueContainer) const {
+    return _indexInCounts[speciesIDinUniqueContainer];
 }
 
-size_t TMethods::numSpecies() const {
-    return _species_id.size();
+const std::vector<size_t>& TMethods::speciesIDsinUniqueContainer() const {
+    return _speciesIDsinUniqueContainer;
 }
 
 

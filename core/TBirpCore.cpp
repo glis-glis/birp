@@ -226,6 +226,9 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
         // TODO ignoriere hasCounts for a start
     }
+    for (auto &m: _methods){
+        m.fillIDVectors(_speciesNames.size());
+    }
 }
 
 
@@ -316,9 +319,9 @@ void TBirpCore::simulate() {
         size_t numSpecies = parameters().getParameterWithDefault("numSpecies", 1);
         size_t numCovariates = parameters().getParameterWithDefault("numCovariates", 1);
         // create vector of speciesnames species_1, species_2 ... as many as there are. currently only supports one species
-        std::vector<std::string> speciesNames(numSpecies);
-        for (size_t n = 0; n < speciesNames.size(); n++) {
-            speciesNames[n] = "species_" + coretools::str::toString(n + 1);
+        std::vector<size_t> species_ids(numSpecies);
+        for (size_t n = 0; n < numSpecies; n++) {
+            species_ids[n] = _speciesNames.add("species_" + coretools::str::toString(n + 1));
         }
         std::vector<std::string> covariateNames(numCovariates);
         for (size_t n = 0; n < numCovariates; n++) {
@@ -326,7 +329,10 @@ void TBirpCore::simulate() {
         }
         for (size_t m = 0; m < numMethods; ++m) {
             _methods.emplace_back("Method_" + coretools::str::toString(m + 1), _locations.size(),
-                                  _timepoints.size(), m, speciesNames, covariateNames);
+                                  _timepoints.size(), m, species_ids, covariateNames);
+        }
+        for (auto &m: _methods){
+            m.fillIDVectors(_speciesNames.size());
         }
     }
 

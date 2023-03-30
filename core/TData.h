@@ -153,9 +153,10 @@ private:
     size_t _method_id;
     std::vector<std::string> _covariateNames;
     // variables to identify correct species in epoch model
-    std::vector<size_t > _speciesIDinUniqueContainer;
-    std::vector<bool> _speciesExists;
-    std::vector<size_t> _species_id;
+    std::vector<size_t > _speciesIDsinUniqueContainer;
+    std::vector<bool> _hasDataForSpeciesID;
+    std::vector<size_t> _indexInCounts;
+
 
     template<class Distribution>
     void _simulateEffort(const std::string &Params) {
@@ -169,19 +170,21 @@ public:
     explicit TMethods(const std::string_view &methodName, size_t index, const std::vector<std::size_t>& species_id);
 
     TMethods(const std::string& methodName, size_t locationSize, size_t TimepointSize, size_t index,
-             const std::vector<std::string>& speciesNames, const std::vector<std::string>& covariateNames);
+             const std::vector<size_t>& species_ids, const std::vector<std::string>& covariateNames);
 
     TMethods() = default;
 
+    void fillIDVectors(size_t totalSizeOfUniqueContainer);
 
     // getters
     size_t size() const;
     std::string methodName() const;
     std::vector<std::string> covariateNames() const;
     size_t method_id() const;
-    bool speciesExists(size_t species_id) const ;
-    size_t species_id_in_uniqueContainer(size_t species_id) const ;
-    size_t numSpecies() const ;
+    const std::vector<size_t>& speciesIDsinUniqueContainer() const;
+    bool hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const ;
+    size_t getIndexInCounts(size_t speciesIDinUniqueContainer) const ;
+
 
     void add(const TTimepoints &pt, size_t location_id);
 

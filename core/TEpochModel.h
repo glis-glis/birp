@@ -30,7 +30,7 @@ protected:
 	// rho
 	coretools::TMatrix<size_t> _rho;
 
-    size_t _species_id = {};
+    size_t _speciesIDinUniqueContainer = 0; // refers to ID in unique container //TODO add to constructor
     size_t _numMethLoc = {};
 
 	// temporary values, stored for speed
@@ -56,7 +56,7 @@ protected:
 public:
 	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	            stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
-	~TEpochModel() = default;
+	virtual ~TEpochModel() = default;
 	virtual void initializeInferred(const TUniqueContainer<size_t> &Timepoints,
 	                                const TUniqueContainer<std::string> &Locations,
 	                                const std::vector<TMethods> &Methods);
@@ -88,6 +88,8 @@ protected:
 public:
 	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	                   stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
+
+    ~TPoissonEpochModel() override = default;
 
 	// simulation
 	void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
@@ -124,6 +126,8 @@ public:
 	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, stattools::TParameterTyped<TypeMu, 2> *Mu,
 	                  stattools::TParameterTyped<TypeLogA, 1> *LogA);
+
+    ~TNegBinEpochModel() override = default;
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
 	                        const std::vector<TMethods> &Methods) override;
