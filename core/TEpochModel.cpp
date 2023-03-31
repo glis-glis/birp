@@ -37,11 +37,9 @@ void TEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
 
     // check how many combinations of methods/locations we have - used to initialize vector of LL
     _numMethLoc = 0;
-    for (auto m: Methods) {
+    for (const auto &m: Methods) {
         if (m.hasDataForSpeciesID(_speciesIDinUniqueContainer)){
-            for (auto loc: m){
-                _numMethLoc++;
-            }
+            _numMethLoc += m.size();
         }
     }
 }
@@ -268,18 +266,16 @@ double TNegBinEpochModel::_calculateLL(const std::vector<double> &sigma, const T
 
 
 std::pair<size_t, size_t> TNegBinEpochModel::_getMethAndLocIndex(size_t mu_index, const std::vector<TMethods>& Methods){
-    size_t meth_id = 0;
-    size_t loc_id = 0;
+    // returns the actual indices of specific method and location, not id in unique container.
     size_t counter = 0;
-    for (const auto& method: Methods){
-        if(method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
-            if (counter + method.size() > mu_index) {
-                meth_id = method.method_id();
-                loc_id = mu_index - counter;
-                return {meth_id, loc_id};
+    for (size_t i = 0; i < Methods.size(); i++){
+        if(Methods[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
+            if (counter + Methods[i].size() > mu_index) {
+                size_t j = mu_index - counter;
+                return {i, j};
             }
         }
-        counter += (method.size()-1);
+        counter += (Methods[i].size());
     }
     DEVERROR("Error in TNegBinEpochModel::_getMethAndLocIndex(): did not find method and location index for species - this should not happen.");
 }

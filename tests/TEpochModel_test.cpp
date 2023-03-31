@@ -292,7 +292,7 @@ TEST_F(TEpochModelNegBinTest, _getMethAndLocIndex) {
     initialize(timesOfChange, times, methods, locations);
 
     std::vector<size_t> method_id_truthVec = {0, 0, 0, 0, 1, 1, 1, 2};
-    std::vector<size_t> location_id_truthVec = {0, 1, 2, 3, 1, 2, 3, 3};
+    std::vector<size_t> location_id_truthVec = {0, 1, 2, 3, 0, 1, 2, 0};
     std::size_t counter = 0;
     for (auto m: methods) {
         for (auto loc: m) {
