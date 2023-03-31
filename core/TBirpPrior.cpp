@@ -10,11 +10,12 @@
 using namespace coretools::instances;
 
 TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
+                       TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, std::string Prefix)
-    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _out(std::move(Prefix)) {
+    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _numSpecies(numSpecies), _out(std::move(Prefix)) {
 	// constructor for Poisson model
+
 
 	addPriorParameter({Gamma, TimesOfChange});
 	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
@@ -22,12 +23,12 @@ TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::str
 }
 
 TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
+                       TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                        stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
                        std::string Prefix)
-    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _out(std::move(Prefix)) {
+    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _numSpecies(numSpecies), _out(std::move(Prefix)) {
 	// constructor for Negative Binomial model
 
 	addPriorParameter({Gamma, TimesOfChange, Mu, LogA});

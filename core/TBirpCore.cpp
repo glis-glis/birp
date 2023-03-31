@@ -54,10 +54,10 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
 	// create birp prior (Poisson or Negative Binomial)
 	std::shared_ptr<TBirpPrior> birp;
 	if (NegativeBinomial) {
-		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, speciesNames, &_gamma, &_timesOfChange,
+		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, speciesNames->size(), &_gamma, &_timesOfChange,
 		                                    &_mu, &_logA, Filename);
 	} else {
-		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, speciesNames, &_gamma, &_timesOfChange,
+		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, speciesNames->size(), &_gamma, &_timesOfChange,
 		                                    Filename);
 	}
 

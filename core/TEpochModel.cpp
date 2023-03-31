@@ -212,7 +212,8 @@ void TPoissonEpochModel::simulate(std::vector<TMethods> &methods, size_t N0,
 
 void TPoissonEpochModel::simulate(std::vector<TMethods> &methods) {
     _setSimulatedGammaToZero();
-    for (auto method: methods) {
+    for (auto &method: methods) {
+        std::vector<double> phiTmp = _calculatePhi();
         method.simulatePoisson(_calculatePhi());
     }
 }
@@ -250,7 +251,7 @@ void TNegBinEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timep
         }
     }
     if (muNames->size() != _numMethLoc) { UERROR("size doesn't match!"); } // todo: remove!
-    _mu->initStorage({_numMethLoc}, {muNames});  // todo segmentation fault here
+    _mu->initStorage({_numMethLoc}, {muNames});
 
     // initialize a: single element
     _logA->initStorage({1});

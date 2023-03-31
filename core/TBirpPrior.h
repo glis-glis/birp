@@ -21,8 +21,6 @@ private:
 protected:
     // data
     std::vector<TMethods> *_methods = nullptr;
-    size_t _numSpecies = 0;
-    TUniqueContainer<std::string> _speciesNames;
     std::vector<TEpochModel> _epochModelVector;
 
     // regression coefficients of covariates: todo: figure out!
@@ -35,6 +33,7 @@ protected:
     TUniqueContainer<std::string> *_locations =
             nullptr; // these are pointers to the objects that are stored in TBirpCore
     TUniqueContainer<size_t> *_timepoints = nullptr;
+    size_t _numSpecies = 0;
 
     // prefix for writing
     std::string _out;
@@ -54,13 +53,13 @@ public:
     TBirpPrior() = default;
 
     TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-               TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
+               TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
                stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                std::string Prefix);
 
 
     TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-               TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
+               TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
                stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
                std::string Prefix);
