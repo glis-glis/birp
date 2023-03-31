@@ -10,7 +10,6 @@
 
 #include "BirpTypes.h"
 #include "TBirpPrior.h"
-#include "TCovariates.h"
 #include "coretools/Main/TParameters.h"
 #include "coretools/Main/TTask.h"
 #include "stattools/DAG/TDAGBuilder.h"

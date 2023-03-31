@@ -6,7 +6,6 @@
 #define TBIRPPRIOR_H
 
 #include "BirpTypes.h"
-#include "TCovariates.h"
 #include "TEpochModel.h"
 #include "coretools/Files/TFile.h"
 #include "coretools/Files/TOutputFile.h"

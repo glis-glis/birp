@@ -7,12 +7,12 @@
 #define BIRP_TEPOCHMODEL_H
 
 #include "BirpTypes.h"
+#include "TData.h"
 #include "coretools/Math/TMatrix.h"
 #include "stattools/ParametersObservations/TObservationTyped.h"
 #include "stattools/ParametersObservations/TParameterTyped.h"
 #include <armadillo>
 #include <vector>
-#include "TData.h"
 
 //--------------------------------
 // TEpochModel
@@ -30,8 +30,8 @@ protected:
 	// rho
 	coretools::TMatrix<size_t> _rho;
 
-    size_t _speciesIDinUniqueContainer = 0; // refers to ID in unique container //TODO add to constructor
-    size_t _numMethLoc = {};
+	size_t _speciesIDinUniqueContainer = 0; // refers to ID in unique container //TODO add to constructor
+	size_t _numMethLoc                 = {};
 
 	// temporary values, stored for speed
 	// TODO: make sure old LL and old JP refer to correct species in case of multi species inference
@@ -42,6 +42,7 @@ protected:
 	[[nodiscard]] std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const;
 	[[nodiscard]] double _calculateLogPhi_k(size_t k) const;
 	[[nodiscard]] std::vector<double> _calculatePhi() const;
+	std::vector<double> _calcSigma(const TLocations &loc, const std::vector<double> &phi) const;
 	arma::mat _calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeNu nu) const;
 	std::pair<std::vector<double>, double> _calculateLLandJP(const std::vector<TMethods> &Methods) const;
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
@@ -49,8 +50,8 @@ protected:
 	// simulation
 	void _setSimulatedGammaToZero();
 
-	virtual double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
-	                            const std::vector<double> &p, size_t method_id, size_t index_in_counts) const = 0;
+	virtual double _calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
+	                            size_t index_in_counts, size_t ix_linNumMethLoc) const = 0;
 	void _updateGamma(const std::vector<TMethods> &Methods);
 
 public:
@@ -63,14 +64,13 @@ public:
 
 	virtual void estimateInitialPriorParameters(const std::vector<TMethods> &Methods);
 
-	std::vector<double> calcSigma(const TLocations &loc, const std::vector<double> &phi) const;
-
 	virtual void update(const std::vector<TMethods> &Methods);
 	double calculateLL(const std::vector<TMethods> &Methods) const;
 
-	virtual void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	               const TUniqueContainer<std::string> &locations) = 0;
-	virtual void simulate(TMethods &data) = 0;
+	virtual void simulate(TMethods &data, size_t N0,
+	                      const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	                      const TUniqueContainer<std::string> &locations) = 0;
+	virtual void simulate(TMethods &data)                                 = 0;
 
 	// get rho for tests
 	size_t rho(size_t row, size_t col) const;
@@ -82,18 +82,18 @@ public:
 
 class TPoissonEpochModel : public TEpochModel {
 protected:
-	double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
-	                    const std::vector<double> &p, size_t method_id, size_t index_in_counts) const override;
+	double _calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
+	                    size_t index_in_counts, size_t ix_linNumMethLoc) const override;
 
 public:
 	TPoissonEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	                   stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 
-    ~TPoissonEpochModel() override = default;
+	~TPoissonEpochModel() override = default;
 
 	// simulation
 	void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	               const TUniqueContainer<std::string> &locations) override;
+	              const TUniqueContainer<std::string> &locations) override;
 	void simulate(TMethods &data) override;
 };
 
@@ -108,11 +108,11 @@ protected:
 	stattools::TParameterTyped<TypeLogA, 1> *_logA = nullptr;
 
 	// likelihood
-	double _calculateLL(const std::vector<double> &sigma, const TLocations &loc,
-	                    const std::vector<double> &p, size_t method_id, size_t index_in_counts) const override;
+	double _calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
+	                    size_t index_in_counts, size_t ix_linNumMethLoc) const override;
 
 	// update functions
-    std::pair<size_t, size_t> _getMethAndLocIndex(size_t mu_index, const std::vector<TMethods>& Methods);
+	std::pair<size_t, size_t> _getMethAndLocIndex(size_t mu_index, const std::vector<TMethods> &Methods);
 	void _updateMu(const std::vector<TMethods> &Methods);
 	void _updateLogA(const std::vector<TMethods> &Methods);
 
@@ -127,7 +127,7 @@ public:
 	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, stattools::TParameterTyped<TypeMu, 2> *Mu,
 	                  stattools::TParameterTyped<TypeLogA, 1> *LogA);
 
-    ~TNegBinEpochModel() override = default;
+	~TNegBinEpochModel() override = default;
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
 	                        const std::vector<TMethods> &Methods) override;

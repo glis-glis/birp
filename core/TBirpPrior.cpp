@@ -9,19 +9,20 @@
 
 using namespace coretools::instances;
 
-TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
+TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
+                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, std::string Prefix)
-    : _methods(Methods), _locations(Locations),  _timepoints(TimePoints), _out(std::move(Prefix)) {
+    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _out(std::move(Prefix)) {
 	// constructor for Poisson model
 
 	addPriorParameter({Gamma, TimesOfChange});
-    if (_numSpecies > 1){ UERROR("Birp only supports single species at the moment..");}
-    _epochModel.emplace_back(std::make_unique<TPoissonEpochModel>(Gamma, TimesOfChange));
+	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
+	_epochModel.emplace_back(std::make_unique<TPoissonEpochModel>(Gamma, TimesOfChange));
 }
 
-
-TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations, TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
+TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
+                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                        stattools::TParameterTyped<TypeMu, 2> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
@@ -30,8 +31,8 @@ TBirpPrior::TBirpPrior( std::vector<TMethods> *Methods, TUniqueContainer<std::st
 	// constructor for Negative Binomial model
 
 	addPriorParameter({Gamma, TimesOfChange, Mu, LogA});
-    if (_numSpecies > 1){ UERROR("Birp only supports single species at the moment..");}
-    _epochModel.emplace_back(std::make_unique<TNegBinEpochModel>(Gamma, TimesOfChange, Mu, LogA));
+	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
+	_epochModel.emplace_back(std::make_unique<TNegBinEpochModel>(Gamma, TimesOfChange, Mu, LogA));
 }
 
 std::string TBirpPrior::name() const { return "birp"; }
@@ -41,8 +42,8 @@ std::string TBirpPrior::name() const { return "birp"; }
 
 void TBirpPrior::initializeInferred() {
 	for (size_t s = 0; s < _numSpecies; s++) {
-        _epochModel[s]->initializeInferred(*_timepoints, *_locations, *_methods);
-    }
+		_epochModel[s]->initializeInferred(*_timepoints, *_locations, *_methods);
+	}
 }
 
 void TBirpPrior::estimateInitialPriorParameters() {
@@ -53,7 +54,7 @@ void TBirpPrior::estimateInitialPriorParameters() {
 // MCMC
 
 void TBirpPrior::updateParams() {
-	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->update((*_methods)); }
+	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->update(*_methods); }
 }
 
 double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
@@ -62,8 +63,6 @@ double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 	for (size_t s = 0; s < _numSpecies; ++s) { sum += _epochModel[s]->calculateLL(*_methods); }
 	return sum;
 }
-
-
 
 //------------------------------------
 // Simulations
@@ -102,7 +101,7 @@ coretools::TMultiDimensionalStorage<double, 2> TBirpPrior::_readDetectionProbFil
 	}
 }
 
-void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called when simulated
+void TBirpPrior::_simulateUnderPrior(Storage *) {         // this function gets called when simulated
 	if (parameters().parameterExists("simulationFile")) { // already read simulation parameters from file?
 		_simulateFromFile();
 	} else {
@@ -113,13 +112,13 @@ void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called w
 void TBirpPrior::_simulateFromFile() {
 	auto detectionProbs = _readDetectionProbFile();
 	auto N0             = _readN0FromCommandLine();
-	for (size_t i = 0; i < _epochModel.size(); i++) {
-		_epochModel[i]->simulate((*_methods)[i], N0[i], detectionProbs, *_locations);
+	for (size_t s = 0; s < _epochModel.size(); s++) {
+		_epochModel[s]->simulate(*_methods, N0[s], detectionProbs, *_locations);
 	}
 }
 
 void TBirpPrior::_simulateFromCommandLine() {
-	for (size_t i = 0; i < _epochModel.size(); i++) { _epochModel[i]->simulate((*_methods)[i]); }
+	for (size_t s = 0; s < _epochModel.size(); s++) { _epochModel[s]->simulate(*_methods); }
 }
 
 //------------------------------------
