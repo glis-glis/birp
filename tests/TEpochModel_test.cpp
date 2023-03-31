@@ -193,7 +193,7 @@ class TNegBinEpochModelBridge : public TNegBinEpochModel {
 public:
     TNegBinEpochModelBridge(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                             stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-                            stattools::TParameterTyped<TypeMu, 2> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA)
+                            stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA)
             : TNegBinEpochModel(Gamma, TimesOfChange, Mu, LogA) {}
 
     std::pair<std::vector<double>, double> _calculateLLandJP(const std::vector<TMethods> &Methods) const {
@@ -213,13 +213,13 @@ public:
     // define parameters for test
     std::unique_ptr<stattools::TParameterTyped<TypeGamma, 1>> gamma;
     std::unique_ptr<stattools::TParameterTyped<TypeTime, 1>> timesOfChange;
-    std::unique_ptr<stattools::TParameterTyped<TypeMu, 2>> mu;
+    std::unique_ptr<stattools::TParameterTyped<TypeMu, 1>> mu;
     std::unique_ptr<stattools::TParameterTyped<TypeLogA, 1>> logA;
     std::shared_ptr<TNegBinEpochModelBridge> epochModel;
 
 
     void initialize(const std::vector<size_t> &TimesOfChange, const TUniqueContainer<size_t> &Timepoints,
-                    const std::vector<TMethods> &Methods, const TUniqueContainer<std::string> &Locations,
+                    const std::vector<TMethods> &Methods, const TUniqueContainer<std::string> &Locations, size_t numMethLoc,
                     std::vector<double> NewGamma = {}, std::vector<double> NewMu = {}, std::vector<double> NewLogA = {},
                     std::vector<double> OldGamma = {}, std::vector<double> OldMu = {},
                     std::vector<double> OldLogA = {}) {
@@ -244,9 +244,9 @@ public:
                                             TimesOfChange);
 
         // create mu
-        if (OldMu.empty()) { OldMu.resize(Methods.size() * Locations.size(), 1.0); }
-        if (NewMu.empty()) { NewMu.resize(Methods.size() * Locations.size(), 1.0); }
-        std::array<size_t, 2> dimensionsMu = {Methods.size(), Locations.size()};
+        if (OldMu.empty()) { OldMu.resize(numMethLoc, 1.0); }
+        if (NewMu.empty()) { NewMu.resize( numMethLoc, 1.0); }
+        std::array<size_t, 1> dimensionsMu = {numMethLoc};
         testing::initializeStorageParameter(mu, "mu", dimensionsMu, OldMu, NewMu);
 
         epochModel = std::make_shared<TNegBinEpochModelBridge>(gamma.get(), timesOfChange.get(),
@@ -267,7 +267,8 @@ TEST_F(TEpochModelNegBinTest, _calculateLL) {
     std::vector<double> NewGamma = {-1, 1};
     std::vector<double> NewMu = {1.0};
     std::vector<double> NewLogA = {0}; // a=1 -> log(a)=0
-    initialize(timesOfChange, times, methods, locations, NewGamma, NewMu);
+    size_t numMethLoc = 1;
+    initialize(timesOfChange, times, methods, locations, numMethLoc, NewGamma, NewMu);
     // define expected result
     // double expectedLL = -361.9808; this is from old test -> delete
     double expectedLL = -108.7528;
@@ -277,7 +278,7 @@ TEST_F(TEpochModelNegBinTest, _calculateLL) {
 }
 // TODO test JP in NB?
 
-// testing _calculateLLandJP
+// testing _getMethAndLocIndex
 TEST_F(TEpochModelNegBinTest, _getMethAndLocIndex) {
     TBirpCoreBridge test;
     std::vector<std::string> filenames = {"/home/liam/git/birp_cpp2/tests/test_files/method_butterflies1.csv", "/home/liam/git/birp_cpp2/tests/test_files/method_butterflies2.csv",
@@ -288,8 +289,9 @@ TEST_F(TEpochModelNegBinTest, _getMethAndLocIndex) {
     auto methods = test.methods();
     auto times = test.timepoints();
     auto locations = test.locations();
-    std::vector<size_t> timesOfChange = {3}; // is not needed but pero bueno
-    initialize(timesOfChange, times, methods, locations);
+    std::vector<size_t> timesOfChange = {2}; // is not needed but pero bueno
+    size_t numMethLoc = 8;
+    initialize(timesOfChange, times, methods, locations, numMethLoc);
 
     std::vector<size_t> method_id_truthVec = {0, 0, 0, 0, 1, 1, 1, 2};
     std::vector<size_t> location_id_truthVec = {0, 1, 2, 3, 0, 1, 2, 0};

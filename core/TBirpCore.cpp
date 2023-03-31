@@ -45,7 +45,7 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
                std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigmaMu, 1>>(),
                {Filename, "1"}),
       _mu("mu",
-          std::make_shared<stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeMu, 2, TypeSigmaMu>>(
+          std::make_shared<stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeMu, 1, TypeSigmaMu>>(
               &_sigmaMu),
           {Filename, readAlphaDirichlet("alpha_mu", Methods->size() * Locations->size(), 1.0)}),
       _logA("logA", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogA, 1>>(),

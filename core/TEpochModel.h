@@ -58,6 +58,8 @@ public:
 	TEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	            stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 	virtual ~TEpochModel() = default;
+
+
 	virtual void initializeInferred(const TUniqueContainer<size_t> &Timepoints,
 	                                const TUniqueContainer<std::string> &Locations,
 	                                const std::vector<TMethods> &Methods);
@@ -67,10 +69,10 @@ public:
 	virtual void update(const std::vector<TMethods> &Methods);
 	double calculateLL(const std::vector<TMethods> &Methods) const;
 
-	virtual void simulate(TMethods &data, size_t N0,
+	virtual void simulate(std::vector<TMethods> &methods, size_t N0,
 	                      const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	                      const TUniqueContainer<std::string> &locations) = 0;
-	virtual void simulate(TMethods &data)                                 = 0;
+	virtual void simulate(std::vector<TMethods> &methods)                                 = 0;
 
 	// get rho for tests
 	size_t rho(size_t row, size_t col) const;
@@ -92,9 +94,9 @@ public:
 	~TPoissonEpochModel() override = default;
 
 	// simulation
-	void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	void simulate(std::vector<TMethods> &methods, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	              const TUniqueContainer<std::string> &locations) override;
-	void simulate(TMethods &data) override;
+	void simulate(std::vector<TMethods> &methods) override;
 };
 
 //--------------------------------
@@ -104,7 +106,7 @@ public:
 class TNegBinEpochModel : public TEpochModel {
 protected:
 	// parameters: gamma (in base class) and mu
-	stattools::TParameterTyped<TypeMu, 2> *_mu     = nullptr;
+	stattools::TParameterTyped<TypeMu, 1> *_mu     = nullptr;
 	stattools::TParameterTyped<TypeLogA, 1> *_logA = nullptr;
 
 	// likelihood
@@ -120,11 +122,11 @@ protected:
 	void _estimateInitialMu(const std::vector<TMethods> &Methods);
 
 	// simulate
-	double _simulate(TMethods &data);
+	double _simulate(TMethods &Method);
 
 public:
 	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, stattools::TParameterTyped<TypeMu, 2> *Mu,
+	                  stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, stattools::TParameterTyped<TypeMu, 1> *Mu,
 	                  stattools::TParameterTyped<TypeLogA, 1> *LogA);
 
 	~TNegBinEpochModel() override = default;
@@ -135,9 +137,9 @@ public:
 	void estimateInitialPriorParameters(const std::vector<TMethods> &Methods) override;
 
 	// simulate
-	void simulate(TMethods &data, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
+	void simulate(std::vector<TMethods> &methods, size_t N0, const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	              const TUniqueContainer<std::string> &locations) override;
-	void simulate(TMethods &data) override;
+	void simulate(std::vector<TMethods> &methods) override;
 };
 
 #endif // BIRP_TEPOCHMODEL_H

@@ -25,7 +25,7 @@ TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::str
                        TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
                        stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-                       stattools::TParameterTyped<TypeMu, 2> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
+                       stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
                        std::string Prefix)
     : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _out(std::move(Prefix)) {
 	// constructor for Negative Binomial model

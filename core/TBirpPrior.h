@@ -62,7 +62,7 @@ public:
     TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
                TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
                stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-               stattools::TParameterTyped<TypeMu, 2> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
+               stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
                std::string Prefix);
 
     ~TBirpPrior() override = default;
