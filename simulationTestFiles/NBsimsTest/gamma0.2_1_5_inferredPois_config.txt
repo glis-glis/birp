@@ -1,4 +1,0 @@
-name	priorParameters	traceFile	meanVarFile	statePosteriorsFile	simulationFile	update	propKernel	sharedJumpSize	updatingScheme	relativeBlockSize	logProbRejectBlockLogH	logProbAcceptBlockLogH
-data												
-gamma		/home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferredPois	/home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferredPois		/home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferredPois	1	normal	1	regular	0.01	-20	-2.06115e-09
-timesOfChange		/home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferredPois	/home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferredPois		/home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferredPois	0	normal	1	regular	0.01	-20	-2.06115e-09

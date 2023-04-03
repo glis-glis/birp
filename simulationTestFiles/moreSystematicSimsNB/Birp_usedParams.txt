@@ -1,3 +1,0 @@
-counts	/home/liam/ownCloud/institution/project_birp/simulationTestFiles/moreSystematicSimsNB/simulatedFiles/sims_locs_30_meths_30_simulatedCounts.txt
-out	/home/liam/ownCloud/institution/project_birp/simulationTestFiles/moreSystematicSimsNB/results/locs_30_meths_30
-task	infer

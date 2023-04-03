@@ -1,8 +1,0 @@
-Birp 0.1
-Commit: 5eccbece5e68e0dd51e66fe54001d8414d707eda
-Email developer: liam.singer@unifr.ch
-
-/DATA/git/birp_cpp2/build/birp --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/moreSystematicSimsNB/simulatedFiles/sims_locs_30_meths_30_simulatedCounts.txt --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/moreSystematicSimsNB/results/locs_30_meths_30 --task infer 
-ERROR: File /DATA/git/birp_cpp2/coretools/core/coretools/Types/commonWeakTypes.h, line 571, function constexpr void coretools::UnsignedIntBase<Type, Tag, Interval, TagInterval>::_ensureNumericLimits_Addition(Tag) const [with Type = short unsigned int; Tag = coretools::UnsignedInt<short unsigned int>; Interval = coretools::WeakTypeIntervalPositive; TagInterval = void]: addition results in value outside interval [0, 65535]!
-
-Files attached to email: Birp_usedParams.txt , Birp_errorInfo.txt , /home/liam/ownCloud/institution/project_birp/simulationTestFiles/moreSystematicSimsNB/simulatedFiles/sims_locs_30_meths_30_simulatedCounts.txt
