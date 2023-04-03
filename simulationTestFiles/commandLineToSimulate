@@ -82,3 +82,10 @@ for i in $(realpath C_*Counts*); do echo $i >> C_fileList; done
 # use this to debug (same parameters as with file, except effort)
 ./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/nb/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4 --timesOfChange 3 --negativeBinomial --effort 1000
 ./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/gamma05_Method_1_simulatedCounts.txt --negativeBinomial --iterations 100000
+
+
+
+
+#########################################################################################################################
+# check if simulate with supplying detection probability works
+
