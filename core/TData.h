@@ -19,7 +19,7 @@ class TTimepoints {
 private:
 	std::vector<TypeCovariate> _covariates;
 	std::vector<TypeCounts> _counts_per_species;
-	TypeEffort _effort     = 0; // TODO how to store effort and distinguish betewen covariate?
+	TypeEffort _effort     = 0; // TODO how to store effort and distinguish between covariate?
 	TypeEffort _effort_old = 0;
 	size_t _timepoint_id   = 0;
 
@@ -138,7 +138,7 @@ private:
 	std::vector<double> _beta;
 	std::vector<TLocations> _locations;
 	size_t _method_id;
-	std::vector<std::string> _covariateNames;
+	std::vector<size_t> _covariateIDsinUniqueContainer;
 	// variables to identify correct species in epoch model
 	std::vector<size_t> _speciesIDsinUniqueContainer;
 	std::vector<bool> _hasDataForSpeciesID;
@@ -155,10 +155,10 @@ private:
 	                                            const TUniqueContainer<std::string> &locations, size_t i);
 
 public:
-	explicit TMethods(const std::string_view &methodName, size_t index, const std::vector<std::size_t> &species_id);
+	explicit TMethods(const std::string_view &methodName, size_t index, const std::vector<std::size_t> &speciesIDsinUniqueContainer, const std::vector<std::size_t> &covariateIDsinUniqueContainer);
 
 	TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
-	         const std::vector<size_t> &species_ids, const std::vector<std::string> &covariateNames);
+	         const std::vector<size_t> &species_ids, const std::vector<std::size_t> &covariateIDsinUniqueContainer);
 
 	TMethods() = default;
 
@@ -170,6 +170,7 @@ public:
 	std::vector<std::string> covariateNames() const;
 	size_t method_id() const;
 	const std::vector<size_t> &speciesIDsinUniqueContainer() const;
+    const std::vector<size_t> &covariateIDsinUniqueContainer() const;
 	bool hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const;
 	size_t getIndexInCounts(size_t speciesIDinUniqueContainer) const;
 

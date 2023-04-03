@@ -67,7 +67,7 @@ protected:
 
     std::vector<size_t>
     getColumnIndex(const coretools::TInputFile &infile, const std::string &string);
-    std::vector<std::string> _getSpeciesNames(const coretools::TInputFile &infile, const std::vector<size_t>& countIndices);
+    std::vector<std::string> _getSpeciesOrCovariateNames(const coretools::TInputFile &infile, const std::vector<size_t>& Indices);
     void _readFile(const std::string &Filename, bool hasCounts);
 
     void _sortTimepoints();
@@ -81,6 +81,8 @@ protected:
 
     void _fillLocationsFromCommandLine();
 
+    std::vector<size_t> _simulateSpeciesNames();
+    std::vector<size_t> _simulateCovNames();
 
     // write
     std::vector<std::string> _getMethodspecificHeader(const TMethods& method);

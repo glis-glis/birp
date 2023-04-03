@@ -35,11 +35,17 @@ void TEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
 
     _fillRho(Timepoints);
 
+    _numMethLoc = getNumMethLocs(Methods, _speciesIDinUniqueContainer);
+
+}
+
+size_t TEpochModel::getNumMethLocs(const std::vector<TMethods> &Methods, size_t speciesIDinUniqueContainer){
     // check how many combinations of methods/locations we have - used to initialize vector of LL
-    _numMethLoc = 0;
+    size_t numMethLoc = 0;
     for (const auto &m: Methods) {
-        if (m.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { _numMethLoc += m.size(); }
+        if (m.hasDataForSpeciesID(speciesIDinUniqueContainer)) { numMethLoc += m.size(); }
     }
+    return numMethLoc;
 }
 
 void TEpochModel::estimateInitialPriorParameters(const std::vector<TMethods> &Methods) {
@@ -205,7 +211,7 @@ void TPoissonEpochModel::simulate(std::vector<TMethods> &methods, size_t N0,
                                   const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
                                   const TUniqueContainer<std::string> &locations) {
     _setSimulatedGammaToZero();
-    for (auto method: methods) {
+    for (auto &method: methods) {
         method.simulatePoisson(N0, _calculatePhi(), detectionProbs, locations);
     }
 }
@@ -389,7 +395,7 @@ double TNegBinEpochModel::_simulate(TMethods &Method) {
 void TNegBinEpochModel::simulate(std::vector<TMethods> &methods, size_t N0,
                                  const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
                                  const TUniqueContainer<std::string> &locations) {
-    for (auto method: methods) {
+    for (auto &method: methods) {
         if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
         double A = _simulate(method);
         std::vector<double> phi = _calculatePhi();
@@ -398,11 +404,10 @@ void TNegBinEpochModel::simulate(std::vector<TMethods> &methods, size_t N0,
         coretools::normalize(mus);
         for (size_t c = 0; c < method.size(); ++c) { _mu->set(c, mus[c]); }
     }
-
 }
 
 void TNegBinEpochModel::simulate(std::vector<TMethods> &methods) {
-    for(auto method: methods){
+    for (auto &method: methods){
         double a = _simulate(method);
         // collect values from _mu and store in vector of length numLocations
         _mu->normalizeToSum1AfterUpdate();

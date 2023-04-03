@@ -1,54 +1,37 @@
+--effort --> core dumped. check that
+####################################
+
 # simulate two epochs under the poisson model (default) with times of change = 3
 ./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3
 
 # now infer Poisson
 ./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/poisson/gamma05_Method_1_simulatedCounts.txt
 
-## workks until here
-
+##############################################################################################################################################################################################
 # simulate and infer under NB
-./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial
-./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_Method_1_simulatedCounts.txt --negativeBinomial
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/nb/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/gamma05_Method_1_simulatedCounts.txt --negativeBinomial --iterations 100000
 
 # the signal is not well detected, try again
-./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_10Locs --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial --numLocations 10
-./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/inferGamma05_10Locs --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_10Locs_Method_1_simulatedCounts.txt --negativeBinomial
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/nb/A_gamma05_10Locs --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial --numLocations 10
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/A_inferGamma05_10Locs --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/A_gamma05_10Locs_Method_1_simulatedCounts.txt --negativeBinomial
 
-# the first gamma above now well detected; the second one still not; add more methods as well
- ./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_10Locs_3Meths --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial --numLocations 10 --numMethods 3
-./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/inferGamma05_10Locs_3Meths --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_10Locs_3Meths_Method_1_simulatedCounts.txt --negativeBinomial --iterations 100000
+# a little better, but still not ideal; add more methods as well
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/nb/B_gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial --numLocations 10 --numMethods 3
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/B_inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/B_filelist --negativeBinomial --iterations 100000
 
 # now none of the gammas are well detected, try again
-./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/gamma05_many --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,29,20 --timesOfChange 10 --negativeBinomial --numLocations 5 --numMethods 5
-# I simnulated 5 methods; so run this to make the filelist: for i in $(realpath *many_Method*); do echo $i >> fileList; done ## realpath adds full path to filename
-./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/inferGamma05_many --timesOfChange 10 --data /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsNB/fileList --negativeBinomial --iterations 100000
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/nb/C_gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,29,20 --timesOfChange 10 --negativeBinomial --numLocations 5 --numMethods 5
+# I simnulated 5 methods; so run this to make the filelist:
+for i in $(realpath C_*Counts*); do echo $i >> C_fileList; done
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/C_inferGamma05 --timesOfChange 10 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/C_fileList --negativeBinomial --iterations 100000
+# .. still does not work. gammas are simulated -0.5 & 0.5, but it infers -0.252815 & 0.18387 in this example.. 
 
-
-
-
-
-
-############################################################################
-# infer under the NB model
- ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB --timesOfChange 3 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_simulatedCounts.txt 
- 
- ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB --timesOfChange 3 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_simulatedCounts.txt 
- 
- # this one should be detected
- ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many_simulatedCounts.txt
- 
- # do 100'000 iterations with NB and Pois as well
- ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many_simulatedCounts.txt --iterations 100000
- 
- ./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_Pois_many --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochs_NB_many_simulatedCounts.txt --iterations 100000
- 
-  ############################################################################
- Simulating and infering under NB:
- 
- ./birp --task simulate --negativeBinomial --numLocations 10 --numMethods 2 --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_simulated --gamma 0.2,1.5 --timepoints 1,2,3,4,5,6,7,8,9,10 --timesOfChange 6 --logA 5
+# still NB, put logA=5
+./birp --task simulate --negativeBinomial --numLocations 10 --numMethods 2 --out /home/liam/ownCloud/institution/project_birp/simulations/nb/D_gamma02_15 --gamma 0.2,1.5 --timepoints 1,2,3,4,5,6,7,8,9,10 --timesOfChange 5 --logA 5
  # --> no effort given, so by default it will simulate effort ~Pois(10). logA by default = 0; but maybe we should put it higher
- 
-./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferred --timesOfChange 6 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_simulated_simulatedCounts.txt --iterations 100000
+ for i in $(realpath D_*Counts*); do echo $i >> D_fileList; done
+ ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulations/nb/D --timesOfChange 5 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/D_fileList --iterations 100000
 
 #### now infer under Pois
 ./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_inferredPois --timesOfChange 6 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_simulated_simulatedCounts.txt --iterations 100000
@@ -60,27 +43,42 @@
 ./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_morePowerNB --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5__morePower_simulatedCounts.txt --iterations 100000
 
 #### now infer under Pois
-./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5__morePowerPois --timesOfChange 10 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/NBsimsTest/gamma0.2_1_5_simulated_simulatedCounts.txt --iterations 100000
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/D --timesOfChange 10 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/D_fileList --iterations 100000
+--> does not detect it at all?!
 
 ###################################################################################################################
-# simulate poisson counts from existing file
-./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/simulatingFromFile --timesOfChange 5 --gamma -1,1 --simulationFile /home/liam/ownCloud/institution/project_birp/simulationTestFiles/fileToUseForSims_pois.csv 
+# simulate poisson counts from existing file. File is one method, 1 location, 4 timepoints
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/E_fromFile --timesOfChange 3 --gamma -1,1 --simulationFile /home/liam/git/birp_cpp2/simulationTestFiles/method_E.csv 
 # now infer
-./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/inferFromFile --timesOfChange 5 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/simulatingFromFile
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/E --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/poisson/E_fromFile_E_simulatedCounts.txt
+# es inferred nice hiäq
 
 
 # simulate NB counts from (same) existing file
-./birp --task simulate --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/simulatingFromFileNB --timesOfChange 5 --gamma -1,1 --simulationFile /home/liam/ownCloud/institution/project_birp/simulationTestFiles/fileToUseForSims_NB.csv 
+./birp --task simulate --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulations/nb/F --timesOfChange 3 --gamma -1,1 --simulationFile /home/liam/git/birp_cpp2/simulationTestFiles/method_E.csv 
 # now infer
-./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/inferFromFileNB --timesOfChange 5 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/simulatingFromFileNB_simulatedCounts.txt
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/F --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/F_E_simulatedCounts.txt --negativeBinomial
+# --> infers well!
+# now infer from Poisson file that was simulated under "E"
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/G --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/poisson/E_fromFile_E_simulatedCounts.txt --negativeBinomial
+# --> also infers well!
 
-#########################################
-# simulate under Pois and infer both under Pois and NB and compare posterior density. Use 100'000 iterations
+######################################################################################################################
+# since this works well for gamma = {-1,1}, try to do the same for gamma = {-0.5,0.5}, as this did not work well above
+# simulate poisson counts from existing file
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/H --timesOfChange 3 --gamma -0.5,0.5 --simulationFile /home/liam/git/birp_cpp2/simulationTestFiles/method_E.csv 
+# now infer
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/H --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/poisson/H_E_simulatedCounts.txt --iterations 100000
+# --> works well!
 
-./birp --task simulate --numLocations 10 --numMethods 4 --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/y-03_05_ --gamma -0.3,0.5 --timepoints 1,2,3,4,5,6,7,8,9,10 --timesOfChange 5
- 
-./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/y-03_05_NB --timesOfChange 5 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/y-03_05__simulatedCounts.txt --iterations 100000
-# now infer under Pois
-./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulationTestFiles/y-03_05_Pois --timesOfChange 5 --counts /home/liam/ownCloud/institution/project_birp/simulationTestFiles/twoEpochsPois/y-03_05__simulatedCounts.txt --iterations 100000
+# what about NB?
+./birp --task simulate --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulations/nb/I --timesOfChange 3 --gamma -0.5,0.5 --simulationFile /home/liam/git/birp_cpp2/simulationTestFiles/method_E.csv 
+# now infer
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/I --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/I_E_simulatedCounts.txt --negativeBinomial
+# --> also works well! hmm.. a mystery.. 
 
+# so when I simulate from file, it works well, but when I simulate from the command line using the same paramters it does not work. Could be effort? 
 
+# use this to debug (same parameters as with file, except effort)
+./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/nb/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4 --timesOfChange 3 --negativeBinomial --effort 1000
+./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/gamma05_Method_1_simulatedCounts.txt --negativeBinomial --iterations 100000

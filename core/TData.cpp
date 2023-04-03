@@ -40,7 +40,7 @@ TTimepoints::TTimepoints(const std::vector<TypeCounts> &countVec, const std::vec
 	_timepoint_id       = timepoint_id;
 
 	_covariates = covVec;
-	if (covVec.size() == 1) { _effort = covVec[0]; }
+	if (covVec.size() == 1) { _effort = covVec[0]; } // todo else? lol
 	// we (temporarily) only allow a single speces
 	if (_counts_per_species.size() > 1) { UERROR("Currently only supports single species!"); }
 }
@@ -65,7 +65,10 @@ size_t TTimepoints::timepoint_id() const { return _timepoint_id; }
 
 void TTimepoints::setTimepoint(size_t timepointToAdd) { _timepoint_id = timepointToAdd; }
 
-void TTimepoints::setEffort(TypeEffort effortToAdd) { _effort = effortToAdd; }
+void TTimepoints::setEffort(TypeEffort effortToAdd) {
+    _effort = effortToAdd;
+    _covariates[0] = effortToAdd; // effortToAdd should always have dimension 1 here (only one number)
+}
 
 void TTimepoints::write(coretools::TOutputFile &File, std::string location,
                         const TUniqueContainer<size_t> &Timepoints) const {
@@ -181,23 +184,24 @@ void TLocations::simulateNB(const std::vector<double> &phi, double a, double mu_
 //-------------------------------------------
 
 TMethods::TMethods(const std::string_view &methodName, size_t index,
-                   const std::vector<std::size_t> &speciesIDsinUniqueContainer) { // infer
+                   const std::vector<std::size_t> &speciesIDsinUniqueContainer, const std::vector<std::size_t> &covariateIDsinUniqueContainer) { // infer or simulate from file
 	_methodName                  = methodName;
 	_method_id                   = index;
 	_speciesIDsinUniqueContainer = speciesIDsinUniqueContainer;
+    _covariateIDsinUniqueContainer = covariateIDsinUniqueContainer;
 }
 
 TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
                    const std::vector<size_t> &speciesIDsinUniqueContainer,
-                   const std::vector<std::string> &covariateNames) { // simulate
+                   const std::vector<std::size_t> &covariateIDsinUniqueContainer) { // simulate
 	_methodName = methodName;
 	_locations.resize(locationSize);
 	_speciesIDsinUniqueContainer = speciesIDsinUniqueContainer;
+    _covariateIDsinUniqueContainer = covariateIDsinUniqueContainer;
 	for (size_t i = 0; i < locationSize; i++) {
-		_locations.emplace_back(i, TimepointSize, _speciesIDsinUniqueContainer.size(), covariateNames.size());
+		_locations.emplace_back(i, TimepointSize, _speciesIDsinUniqueContainer.size(), covariateIDsinUniqueContainer.size());
 	}
 	_method_id      = index;
-	_covariateNames = covariateNames;
 }
 
 void TMethods::fillIDVectors(size_t totalSizeOfUniqueContainer) {
@@ -213,7 +217,6 @@ size_t TMethods::size() const { return _locations.size(); }
 
 std::string TMethods::methodName() const { return _methodName; }
 
-std::vector<std::string> TMethods::covariateNames() const { return _covariateNames; }
 
 size_t TMethods::method_id() const { return _method_id; }
 
@@ -226,6 +229,7 @@ size_t TMethods::getIndexInCounts(size_t speciesIDinUniqueContainer) const {
 }
 
 const std::vector<size_t> &TMethods::speciesIDsinUniqueContainer() const { return _speciesIDsinUniqueContainer; }
+const std::vector<size_t> &TMethods::covariateIDsinUniqueContainer() const { return _covariateIDsinUniqueContainer; }
 
 void TMethods::add(const TTimepoints &pt, size_t location_id) {
 	bool dataPointExists = false;
@@ -246,12 +250,12 @@ void TMethods::sorttimes(const std::vector<size_t> &sortingIndex) {
 }
 
 void TMethods::checkEffortBiggerThanZero() {
-	for (auto loc : _locations) { loc.checkEffortBiggerThanZero(); }
+	for (auto &loc : _locations) { loc.checkEffortBiggerThanZero(); }
 }
 
 void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
                      const TUniqueContainer<size_t> &Timepoints) const {
-	for (const auto & location : _locations) { location.write(File, Locations, Timepoints); }
+	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
 }
 
 std::vector<TLocations>::const_iterator TMethods::cbegin() const { return _locations.cbegin(); }
@@ -263,7 +267,7 @@ std::vector<TLocations>::const_iterator TMethods::cend() const { return _locatio
 std::vector<TLocations>::iterator TMethods::end() { return _locations.end(); }
 
 void TMethods::_simulateEffort() {
-	std::string effortString = coretools::instances::parameters().getParameterWithDefault("effort", "Poisson(10)");
+	std::string effortString = coretools::instances::parameters().getParameterWithDefault("effort", "Poisson(1000)");
 	if (coretools::str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all efforts
 		double effort = coretools::str::fromString<double>(effortString);

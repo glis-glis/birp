@@ -60,6 +60,8 @@ public:
 	virtual ~TEpochModel() = default;
 
 
+    static size_t getNumMethLocs(const std::vector<TMethods> &Methods, size_t speciesIDinUniqueContainer);
+
 	virtual void initializeInferred(const TUniqueContainer<size_t> &Timepoints,
 	                                const TUniqueContainer<std::string> &Locations,
 	                                const std::vector<TMethods> &Methods);
