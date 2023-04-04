@@ -65,18 +65,22 @@ void TBirpPrior::estimateInitialPriorParameters() {
 	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->estimateInitialPriorParameters(*_methods); }
 
 	// TODO: How to initialize beta?
-	for (const auto &beta : _beta) {
-		for (size_t c = 0; c < beta->totalSize(); ++c) { beta->set(c, 1.0); }
+	for (size_t i = 0; i < _methods->size(); ++i) {
+		if ((*_methods)[i].numCovariates() > 1) {
+			for (size_t c = 0; c < _beta[i]->totalSize(); ++c) { _beta[i]->set(c, 1.0); }
+			// set effort based on initial values of beta
+			for (size_t i = 0; i < _methods->size(); ++i) { (*_methods)[i].initializeEffort(_beta[i]); }
+		} else { // if only a single covariate: do not update beta
+			_beta[i]->setIsUpdated(false);
+		}
 	}
-	// set effort based on initial values of beta
-	for (size_t i = 0; i < _methods->size(); ++i) { (*_methods)[i].initializeEffort(_beta[i]); }
 }
 
 //------------------------------------
 // MCMC
 
-void TBirpPrior::_updateBeta(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta,
-                             TMethods &CurMethod, size_t i, size_t c) {
+void TBirpPrior::_updateBeta(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta, TMethods &CurMethod,
+                             size_t i, size_t c) {
 	// propose new value
 	Beta->updateSpecificIndex(c);
 	// update effort for all locations and timepoints of current method
