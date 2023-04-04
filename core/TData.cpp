@@ -66,8 +66,29 @@ size_t TTimepoints::timepoint_id() const { return _timepoint_id; }
 void TTimepoints::setTimepoint(size_t timepointToAdd) { _timepoint_id = timepointToAdd; }
 
 void TTimepoints::setEffort(TypeEffort effortToAdd) {
-    _effort = effortToAdd;
-    _covariates[0] = effortToAdd; // effortToAdd should always have dimension 1 here (only one number)
+	_effort        = effortToAdd;
+	_covariates[0] = effortToAdd; // effortToAdd should always have dimension 1 here (only one number)
+}
+
+void TTimepoints::initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
+	if (_covariates.size() == 1) { return; }
+	// calculate s_{ijk} = sum_{c=1}^C x_{ijkc} * beta_{ic}
+	_effort = 0.0;
+	for (size_t c = 0; c < _covariates.size(); ++c) { _effort += _covariates[c] * Beta->value(c); }
+	_effort_old = _effort;
+}
+
+void TTimepoints::updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c) {
+	// remember current effort
+	_effort_old = _effort;
+	// update effort: no need to re-calculate sum over all beta, just update with difference
+	// s_{ijk}' = s_{ijk} + x_{ijkc} * (beta_{ic}' - beta_{ic})
+	_effort += _covariates[c] * (NewBeta - OldBeta);
+}
+
+void TTimepoints::resetEffort() {
+	// this function is called in case beta update is rejected
+	_effort = _effort_old;
 }
 
 void TTimepoints::write(coretools::TOutputFile &File, std::string location,
@@ -167,6 +188,18 @@ std::vector<TTimepoints>::const_iterator TLocations::cend() const { return _time
 
 std::vector<TTimepoints>::iterator TLocations::end() { return _timepoints.end(); }
 
+void TLocations::initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
+	for (auto &timepoint : _timepoints) { timepoint.initializeEffort(Beta); }
+}
+
+void TLocations::updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c) {
+	for (auto &timepoint : _timepoints) { timepoint.updateEffort(NewBeta, OldBeta, c); }
+}
+
+void TLocations::resetEffort() {
+	for (auto &timepoint : _timepoints) { timepoint.resetEffort(); }
+}
+
 void TLocations::simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs) {
 	for (size_t t = 0; t < _timepoints.size(); t++) { _timepoints[t].simulatePoisson(N0, phi[t], detectionProbs); }
 }
@@ -184,11 +217,12 @@ void TLocations::simulateNB(const std::vector<double> &phi, double a, double mu_
 //-------------------------------------------
 
 TMethods::TMethods(const std::string_view &methodName, size_t index,
-                   const std::vector<std::size_t> &speciesIDsinUniqueContainer, const std::vector<std::size_t> &covariateIDsinUniqueContainer) { // infer or simulate from file
-	_methodName                  = methodName;
-	_method_id                   = index;
-	_speciesIDsinUniqueContainer = speciesIDsinUniqueContainer;
-    _covariateIDsinUniqueContainer = covariateIDsinUniqueContainer;
+                   const std::vector<std::size_t> &speciesIDsinUniqueContainer,
+                   const std::vector<std::size_t> &covariateIDsinUniqueContainer) { // infer or simulate from file
+	_methodName                    = methodName;
+	_method_id                     = index;
+	_speciesIDsinUniqueContainer   = speciesIDsinUniqueContainer;
+	_covariateIDsinUniqueContainer = covariateIDsinUniqueContainer;
 }
 
 TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
@@ -196,40 +230,14 @@ TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t Ti
                    const std::vector<std::size_t> &covariateIDsinUniqueContainer) { // simulate
 	_methodName = methodName;
 	_locations.resize(locationSize);
-	_speciesIDsinUniqueContainer = speciesIDsinUniqueContainer;
-    _covariateIDsinUniqueContainer = covariateIDsinUniqueContainer;
+	_speciesIDsinUniqueContainer   = speciesIDsinUniqueContainer;
+	_covariateIDsinUniqueContainer = covariateIDsinUniqueContainer;
 	for (size_t i = 0; i < locationSize; i++) {
-		_locations.emplace_back(i, TimepointSize, _speciesIDsinUniqueContainer.size(), covariateIDsinUniqueContainer.size());
+		_locations.emplace_back(i, TimepointSize, _speciesIDsinUniqueContainer.size(),
+		                        covariateIDsinUniqueContainer.size());
 	}
-	_method_id      = index;
+	_method_id = index;
 }
-
-void TMethods::fillIDVectors(size_t totalSizeOfUniqueContainer) {
-	_hasDataForSpeciesID.resize(totalSizeOfUniqueContainer, false);
-	_indexInCounts.resize(totalSizeOfUniqueContainer, 0);
-	for (size_t c = 0; c < _speciesIDsinUniqueContainer.size(); c++) {
-		_hasDataForSpeciesID[_speciesIDsinUniqueContainer[c]] = true;
-		_indexInCounts[_speciesIDsinUniqueContainer[c]]       = c;
-	}
-}
-
-size_t TMethods::size() const { return _locations.size(); }
-
-std::string TMethods::methodName() const { return _methodName; }
-
-
-size_t TMethods::method_id() const { return _method_id; }
-
-bool TMethods::hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const {
-	return _hasDataForSpeciesID[speciesIDinUniqueContainer];
-}
-
-size_t TMethods::getIndexInCounts(size_t speciesIDinUniqueContainer) const {
-	return _indexInCounts[speciesIDinUniqueContainer];
-}
-
-const std::vector<size_t> &TMethods::speciesIDsinUniqueContainer() const { return _speciesIDsinUniqueContainer; }
-const std::vector<size_t> &TMethods::covariateIDsinUniqueContainer() const { return _covariateIDsinUniqueContainer; }
 
 void TMethods::add(const TTimepoints &pt, size_t location_id) {
 	bool dataPointExists = false;
@@ -243,20 +251,40 @@ void TMethods::add(const TTimepoints &pt, size_t location_id) {
 	if (!dataPointExists) { _locations.emplace_back(pt, location_id); }
 }
 
-std::string TMethods::name() const { return _methodName; }
+void TMethods::fillIDVectors(size_t totalSizeOfUniqueContainer) {
+	_hasDataForSpeciesID.resize(totalSizeOfUniqueContainer, false);
+	_indexInCounts.resize(totalSizeOfUniqueContainer, 0);
+	for (size_t c = 0; c < _speciesIDsinUniqueContainer.size(); c++) {
+		_hasDataForSpeciesID[_speciesIDsinUniqueContainer[c]] = true;
+		_indexInCounts[_speciesIDsinUniqueContainer[c]]       = c;
+	}
+}
+
+void TMethods::checkEffortBiggerThanZero() { // todo: check if used somewhere, else use it :-)
+	for (auto &loc : _locations) { loc.checkEffortBiggerThanZero(); }
+}
 
 void TMethods::sorttimes(const std::vector<size_t> &sortingIndex) {
 	for (auto &loc : _locations) { loc.sorttimes(sortingIndex); }
 }
 
-void TMethods::checkEffortBiggerThanZero() {
-	for (auto &loc : _locations) { loc.checkEffortBiggerThanZero(); }
+size_t TMethods::size() const { return _locations.size(); }
+const std::string &TMethods::name() const { return _methodName; }
+
+size_t TMethods::method_id() const { return _method_id; }
+size_t TMethods::numCovariates() const { return _covariateIDsinUniqueContainer.size(); }
+
+bool TMethods::hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const {
+	return _hasDataForSpeciesID[speciesIDinUniqueContainer];
 }
 
-void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
-                     const TUniqueContainer<size_t> &Timepoints) const {
-	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
+size_t TMethods::getIndexInCounts(size_t speciesIDinUniqueContainer) const {
+	return _indexInCounts[speciesIDinUniqueContainer];
 }
+
+const std::vector<size_t> &TMethods::speciesIDsinUniqueContainer() const { return _speciesIDsinUniqueContainer; }
+const std::vector<size_t> &TMethods::covariateIDsinUniqueContainer() const { return _covariateIDsinUniqueContainer; }
+size_t TMethods::covariateIDinUniqueContainer(size_t c) const { return _covariateIDsinUniqueContainer[c]; }
 
 std::vector<TLocations>::const_iterator TMethods::cbegin() const { return _locations.cbegin(); }
 
@@ -265,6 +293,18 @@ std::vector<TLocations>::iterator TMethods::begin() { return _locations.begin();
 std::vector<TLocations>::const_iterator TMethods::cend() const { return _locations.cend(); }
 
 std::vector<TLocations>::iterator TMethods::end() { return _locations.end(); }
+
+void TMethods::initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
+	for (auto &location : _locations) { location.initializeEffort(Beta); }
+}
+
+void TMethods::updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c) {
+	for (auto &location : _locations) { location.updateEffort(NewBeta, OldBeta, c); }
+}
+
+void TMethods::resetEffort() {
+	for (auto &location : _locations) { location.resetEffort(); }
+}
 
 void TMethods::_simulateEffort() {
 	std::string effortString = coretools::instances::parameters().getParameterWithDefault("effort", "Poisson(1000)");
@@ -334,6 +374,11 @@ void TMethods::simulateNB(const std::vector<double> &phi, double a, const std::v
                           bool SimulateEffort) {
 	if (SimulateEffort) { _simulateEffort(); }
 	for (size_t i = 0; i < size(); i++) { _locations[i].simulateNB(phi, a, mu[i]); }
+}
+
+void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+                     const TUniqueContainer<size_t> &Timepoints) const {
+	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
 }
 
 //-------------------------------------------

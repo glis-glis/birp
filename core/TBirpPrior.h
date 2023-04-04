@@ -6,85 +6,88 @@
 #define TBIRPPRIOR_H
 
 #include "BirpTypes.h"
+#include "TData.h"
 #include "TEpochModel.h"
 #include "coretools/Files/TFile.h"
 #include "coretools/Files/TOutputFile.h"
 #include "stattools/ParametersObservations/TObservationTyped.h"
 #include "stattools/ParametersObservations/TParameterTyped.h"
-#include "TData.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
-    using typename stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2>::Storage;
-    using typename stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2>::UpdatedStorage;
+	using typename stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2>::Storage;
+	using typename stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2>::UpdatedStorage;
 
 protected:
-    // data
-    std::vector<TMethods> *_methods = nullptr;
-    std::vector<TEpochModel> _epochModelVector;
+	// data
+	std::vector<TMethods> *_methods = nullptr;
+	std::vector<TEpochModel> _epochModelVector;
 
-    // regression coefficients of covariates: todo: figure out!
-    stattools::TParameterTyped<TypeBeta, 1> *_beta = nullptr;
+	// regression coefficients of covariates
+	std::vector<std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &_beta;
 
-    // model
-    std::vector<std::unique_ptr<TEpochModel>> _epochModel;
+	// model
+	std::vector<std::unique_ptr<TEpochModel>> _epochModel;
 
-    // locations, timepoints
-    TUniqueContainer<std::string> *_locations =
-            nullptr; // these are pointers to the objects that are stored in TBirpCore
-    TUniqueContainer<size_t> *_timepoints = nullptr;
-    size_t _numSpecies = 0;
+	// locations, timepoints, covNames: these are pointers to the objects that are stored in TBirpCore
+	TUniqueContainer<std::string> *_locations      = nullptr;
+	TUniqueContainer<size_t> *_timepoints          = nullptr;
+	TUniqueContainer<std::string> *_covariateNames = nullptr;
 
-    // prefix for writing
-    std::string _out;
+	size_t _numSpecies = 0;
 
-    // simulate values
-    std::vector<size_t> _readN0FromCommandLine() const;
+	// prefix for writing
+	std::string _out;
 
-    coretools::TMultiDimensionalStorage<double, 2> _readDetectionProbFile() const;
+	// simulate values
+	std::vector<size_t> _readN0FromCommandLine() const;
+	coretools::TMultiDimensionalStorage<double, 2> _readDetectionProbFile() const;
+	void _simulateUnderPrior(Storage *Data) override;
+	void _simulateFromFile();
+	void _simulateFromCommandLine();
 
-    void _simulateUnderPrior(Storage *Data) override;
-
-    void _simulateFromFile();
-
-    void _simulateFromCommandLine();
+	// update beta's (regression coefficients)
+	void _updateBeta(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta, TMethods &CurMethod,
+	                 size_t i, size_t c);
+	void _updateBeta();
 
 public:
-    TBirpPrior() = default;
+	TBirpPrior() = default;
 
-    TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-               TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
-               stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-               std::string Prefix);
+	TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
+	           TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
+	           size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+	           stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+	           std::vector<std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix);
 
+	TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
+	           TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
+	           size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+	           stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, stattools::TParameterTyped<TypeMu, 1> *Mu,
+	           stattools::TParameterTyped<TypeLogA, 1> *LogA,
+	           std::vector<std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix);
 
-    TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-               TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
-               stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-               stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
-               std::string Prefix);
+	~TBirpPrior() override = default;
 
-    ~TBirpPrior() override = default;
+	void initializeInferred() override;
 
-    void initializeInferred() override;
+	[[nodiscard]] std::string name() const override;
 
-    [[nodiscard]] std::string name() const override;
+	// estimate initial values
+	void estimateInitialPriorParameters() override;
 
-    // estimate initial values
-    void estimateInitialPriorParameters() override;
+	// full log densities
+	double getSumLogPriorDensity(const Storage &) const override;
 
-    // full log densities
-    double getSumLogPriorDensity(const Storage &) const override;
+	// update all parameters
+	void updateParams() override;
 
-    // update all parameters
-    void updateParams() override;
+	// getters for locations, methods, timepoints, species for tests
+	const TUniqueContainer<std::string> &locations() const;
 
-    // getters for locations, methods, timepoints, species for tests
-    const TUniqueContainer<std::string> &locations() const;
+	const TUniqueContainer<size_t> &timepoints() const;
 
-    const TUniqueContainer<size_t> &timepoints() const;
-
-    const std::vector<TMethods> &methods() const;
+	const std::vector<TMethods> &methods() const;
 };
 
 #endif // TBIRPPRIOR_H

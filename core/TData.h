@@ -19,7 +19,7 @@ class TTimepoints {
 private:
 	std::vector<TypeCovariate> _covariates;
 	std::vector<TypeCounts> _counts_per_species;
-	TypeEffort _effort     = 0; // TODO how to store effort and distinguish between covariate?
+	TypeEffort _effort     = 0;
 	TypeEffort _effort_old = 0;
 	size_t _timepoint_id   = 0;
 
@@ -42,18 +42,17 @@ public:
 
 	// getters
 	std::vector<TypeCovariate> covariates();
-
 	size_t numSpecies() const;
-
 	TypeCounts counts_per_species(size_t species_id) const;
-
 	std::vector<size_t> species_id();
-
 	TypeEffort effort() const;
-
 	TypeEffort effort_old();
-
 	size_t timepoint_id() const;
+
+	// update effort
+	void initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c);
+	void resetEffort();
 
 	// functions for simulating effort
 	template<class Object> void simulateEffort(Object obj) {
@@ -114,6 +113,11 @@ public:
 
 	std::vector<TTimepoints>::iterator end();
 
+	// update effort
+	void initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c);
+	void resetEffort();
+
 	// functions for simulating effort
 	template<class Object> void simulateEffort(Object obj) {
 		for (auto &timepoint : _timepoints) { timepoint.simulateEffort(obj); }
@@ -155,45 +159,47 @@ private:
 	                                            const TUniqueContainer<std::string> &locations, size_t i);
 
 public:
-	explicit TMethods(const std::string_view &methodName, size_t index, const std::vector<std::size_t> &speciesIDsinUniqueContainer, const std::vector<std::size_t> &covariateIDsinUniqueContainer);
+	explicit TMethods(const std::string_view &methodName, size_t index,
+	                  const std::vector<std::size_t> &speciesIDsinUniqueContainer,
+	                  const std::vector<std::size_t> &covariateIDsinUniqueContainer);
 
 	TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
 	         const std::vector<size_t> &species_ids, const std::vector<std::size_t> &covariateIDsinUniqueContainer);
 
 	TMethods() = default;
 
+	// add data
+	void add(const TTimepoints &pt, size_t location_id);
+
+	// finalize data filling
+	void sorttimes(const std::vector<size_t> &index);
+	void checkEffortBiggerThanZero();
 	void fillIDVectors(size_t totalSizeOfUniqueContainer);
 
 	// getters
 	size_t size() const;
-	std::string methodName() const;
-	std::vector<std::string> covariateNames() const;
+	const std::string &name() const;
 	size_t method_id() const;
+	size_t numCovariates() const;
+
+	// access counts and covariates
 	const std::vector<size_t> &speciesIDsinUniqueContainer() const;
-    const std::vector<size_t> &covariateIDsinUniqueContainer() const;
+	const std::vector<size_t> &covariateIDsinUniqueContainer() const;
+	size_t covariateIDinUniqueContainer(size_t c) const;
 	bool hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const;
 	size_t getIndexInCounts(size_t speciesIDinUniqueContainer) const;
 
-	void add(const TTimepoints &pt, size_t location_id);
-
-	std::string name() const;
-
-	void sorttimes(const std::vector<size_t> &index);
-
-	void checkEffortBiggerThanZero();
-
-	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<size_t> &Timepoints) const;
-
+	// iterators
 	const TLocations &operator[](const size_t index) const { return _locations[index]; }
-
 	std::vector<TLocations>::const_iterator cbegin() const;
-
 	std::vector<TLocations>::iterator begin();
-
 	std::vector<TLocations>::const_iterator cend() const;
-
 	std::vector<TLocations>::iterator end();
+
+	// update effort
+	void initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c);
+	void resetEffort();
 
 	// functions for simulating
 	void simulatePoisson(size_t N0, const std::vector<double> &phi,
@@ -207,6 +213,10 @@ public:
 	                               const TUniqueContainer<std::string> &locations, double A);
 
 	void simulateNB(const std::vector<double> &phi, double A, const std::vector<double> &Mu, bool SimulateEffort);
+
+	// writing
+	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+	           const TUniqueContainer<size_t> &Timepoints) const;
 };
 
 #endif // BIRP_TDATA_H

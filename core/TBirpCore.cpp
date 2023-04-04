@@ -11,6 +11,7 @@
 #include "stattools/MCMC/TMCMC.h"
 #include "stattools/Priors/TPriorDirichlet.h"
 #include "stattools/Priors/TPriorExponential.h"
+#include "stattools/Priors/TPriorNormal.h"
 
 using namespace coretools::instances;
 using namespace stattools;
@@ -34,7 +35,8 @@ std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretool
 
 TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
                        TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
-                       const std::string &Filename, stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial)
+                       TUniqueContainer<std::string> *CovariateNames, const std::string &Filename,
+                       stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial)
     // TODO: change to improper prior!
     : _gamma("gamma", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeGamma, 1>>(),
              {Filename}),
@@ -47,18 +49,29 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
       _mu("mu",
           std::make_shared<stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeMu, 1, TypeSigmaMu>>(
               &_sigmaMu),
-          {Filename, readAlphaDirichlet("alpha_mu", TEpochModel::getNumMethLocs(*Methods, 0), 1.0)}), // todo speciesID 0 because right now single species
+          {Filename, readAlphaDirichlet("alpha_mu", TEpochModel::getNumMethLocs(*Methods, 0),
+                                        1.0)}), // todo speciesID 0 because right now single species
       _logA("logA", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogA, 1>>(),
             {Filename}) {
+
+	// create beta
+	// TODO: which prior on beta?
+	_beta.resize(Methods->size());
+	for (size_t i = 0; i < Methods->size(); ++i) {
+		auto name  = "beta_" + (*Methods)[i].name();
+		auto prior = std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeBeta, 1>>();
+		TParameterDefinition def(Filename);
+		_beta[i] = std::make_unique<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
+	}
 
 	// create birp prior (Poisson or Negative Binomial)
 	std::shared_ptr<TBirpPrior> birp;
 	if (NegativeBinomial) {
-		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, speciesNames->size(), &_gamma, &_timesOfChange,
-		                                    &_mu, &_logA, Filename);
+		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, CovariateNames, speciesNames->size(),
+		                                    &_gamma, &_timesOfChange, &_mu, &_logA, _beta, Filename);
 	} else {
-		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, speciesNames->size(), &_gamma, &_timesOfChange,
-		                                    Filename);
+		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, CovariateNames, speciesNames->size(),
+		                                    &_gamma, &_timesOfChange, _beta, Filename);
 	}
 
 	// create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
@@ -69,6 +82,7 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
 	// add to DAG
 	DAGBuilder.addToDAG({&_gamma, &_timesOfChange});
 	if (NegativeBinomial) { DAGBuilder.addToDAG({&_mu, &_sigmaMu, &_logA}); }
+	for (auto &b : _beta) { DAGBuilder.addToDAG(b.get()); }
 	DAGBuilder.addToDAG(_data.get());
 	DAGBuilder.buildDAG();
 }
@@ -143,7 +157,7 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	} else {
 		coretools::str::fillContainerFromString(input, filenames, ',');
 	}
-	for (const auto& name : filenames) { _readFile(name, hasCounts); }
+	for (const auto &name : filenames) { _readFile(name, hasCounts); }
 	_sortTimepoints();
 }
 
@@ -156,7 +170,7 @@ std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infil
 }
 
 std::vector<std::string> TBirpCore::_getSpeciesOrCovariateNames(const coretools::TInputFile &infile,
-                                                     const std::vector<size_t> &Indices) {
+                                                                const std::vector<size_t> &Indices) {
 	std::vector<std::string> names(Indices.size());
 	std::string test = infile.headerAt(2);
 	for (size_t s = 0; s < Indices.size(); s++) {
@@ -179,24 +193,24 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
 	_checkHeader(infile, hasCounts, countIndices, effortIndices);
 
-    std::vector<size_t> species_ids        = {};
-    if (hasCounts){
-        std::vector<std::string> speciesNames = _getSpeciesOrCovariateNames(infile, countIndices);
-        for (const auto& name : speciesNames) { species_ids.push_back(_speciesNames.add(name)); }
-    } else {
-        species_ids = _simulateSpeciesNames();
-    }
+	std::vector<size_t> species_ids = {};
+	if (hasCounts) {
+		std::vector<std::string> speciesNames = _getSpeciesOrCovariateNames(infile, countIndices);
+		for (const auto &name : speciesNames) { species_ids.push_back(_speciesNames.add(name)); }
+	} else {
+		species_ids = _simulateSpeciesNames();
+	}
 
-    std::vector<std::string> covariateNames = _getSpeciesOrCovariateNames(infile, effortIndices);
-    std::vector<size_t> covariate_ids        = {};
-    for (const auto& name : covariateNames) { covariate_ids.push_back(_covariateNames.add(name)); }
+	std::vector<std::string> covariateNames = _getSpeciesOrCovariateNames(infile, effortIndices);
+	std::vector<size_t> covariate_ids       = {};
+	for (const auto &name : covariateNames) { covariate_ids.push_back(_covariateNames.add(name)); }
 
 	// add new method: name is derived from filename
 	std::string_view methodNameFull    = coretools::str::readAfterLast(Filename, '/');
 	std::string_view methodNameCropped = coretools::str::readAfter(methodNameFull, '_');
 	std::string_view methodName        = coretools::str::readBeforeLast(methodNameCropped, '.');
-	_methods.emplace_back(methodName, _methods.size(),
-	                      species_ids, covariate_ids); // the index of the method is the current size of the _methods vector
+	_methods.emplace_back(methodName, _methods.size(), species_ids,
+	                      covariate_ids); // the index of the method is the current size of the _methods vector
 
 	std::vector<std::string> row;
 	while (infile.read(row)) {
@@ -204,11 +218,11 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		size_t timepoint_id = _timepoints.add(coretools::str::fromStringCheck<size_t>(row[1]));
 
 		// boot one vector together (stiflä) of all species counts, and one of all covariates
-		std::vector<TypeCounts> countVec(species_ids.size(),0);
+		std::vector<TypeCounts> countVec(species_ids.size(), 0);
 		std::vector<TypeCovariate> covVec(effortIndices.size());
-		if(hasCounts) {
-            for (size_t c = 0; c < countVec.size(); c++) { countVec[c] = (TypeCounts) row[countIndices[c]]; }
-        }
+		if (hasCounts) {
+			for (size_t c = 0; c < countVec.size(); c++) { countVec[c] = (TypeCounts)row[countIndices[c]]; }
+		}
 		for (size_t c = 0; c < covVec.size(); c++) { covVec[c] = (TypeCovariate)row[effortIndices[c]]; }
 		// create timepoint
 		TTimepoints pt(countVec, covVec, timepoint_id);
@@ -237,7 +251,8 @@ void TBirpCore::infer() {
 	// create model
 	stattools::TDAGBuilder dagBuilder;
 	bool negBinom = parameters().parameterExists("negativeBinomial");
-	TBirpModel model(&_methods, &_locations, &_timepoints, &_speciesNames, _outname, dagBuilder, negBinom);
+	TBirpModel model(&_methods, &_locations, &_timepoints, &_speciesNames, &_covariateNames, _outname, dagBuilder,
+	                 negBinom);
 
 	// run MCMC
 	stattools::TMCMC mcmc;
@@ -250,9 +265,13 @@ void TBirpCore::infer() {
 std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &method) {
 	std::vector<std::string> header = _getHeader();
 	// add species name to base header vector
-    for (const auto &speciesID : method.speciesIDsinUniqueContainer()) { header.push_back("counts_" + _speciesNames[speciesID]); }
+	for (const auto &speciesID : method.speciesIDsinUniqueContainer()) {
+		header.push_back("counts_" + _speciesNames[speciesID]);
+	}
 	// add covariate name to base header vector
-    for (const auto &covID: method.covariateIDsinUniqueContainer()) {header.push_back("cov_" + _covariateNames[covID]); }
+	for (const auto &covID : method.covariateIDsinUniqueContainer()) {
+		header.push_back("cov_" + _covariateNames[covID]);
+	}
 	return header;
 }
 
@@ -262,11 +281,11 @@ void TBirpCore::_writeFile() {
 	// write file line by line
 	for (auto &method : _methods) {
 		// get filename here.
-		std::string Filename            = _outname + "_" + method.methodName() + "_simulatedCounts.txt";
+		std::string Filename            = _outname + "_" + method.name() + "_simulatedCounts.txt";
 		// get header here
 		std::vector<std::string> header = _getMethodspecificHeader(method);
 		// append to fileList
-		fileList << method.methodName() << coretools::endl;
+		fileList << method.name() << coretools::endl;
 		// now create actual file with data and write
 		coretools::TOutputFile outfile(Filename, header);
 		method.write(outfile, _locations, _timepoints);
@@ -287,22 +306,22 @@ void TBirpCore::_fillLocationsFromCommandLine() {
 	for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l)); }
 }
 
-std::vector<size_t> TBirpCore::_simulateSpeciesNames(){
-    size_t numSpecies    = parameters().getParameterWithDefault("numSpecies", 1);
-    std::vector<size_t> species_ids(numSpecies);
-    for (size_t n = 0; n < numSpecies; n++) {
-        species_ids[n] = _speciesNames.add("species_" + coretools::str::toString(n + 1));
-    }
-    return species_ids;
+std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
+	size_t numSpecies = parameters().getParameterWithDefault("numSpecies", 1);
+	std::vector<size_t> species_ids(numSpecies);
+	for (size_t n = 0; n < numSpecies; n++) {
+		species_ids[n] = _speciesNames.add("species_" + coretools::str::toString(n + 1));
+	}
+	return species_ids;
 }
 
-std::vector<size_t> TBirpCore::_simulateCovNames(){
-    size_t numCovs    = parameters().getParameterWithDefault("numCovariates", 1);  // todo does this parameter exist?
-    std::vector<size_t> covariates_ids(numCovs);
-    for (size_t n = 0; n < numCovs; n++) {
-        covariates_ids[n] = _covariateNames.add("cov_" + coretools::str::toString(n + 1));
-    }
-    return covariates_ids;
+std::vector<size_t> TBirpCore::_simulateCovNames() {
+	size_t numCovs = parameters().getParameterWithDefault("numCovariates", 1); // todo does this parameter exist?
+	std::vector<size_t> covariates_ids(numCovs);
+	for (size_t n = 0; n < numCovs; n++) {
+		covariates_ids[n] = _covariateNames.add("cov_" + coretools::str::toString(n + 1));
+	}
+	return covariates_ids;
 }
 
 void TBirpCore::simulate() {
@@ -314,11 +333,11 @@ void TBirpCore::simulate() {
 		// else read main dimensions from command line
 		_fillTimepointsFromCommandLine();
 		_fillLocationsFromCommandLine();
-		size_t numMethods    = parameters().getParameterWithDefault("numMethods", 1);
+		size_t numMethods  = parameters().getParameterWithDefault("numMethods", 1);
 		// create vector of speciesnames species_1, species_2 ... as many as there are. currently only supports one
 		// species
-        auto species_ids = _simulateSpeciesNames();
-        auto covariate_ids = _simulateCovNames();
+		auto species_ids   = _simulateSpeciesNames();
+		auto covariate_ids = _simulateCovNames();
 
 		for (size_t m = 0; m < numMethods; ++m) {
 			_methods.emplace_back("Method_" + coretools::str::toString(m + 1), _locations.size(), _timepoints.size(), m,
@@ -330,7 +349,8 @@ void TBirpCore::simulate() {
 	// create model
 	stattools::TDAGBuilder dagBuilder;
 	bool negBinom = parameters().parameterExists("negativeBinomial");
-	TBirpModel model(&_methods, &_locations, &_timepoints, &_speciesNames, _outname, dagBuilder, negBinom);
+	TBirpModel model(&_methods, &_locations, &_timepoints, &_speciesNames, &_covariateNames, _outname, dagBuilder,
+	                 negBinom);
 
 	// run simulator
 	stattools::TSimulator simulator;

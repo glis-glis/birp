@@ -10,28 +10,32 @@
 using namespace coretools::instances;
 
 TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
-                       stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                       stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, std::string Prefix)
-    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _numSpecies(numSpecies), _out(std::move(Prefix)) {
+                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
+                       size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+                       stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+                       std::vector<std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix)
+    : _methods(Methods), _beta(Beta), _locations(Locations), _timepoints(TimePoints), _covariateNames(CovariateNames),
+      _numSpecies(numSpecies), _out(std::move(Prefix)) {
 	// constructor for Poisson model
 
-
 	addPriorParameter({Gamma, TimesOfChange});
+	for (auto &b : _beta) { addPriorParameter(b.get()); }
 	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
 	_epochModel.emplace_back(std::make_unique<TPoissonEpochModel>(Gamma, TimesOfChange));
 }
 
 TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
-                       stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
+                       size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                        stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
-                       std::string Prefix)
-    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _numSpecies(numSpecies), _out(std::move(Prefix)) {
+                       std::vector<std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix)
+    : _methods(Methods), _beta(Beta), _locations(Locations), _timepoints(TimePoints), _covariateNames(CovariateNames),
+      _numSpecies(numSpecies), _out(std::move(Prefix)) {
 	// constructor for Negative Binomial model
 
 	addPriorParameter({Gamma, TimesOfChange, Mu, LogA});
+	for (auto &b : _beta) { addPriorParameter(b.get()); }
 	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
 	_epochModel.emplace_back(std::make_unique<TNegBinEpochModel>(Gamma, TimesOfChange, Mu, LogA));
 }
@@ -45,21 +49,75 @@ void TBirpPrior::initializeInferred() {
 	for (size_t s = 0; s < _numSpecies; s++) {
 		_epochModel[s]->initializeInferred(*_timepoints, *_locations, *_methods);
 	}
+
+	// initialize beta: first get appropriate covariate name for each method
+	for (size_t i = 0; i < _methods->size(); ++i) {
+		auto covNames = std::make_shared<coretools::TNamesStrings>();
+		for (size_t c = 0; c < (*_methods)[i].numCovariates(); ++c) {
+			const size_t id = (*_methods)[i].covariateIDinUniqueContainer(c);
+			covNames->addName({(*_covariateNames)[id]});
+		}
+		_beta[i]->initStorage({(*_methods)[i].numCovariates()}, {covNames});
+	}
 }
 
 void TBirpPrior::estimateInitialPriorParameters() {
 	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->estimateInitialPriorParameters(*_methods); }
+
+	// TODO: How to initialize beta?
+	for (const auto &beta : _beta) {
+		for (size_t c = 0; c < beta->totalSize(); ++c) { beta->set(c, 1.0); }
+	}
+	// set effort based on initial values of beta
+	for (size_t i = 0; i < _methods->size(); ++i) { (*_methods)[i].initializeEffort(_beta[i]); }
 }
 
 //------------------------------------
 // MCMC
 
+void TBirpPrior::_updateBeta(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta,
+                             TMethods &CurMethod, size_t i, size_t c) {
+	// propose new value
+	Beta->updateSpecificIndex(c);
+	// update effort for all locations and timepoints of current method
+	CurMethod.updateEffort(Beta->value(c), Beta->oldValue(c), c);
+	// calculate Hastings ratio
+	double logRatio = Beta->getLogPriorRatio(c);
+	std::vector<std::vector<double>> LLs(_numSpecies);
+	for (size_t s = 0; s < _numSpecies; ++s) {
+		LLs[s] = _epochModel[s]->calculateLLForBetaUpdate(*_methods, i);
+		logRatio += coretools::containerSum(LLs[s]) - coretools::containerSum(_epochModel[s]->oldLLs());
+	}
+	// decide if accept or reject
+	if (Beta->acceptOrReject(logRatio, c)) {
+		// accepted: set likelihood in all epoch models
+		for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->setLLs(LLs[s]); }
+	} else {
+		// rejected: re-set effort to old value before update
+		CurMethod.resetEffort();
+	}
+}
+
+void TBirpPrior::_updateBeta() {
+	for (size_t i = 0; i < _beta.size(); ++i) { // loop over all methods
+		const auto &beta = _beta[i];
+		auto &curMethod  = (*_methods)[i];
+		if (!beta->isUpdated()) { return; }
+
+		for (size_t c = 0; c < beta->totalSize(); ++c) { // loop over all covariates of current method
+			_updateBeta(beta, curMethod, i, c);
+		}
+	}
+}
+
 void TBirpPrior::updateParams() {
 	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->update(*_methods); }
+
+	// update beta (regression coefficients)
+	_updateBeta();
 }
 
 double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
-	// TODO: is this correct for multi-species case?
 	double sum = 0.0;
 	for (size_t s = 0; s < _numSpecies; ++s) { sum += _epochModel[s]->calculateLL(*_methods); }
 	return sum;
