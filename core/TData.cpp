@@ -3,6 +3,8 @@
 //
 
 #include "TData.h"
+#include "TEpochModel.h"
+#include <regex>
 
 //-------------------------------------------
 // TZeroPoisDistr
@@ -40,7 +42,7 @@ TTimepoints::TTimepoints(const std::vector<TypeCounts> &countVec, const std::vec
 	_timepoint_id       = timepoint_id;
 
 	_covariates = covVec;
-	if (covVec.size() == 1) { _effort = covVec[0]; } // todo else? lol
+
 	// we (temporarily) only allow a single speces
 	if (_counts_per_species.size() > 1) { UERROR("Currently only supports single species!"); }
 }
@@ -57,7 +59,9 @@ size_t TTimepoints::numSpecies() const { return _counts_per_species.size(); }
 
 TypeCounts TTimepoints::counts_per_species(size_t species_id) const { return _counts_per_species[species_id]; }
 
-TypeEffort TTimepoints::effort() const { return _effort; }
+TypeEffort TTimepoints::effort() const {
+	return _effort;
+}
 
 TypeEffort TTimepoints::effort_old() { return _effort_old; }
 
@@ -65,16 +69,16 @@ size_t TTimepoints::timepoint_id() const { return _timepoint_id; }
 
 void TTimepoints::setTimepoint(size_t timepointToAdd) { _timepoint_id = timepointToAdd; }
 
-void TTimepoints::setEffort(TypeEffort effortToAdd) {
-	_effort        = effortToAdd;
-	_covariates[0] = effortToAdd; // effortToAdd should always have dimension 1 here (only one number)
-}
+void TTimepoints::setCovariate(size_t c, TypeCovariate Covariate) { _covariates[c] = Covariate; }
 
-void TTimepoints::initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
-	if (_covariates.size() == 1) { return; }
-	// calculate s_{ijk} = sum_{c=1}^C x_{ijkc} * beta_{ic}
-	_effort = 0.0;
-	for (size_t c = 0; c < _covariates.size(); ++c) { _effort += _covariates[c] * Beta->value(c); }
+void TTimepoints::initializeEffort(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
+	if (_covariates.size() == 1) {
+		_effort = _covariates[0];
+	} else {
+		// calculate s_{ijk} = sum_{c=1}^C x_{ijkc} * beta_{ic}
+		_effort = 0.0;
+		for (size_t c = 0; c < _covariates.size(); ++c) { _effort += _covariates[c] * Beta->value(c); }
+	}
 	_effort_old = _effort;
 }
 
@@ -188,7 +192,7 @@ std::vector<TTimepoints>::const_iterator TLocations::cend() const { return _time
 
 std::vector<TTimepoints>::iterator TLocations::end() { return _timepoints.end(); }
 
-void TLocations::initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
+void TLocations::initializeEffort(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
 	for (auto &timepoint : _timepoints) { timepoint.initializeEffort(Beta); }
 }
 
@@ -218,26 +222,25 @@ void TLocations::simulateNB(const std::vector<double> &phi, double a, double mu_
 
 TMethods::TMethods(const std::string_view &methodName, size_t index,
                    const std::vector<std::size_t> &speciesIDsinUniqueContainer,
-                   const std::vector<std::size_t> &covariateIDsinUniqueContainer) { // infer or simulate from file
-	_methodName                    = methodName;
-	_method_id                     = index;
-	_speciesIDsinUniqueContainer   = speciesIDsinUniqueContainer;
-	_covariateIDsinUniqueContainer = covariateIDsinUniqueContainer;
+                   const std::vector<std::size_t> &covariateIDsinUniqueContainer)
+    : _methodName(methodName), _method_id(index), _covariateIDsinUniqueContainer(covariateIDsinUniqueContainer),
+      _speciesIDsinUniqueContainer(speciesIDsinUniqueContainer) { // infer or simulate from file
 }
 
 TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
                    const std::vector<size_t> &speciesIDsinUniqueContainer,
-                   const std::vector<std::size_t> &covariateIDsinUniqueContainer) { // simulate
-	_methodName = methodName;
+                   const std::vector<std::size_t> &covariateIDsinUniqueContainer)
+    : _methodName(methodName), _method_id(index), _covariateIDsinUniqueContainer(covariateIDsinUniqueContainer),
+      _speciesIDsinUniqueContainer(speciesIDsinUniqueContainer) { // simulate
+
 	_locations.resize(locationSize);
-	_speciesIDsinUniqueContainer   = speciesIDsinUniqueContainer;
-	_covariateIDsinUniqueContainer = covariateIDsinUniqueContainer;
 	for (size_t i = 0; i < locationSize; i++) {
 		_locations.emplace_back(i, TimepointSize, _speciesIDsinUniqueContainer.size(),
 		                        covariateIDsinUniqueContainer.size());
 	}
-	_method_id = index;
 }
+
+void TMethods::addBeta(std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) { _beta = Beta; }
 
 void TMethods::add(const TTimepoints &pt, size_t location_id) {
 	bool dataPointExists = false;
@@ -268,6 +271,11 @@ void TMethods::sorttimes(const std::vector<size_t> &sortingIndex) {
 	for (auto &loc : _locations) { loc.sorttimes(sortingIndex); }
 }
 
+void TMethods::initializeEffort() {
+	// initialize effort
+	for (auto &location : _locations) { location.initializeEffort(_beta); }
+}
+
 size_t TMethods::size() const { return _locations.size(); }
 const std::string &TMethods::name() const { return _methodName; }
 
@@ -294,41 +302,64 @@ std::vector<TLocations>::const_iterator TMethods::cend() const { return _locatio
 
 std::vector<TLocations>::iterator TMethods::end() { return _locations.end(); }
 
-void TMethods::initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
-	for (auto &location : _locations) { location.initializeEffort(Beta); }
+std::vector<std::string> TMethods::_splitVecWithDistributions(const std::string &Input) {
+	std::vector<std::string> output;
+
+	std::regex regex(",(?![^()]*\\))"); // matches comma not inside brackets
+	std::sregex_token_iterator it(Input.begin(), Input.end(), regex, -1);
+	std::sregex_token_iterator end;
+	for (; it != end; ++it) { output.push_back(*it); }
+
+	return output;
 }
 
-void TMethods::updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c) {
-	for (auto &location : _locations) { location.updateEffort(NewBeta, OldBeta, c); }
-}
-
-void TMethods::resetEffort() {
-	for (auto &location : _locations) { location.resetEffort(); }
-}
-
-void TMethods::_simulateEffort() {
-	std::string effortString = coretools::instances::parameters().getParameterWithDefault("effort", "Poisson(1000)");
-	if (coretools::str::stringIsProbablyANumber(effortString)) {
-		// case 1: is a number: use it for all efforts
-		double effort = coretools::str::fromString<double>(effortString);
-		for (size_t i = 0; i < _locations.size(); i++) {
-			for (auto &t : _locations[i]) { t.setEffort(effort); }
+void TMethods::_simulateOneCovariate(size_t c, const std::string &Cov) {
+	if (coretools::str::stringIsProbablyANumber(Cov)) {
+		// case 1: is a number: use it for all covariates
+		double value = coretools::str::fromString<double>(Cov);
+		for (auto &_location : _locations) {
+			for (auto &t : _location) { t.setCovariate(c, value); }
 		}
 	} else {
 		// case 2: parse distributions. "Poisson(1), uniform(a,b), zero-poisson(p, lambda) -> p: p(not 0),
-		coretools::str::TSplitter sp(effortString, '(');
+		coretools::str::TSplitter sp(Cov, '(');
 		std::string_view distr = sp.front();          // takes first element
 		sp.popFront();                                // takes 'Poisson' away
 		std::string params = (std::string)sp.front(); // now parameters are in front
 		params             = coretools::str::extractBefore(params, ')');
 		if (distr == "Poisson") {
-			_simulateEffort<coretools::probdist::TPoissonDistr>(params);
+			_simulateCovariateFromDistribution<coretools::probdist::TPoissonDistr>(c, params);
 		} else if (distr == "uniform") {
-			_simulateEffort<coretools::probdist::TUniformDistr>(params);
+			_simulateCovariateFromDistribution<coretools::probdist::TUniformDistr>(c, params);
 		} else if (distr == "zeroPoisson") {
-			_simulateEffort<TZeroPoisDistr>(params);
+			_simulateCovariateFromDistribution<TZeroPoisDistr>(c, params);
+		} else {
+			UERROR("Unknown distribution '", distr,
+			       "' (argument 'covariates'). Supported distributions are: Poisson, uniform, zeroPoisson.");
 		}
 	}
+}
+
+void TMethods::_simulateCovariate() {
+	using namespace coretools;
+	std::string effortString = instances::parameters().getParameterWithDefault("covariates", "Poisson(1000)");
+	if (str::stringIsProbablyANumber(effortString)) {
+		// case 1: is a number: use it for all covariates
+		for (size_t c = 0; c < numCovariates(); ++c) { _simulateOneCovariate(c, effortString); }
+	} else if (str::stringContains(effortString, ',')) {
+		// cases 2 and 4: comma-separated string of numbers (case 2) or distributions (case 4) or both
+		std::vector<std::string> vec = _splitVecWithDistributions(effortString);
+		if (vec.size() != numCovariates()) {
+			UERROR("The size of covariates provided with argument 'covariates' (", vec.size(),
+			       ") does not match the number of covariates (", numCovariates(), ").");
+		}
+		for (size_t c = 0; c < vec.size(); ++c) { _simulateOneCovariate(c, vec[c]); }
+	} else {
+		// case 3: use the same distribution for all covariates
+		for (size_t c = 0; c < numCovariates(); ++c) { _simulateOneCovariate(c, effortString); }
+	}
+	// now that we have simulated all covariates: re-calculate effort
+	initializeEffort();
 }
 
 // function to simulate
@@ -353,7 +384,7 @@ void TMethods::simulatePoisson(size_t N0, const std::vector<double> &phi,
 }
 
 void TMethods::simulatePoisson(const std::vector<double> &phi) {
-	_simulateEffort();
+	_simulateCovariate();
 	for (size_t i = 0; i < size(); i++) { _locations[i].simulatePoisson(phi); }
 }
 
@@ -372,13 +403,61 @@ std::vector<double> TMethods::simulateNB(size_t N0, const std::vector<double> &p
 
 void TMethods::simulateNB(const std::vector<double> &phi, double a, const std::vector<double> &mu,
                           bool SimulateEffort) {
-	if (SimulateEffort) { _simulateEffort(); }
+	if (SimulateEffort) { _simulateCovariate(); }
 	for (size_t i = 0; i < size(); i++) { _locations[i].simulateNB(phi, a, mu[i]); }
 }
 
 void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
                      const TUniqueContainer<size_t> &Timepoints) const {
 	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
+}
+
+void TMethods::initializeInferred(const TUniqueContainer<std::string> &CovariateNames) {
+	// initialize beta: first get appropriate covariate name
+	auto covNames = std::make_shared<coretools::TNamesStrings>();
+	for (size_t c = 0; c < numCovariates(); ++c) {
+		const size_t id = _covariateIDsinUniqueContainer[c];
+		covNames->addName({CovariateNames[id]});
+	}
+	_beta->initStorage({numCovariates()}, {covNames});
+}
+
+void TMethods::estimateInitialBeta() {
+	// TODO: How to initialize beta?
+	// set initial value of all beta's to one
+	for (size_t c = 0; c < _beta->totalSize(); ++c) { _beta->setInitial(c, 1.0); }
+	// set effort based on initial values of beta
+	initializeEffort();
+	if (numCovariates() == 1) { // if only a single covariate: do not update beta
+		_beta->setIsUpdated(false);
+	}
+}
+
+void TMethods::_updateBeta(size_t c, const std::vector<std::unique_ptr<TEpochModel>> &EpochModels) {
+	// propose new value
+	if (c == 1) { return; }
+	if (!_beta->updateSpecificIndex(c)) { return; } // beta is not updated -> stop here
+	// update effort for all locations and timepoints of current method
+	for (auto &location : _locations) { location.updateEffort(_beta->value(c), _beta->oldValue(c), c); }
+	// calculate Hastings ratio
+	double logRatio = _beta->getLogPriorRatio(c);
+	std::vector<std::vector<double>> LLs(EpochModels.size());
+	for (size_t s = 0; s < EpochModels.size(); ++s) {
+		LLs[s] = EpochModels[s]->calculateLLForBetaUpdate(*this);
+		logRatio += coretools::containerSum(LLs[s]) - coretools::containerSum(EpochModels[s]->oldLLs());
+	}
+	// decide if accept or reject
+	if (_beta->acceptOrReject(logRatio, c)) {
+		// accepted: set likelihood in all epoch models
+		for (size_t s = 0; s < EpochModels.size(); ++s) { EpochModels[s]->setLLs(LLs[s]); }
+	} else {
+		// rejected: re-set effort to old value before update
+		for (auto &location : _locations) { location.resetEffort(); }
+	}
+}
+
+void TMethods::updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &EpochModels) {
+	for (size_t c = 0; c < numCovariates(); ++c) { _updateBeta(c, EpochModels); }
 }
 
 //-------------------------------------------

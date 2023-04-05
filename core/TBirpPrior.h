@@ -21,10 +21,6 @@ private:
 protected:
 	// data
 	std::vector<TMethods> *_methods = nullptr;
-	std::vector<TEpochModel> _epochModelVector;
-
-	// regression coefficients of covariates
-	std::vector<std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &_beta;
 
 	// model
 	std::vector<std::unique_ptr<TEpochModel>> _epochModel;
@@ -46,11 +42,6 @@ protected:
 	void _simulateFromFile();
 	void _simulateFromCommandLine();
 
-	// update beta's (regression coefficients)
-	void _updateBeta(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta, TMethods &CurMethod,
-	                 size_t i, size_t c);
-	void _updateBeta();
-
 public:
 	TBirpPrior() = default;
 
@@ -58,14 +49,14 @@ public:
 	           TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
 	           size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	           stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-	           std::vector<std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix);
+	           std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix);
 
 	TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
 	           TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
 	           size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	           stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, stattools::TParameterTyped<TypeMu, 1> *Mu,
 	           stattools::TParameterTyped<TypeLogA, 1> *LogA,
-	           std::vector<std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix);
+	           std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix);
 
 	~TBirpPrior() override = default;
 

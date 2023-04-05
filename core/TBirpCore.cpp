@@ -61,7 +61,7 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
 		auto name  = "beta_" + (*Methods)[i].name();
 		auto prior = std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeBeta, 1>>();
 		TParameterDefinition def(Filename);
-		_beta[i] = std::make_unique<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
+		_beta[i] = std::make_shared<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
 	}
 
 	// create birp prior (Poisson or Negative Binomial)
@@ -206,9 +206,13 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	for (const auto &name : covariateNames) { covariate_ids.push_back(_covariateNames.add(name)); }
 
 	// add new method: name is derived from filename
-	std::string_view methodNameFull    = coretools::str::readAfterLast(Filename, '/');
+	std::string_view methodNameFull = Filename;
+	if (coretools::str::stringContains(Filename, '/')) {
+		methodNameFull = coretools::str::readAfterLast(Filename, '/');
+	}
 	std::string_view methodNameCropped = coretools::str::readAfter(methodNameFull, '_');
-	std::string_view methodName        = coretools::str::readBeforeLast(methodNameCropped, '.');
+	std::string methodName             = (std::string)coretools::str::readBeforeLast(methodNameCropped, '.');
+	coretools::str::eraseAllOccurences(methodName, "_simulatedCounts");
 	_methods.emplace_back(methodName, _methods.size(), species_ids,
 	                      covariate_ids); // the index of the method is the current size of the _methods vector
 
@@ -319,7 +323,7 @@ std::vector<size_t> TBirpCore::_simulateCovNames() {
 	size_t numCovs = parameters().getParameterWithDefault("numCovariates", 1); // todo does this parameter exist?
 	std::vector<size_t> covariates_ids(numCovs);
 	for (size_t n = 0; n < numCovs; n++) {
-		covariates_ids[n] = _covariateNames.add("cov_" + coretools::str::toString(n + 1));
+		covariates_ids[n] = _covariateNames.add(coretools::str::toString(n + 1));
 	}
 	return covariates_ids;
 }

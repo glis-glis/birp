@@ -38,6 +38,11 @@ protected:
 	double _oldJP = 0.0;
 
 	// indices
+	std::vector<std::pair<size_t, size_t>> _linear_to_i_j;
+	std::vector<std::vector<size_t>> _i_j_to_linear;
+
+	// fill indices
+	void _fillMethLocIndices(const std::vector<TMethods> &Methods);
 	std::pair<size_t, size_t> _getMethAndLocIndex(size_t mu_index, const std::vector<TMethods> &Methods) const;
 
 	// likelihood
@@ -71,7 +76,7 @@ public:
 
 	virtual void update(const std::vector<TMethods> &Methods);
 	double calculateLL(const std::vector<TMethods> &Methods) const;
-	std::vector<double> calculateLLForBetaUpdate(const std::vector<TMethods> &Methods, size_t i) const;
+	std::vector<double> calculateLLForBetaUpdate(const TMethods &Method) const;
 
 	virtual void simulate(std::vector<TMethods> &methods, size_t N0,
 	                      const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,

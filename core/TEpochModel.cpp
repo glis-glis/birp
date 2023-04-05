@@ -36,6 +36,7 @@ void TEpochModel::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
 	_fillRho(Timepoints);
 
 	_numMethLoc = getNumMethLocs(Methods, _speciesIDinUniqueContainer);
+	_fillMethLocIndices(Methods);
 }
 
 size_t TEpochModel::getNumMethLocs(const std::vector<TMethods> &Methods, size_t speciesIDinUniqueContainer) {
@@ -69,6 +70,22 @@ std::pair<size_t, size_t> TEpochModel::_getMethAndLocIndex(size_t ij_index,
 		counter += Methods[i].size();
 	}
 	DEVERROR("Did not find method and location index for species - this should not happen.");
+}
+
+void TEpochModel::_fillMethLocIndices(const std::vector<TMethods> &Methods) {
+	// fill linear to i_j
+	_linear_to_i_j.resize(_numMethLoc);
+	for (size_t ij = 0; ij < _numMethLoc; ++ij) { _linear_to_i_j[ij] = _getMethAndLocIndex(ij, Methods); }
+
+	// fill i_j to linear
+	_i_j_to_linear.resize(Methods.size()); // size = numMethods
+	for (size_t i = 0; i < Methods.size(); ++i) {
+		_i_j_to_linear[i].resize(Methods[i].size()); // size = numLocations of this method
+		for (size_t j = 0; j < Methods[i].size(); ++j) {
+			auto it              = std::find(_linear_to_i_j.begin(), _linear_to_i_j.end(), std::make_pair(i, j));
+			_i_j_to_linear[i][j] = std::distance(_linear_to_i_j.begin(), it);
+		}
+	}
 }
 
 std::vector<size_t> TEpochModel::_getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const {
@@ -144,6 +161,7 @@ std::vector<double> TEpochModel::_calcSigma(const TLocations &loc, const std::ve
 	std::vector<double> sigma(loc.size());
 	for (size_t k = 0; k < loc.size(); k++) {
 		// calculate sigma and fill into p (will normalize later)
+		std::cout << "j = " << loc.location_id() << ", k = " << k << ": " << loc[k].effort() << std::endl;
 		sigma[k] = phi[k] * loc[k].effort();
 	}
 	return sigma;
@@ -178,25 +196,22 @@ double TEpochModel::calculateLL(const std::vector<TMethods> &Methods) const {
 	return coretools::containerSum(newLL);
 }
 
-std::vector<double> TEpochModel::calculateLLForBetaUpdate(const std::vector<TMethods> &Methods, size_t i) const {
+std::vector<double> TEpochModel::calculateLLForBetaUpdate(const TMethods &Method) const {
 	std::vector<double> LL = _oldLL; // LL is per method/location combination
 
-	if (!Methods[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return LL; } // chame gd hei ga
+	if (!Method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return LL; } // chame gd hei ga
 
 	std::vector<double> phi = _calculatePhi();
-	for (size_t ij = 0; ij < _numMethLoc; ++ij) {
-		auto [m_ix, l_ix] = _getMethAndLocIndex(ij, Methods);
-		if (m_ix != i) { continue; } // chame gd witer ga
-
-		const auto &m          = Methods[m_ix];
-		const auto &loc        = m[l_ix];
-		size_t index_in_counts = m.getIndexInCounts(_speciesIDinUniqueContainer);
+	for (size_t j = 0; j < Method.size(); ++j) { // loop over locations
+		const auto &loc        = Method[j];
+		size_t index_in_counts = Method.getIndexInCounts(_speciesIDinUniqueContainer);
 		std::vector sigma      = _calcSigma(loc, phi);
 		std::vector<double> p  = sigma;
 		// now normalize by row sum!
 		coretools::normalize(p);
 		// calculate Likelihood
-		LL[ij] = _calculateLL(sigma, loc, p, index_in_counts, ij);
+		size_t ij = _i_j_to_linear[Method.method_id()][j];
+		LL[ij]    = _calculateLL(sigma, loc, p, index_in_counts, ij);
 	}
 	return LL;
 }
@@ -326,8 +341,8 @@ void TNegBinEpochModel::_updateMu(const std::vector<TMethods> &Methods) {
 		// pick two indices i to update
 		auto [c1, c2] = sampler.getIndexPair(c);
 
-		auto [m_ix_c1, l_ix_c1] = _getMethAndLocIndex(c1, Methods);
-		auto [m_ix_c2, l_ix_c2] = _getMethAndLocIndex(c2, Methods);
+		auto [m_ix_c1, l_ix_c1] = _linear_to_i_j[c1];
+		auto [m_ix_c2, l_ix_c2] = _linear_to_i_j[c2];
 		const auto &m1          = Methods[m_ix_c1];
 		const auto &m2          = Methods[m_ix_c2];
 		const auto &loc1        = m1[l_ix_c1];
@@ -361,7 +376,7 @@ void TNegBinEpochModel::_updateLogA(const std::vector<TMethods> &Methods) {
 		std::vector<double> phi = _calculatePhi();
 		std::vector<double> newLL(_numMethLoc);
 		for (size_t ij = 0; ij < _numMethLoc; ++ij) {
-			auto [m_ix, l_ix]      = _getMethAndLocIndex(ij, Methods);
+			auto [m_ix, l_ix]      = _linear_to_i_j[ij];
 			const auto &m          = Methods[m_ix];
 			const auto &loc        = m[l_ix];
 			std::vector sigma      = _calcSigma(loc, phi);
@@ -387,7 +402,7 @@ void TNegBinEpochModel::_estimateInitialMu(const std::vector<TMethods> &Methods)
 	// initialize mu: relative nu's
 	std::vector<double> nus(_numMethLoc);
 	for (size_t c = 0; c < _numMethLoc; ++c) {
-		auto [m_id, l_id] = _getMethAndLocIndex(c, Methods);
+		auto [m_id, l_id] = _linear_to_i_j[c];
 		nus[c]            = std::max(coretools::UnsignedInt<uint32_t>(1),
 		                             Methods[m_id][l_id].nu(Methods[m_id].getIndexInCounts(
                               _speciesIDinUniqueContainer))); // do not allow 0: problem for Dirichlet

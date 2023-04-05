@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+class TEpochModel;
+
 //-------------------------------------------
 // TTimepoints
 //-------------------------------------------
@@ -36,7 +38,7 @@ public:
 	// setters
 	void setTimepoint(size_t timepointToAdd);
 
-	void setEffort(TypeEffort effortToAdd);
+	void setCovariate(size_t c, TypeCovariate Covariate);
 
 	void write(coretools::TOutputFile &File, std::string location, const TUniqueContainer<size_t> &Timepoints) const;
 
@@ -50,15 +52,12 @@ public:
 	size_t timepoint_id() const;
 
 	// update effort
-	void initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void initializeEffort(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
 	void updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c);
 	void resetEffort();
 
-	// functions for simulating effort
-	template<class Object> void simulateEffort(Object obj) {
-		_effort = obj.sample();
-		if (_covariates.size() == 1) { _covariates[0] = _effort; } // TODO is this correct
-	}
+	// functions for simulating covariates
+	template<class Object> void simulateCovariate(size_t c, Object obj) { _covariates[c] = obj.sample(); }
 
 	// functions for simulating under Poisson model
 	void simulatePoisson(size_t N0, double phi, double detectionProbs);
@@ -114,13 +113,13 @@ public:
 	std::vector<TTimepoints>::iterator end();
 
 	// update effort
-	void initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void initializeEffort(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
 	void updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c);
 	void resetEffort();
 
 	// functions for simulating effort
-	template<class Object> void simulateEffort(Object obj) {
-		for (auto &timepoint : _timepoints) { timepoint.simulateEffort(obj); }
+	template<class Object> void simulateCovariate(size_t c, Object obj) {
+		for (auto &timepoint : _timepoints) { timepoint.simulateCovariate(c, obj); }
 	}
 
 	// functions for simulating under Poisson model
@@ -139,21 +138,30 @@ public:
 class TMethods {
 private:
 	std::string _methodName;
-	std::vector<double> _beta;
-	std::vector<TLocations> _locations;
 	size_t _method_id;
+
+	std::vector<TLocations> _locations;
+
 	std::vector<size_t> _covariateIDsinUniqueContainer;
 	// variables to identify correct species in epoch model
 	std::vector<size_t> _speciesIDsinUniqueContainer;
 	std::vector<bool> _hasDataForSpeciesID;
 	std::vector<size_t> _indexInCounts;
 
-	template<class Distribution> void _simulateEffort(const std::string &Params) {
+	// beta (regression coefficients)
+	std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> _beta;
+
+	// update functions for beta
+	void _updateBeta(size_t c, const std::vector<std::unique_ptr<TEpochModel>> &EpochModels);
+
+	void _simulateOneCovariate(size_t c, const std::string &Cov);
+	std::vector<std::string> _splitVecWithDistributions(const std::string &Input);
+	template<class Distribution> void _simulateCovariateFromDistribution(size_t c, const std::string &Params) {
 		Distribution distr(Params);
-		for (size_t i = 0; i < size(); i++) { _locations[i].simulateEffort(distr); }
+		for (size_t i = 0; i < size(); i++) { _locations[i].simulateCovariate(c, distr); }
 	}
 
-	void _simulateEffort();
+	void _simulateCovariate();
 	std::pair<size_t, size_t>
 	_getIndexInDetectionProbabilitiesToSimulate(const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
 	                                            const TUniqueContainer<std::string> &locations, size_t i);
@@ -164,9 +172,13 @@ public:
 	                  const std::vector<std::size_t> &covariateIDsinUniqueContainer);
 
 	TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
-	         const std::vector<size_t> &species_ids, const std::vector<std::size_t> &covariateIDsinUniqueContainer);
+	         const std::vector<size_t> &speciesIDsinUniqueContainer,
+	         const std::vector<std::size_t> &covariateIDsinUniqueContainer);
 
 	TMethods() = default;
+
+	// add parameters beta
+	void addBeta(std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
 
 	// add data
 	void add(const TTimepoints &pt, size_t location_id);
@@ -175,6 +187,7 @@ public:
 	void sorttimes(const std::vector<size_t> &index);
 	void checkEffortBiggerThanZero();
 	void fillIDVectors(size_t totalSizeOfUniqueContainer);
+	void initializeEffort();
 
 	// getters
 	size_t size() const;
@@ -197,9 +210,9 @@ public:
 	std::vector<TLocations>::iterator end();
 
 	// update effort
-	void initializeEffort(const std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
-	void updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c);
-	void resetEffort();
+	void initializeInferred(const TUniqueContainer<std::string> &CovariateNames);
+	void estimateInitialBeta();
+	void updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &EpochModels);
 
 	// functions for simulating
 	void simulatePoisson(size_t N0, const std::vector<double> &phi,
