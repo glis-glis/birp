@@ -37,10 +37,14 @@ protected:
 
 	// simulate values
 	std::vector<size_t> _readN0FromCommandLine() const;
-	coretools::TMultiDimensionalStorage<double, 2> _readDetectionProbFile() const;
+	auto _readDetectionProbFile() const;
 	void _simulateUnderPrior(Storage *Data) override;
-	void _simulateFromFile();
-	void _simulateFromCommandLine();
+	void _simulateFromFile(const std::vector<size_t> &N0,
+	                       const std::tuple<std::vector<std::string>, std::vector<std::string>,
+	                                        std::vector<coretools::Probability>> &DetectionProbs);
+	void _simulateFromCommandLine(const std::vector<size_t> &N0,
+	                              const std::tuple<std::vector<std::string>, std::vector<std::string>,
+	                                               std::vector<coretools::Probability>> &DetectionProbs);
 
 public:
 	TBirpPrior() = default;

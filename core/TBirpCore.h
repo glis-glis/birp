@@ -35,6 +35,7 @@ private:
 	stattools::TParameterTyped<TypeLogA, 1> _logA;
 
 	// covariates: regression coefficients
+	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeSigmaBeta, 1>>> _sigmaBeta;
 	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> _beta;
 
 	std::unique_ptr<stattools::TObservationTyped<TypeCounts, 2>> _data;

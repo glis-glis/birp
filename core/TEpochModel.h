@@ -79,9 +79,9 @@ public:
 	std::vector<double> calculateLLForBetaUpdate(const TMethods &Method) const;
 
 	virtual void simulate(std::vector<TMethods> &methods, size_t N0,
-	                      const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	                      const TUniqueContainer<std::string> &locations) = 0;
-	virtual void simulate(std::vector<TMethods> &methods)                 = 0;
+	                      std::tuple<std::vector<std::string>, std::vector<std::string>,
+	                                 std::vector<coretools::Probability>> &detectionProbs,
+	                      const TUniqueContainer<std::string> &locations, bool SimulateCovariates) = 0;
 
 	// get and set likelihoods
 	void setLLs(const std::vector<double> &LLs);
@@ -108,9 +108,9 @@ public:
 
 	// simulation
 	void simulate(std::vector<TMethods> &methods, size_t N0,
-	              const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	              const TUniqueContainer<std::string> &locations) override;
-	void simulate(std::vector<TMethods> &methods) override;
+	              std::tuple<std::vector<std::string>, std::vector<std::string>,
+	                         std::vector<coretools::Probability>> &detectionProbs,
+	              const TUniqueContainer<std::string> &locations, bool SimulateCovariates) override;
 };
 
 //--------------------------------
@@ -135,7 +135,7 @@ protected:
 	void _estimateInitialMu(const std::vector<TMethods> &Methods);
 
 	// simulate
-	double _simulate(TMethods &Method);
+	double _setAForSimulation();
 
 public:
 	TNegBinEpochModel(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
@@ -151,9 +151,9 @@ public:
 
 	// simulate
 	void simulate(std::vector<TMethods> &methods, size_t N0,
-	              const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	              const TUniqueContainer<std::string> &locations) override;
-	void simulate(std::vector<TMethods> &methods) override;
+	              std::tuple<std::vector<std::string>, std::vector<std::string>,
+	                         std::vector<coretools::Probability>> &detectionProbs,
+	              const TUniqueContainer<std::string> &locations, bool SimulateCovariates) override;
 };
 
 #endif // BIRP_TEPOCHMODEL_H

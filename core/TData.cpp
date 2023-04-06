@@ -4,6 +4,7 @@
 
 #include "TData.h"
 #include "TEpochModel.h"
+#include "stattools/ParametersObservations/TIndexSampler.h"
 #include <regex>
 
 //-------------------------------------------
@@ -50,20 +51,18 @@ TTimepoints::TTimepoints(const std::vector<TypeCounts> &countVec, const std::vec
 TTimepoints::TTimepoints(size_t timepoint_id, size_t numSpecies, size_t numCovariates) {
 	_timepoint_id = timepoint_id;
 	_counts_per_species.resize(numSpecies);
-	_covariates.resize(numCovariates);
+	_covariates.resize(numCovariates); // without intercept (will be added later)
 }
 
-std::vector<TypeCovariate> TTimepoints::covariates() { return _covariates; }
+std::vector<TypeCovariate> TTimepoints::covariates() const { return _covariates; }
 
 size_t TTimepoints::numSpecies() const { return _counts_per_species.size(); }
 
 TypeCounts TTimepoints::counts_per_species(size_t species_id) const { return _counts_per_species[species_id]; }
 
-TypeEffort TTimepoints::effort() const {
-	return _effort;
-}
+TypeEffort TTimepoints::effort() const { return _effort; }
 
-TypeEffort TTimepoints::effort_old() { return _effort_old; }
+TypeEffort TTimepoints::effort_old() const { return _effort_old; }
 
 size_t TTimepoints::timepoint_id() const { return _timepoint_id; }
 
@@ -71,23 +70,33 @@ void TTimepoints::setTimepoint(size_t timepointToAdd) { _timepoint_id = timepoin
 
 void TTimepoints::setCovariate(size_t c, TypeCovariate Covariate) { _covariates[c] = Covariate; }
 
+bool TTimepoints::inferEffort() const { return _covariates.size() > 2; } // intercept + covariate
+
+void TTimepoints::standardizeCovariatesAndAddIntercept(TypeCovariate Min, TypeCovariate Max) {
+	for (auto &cov : _covariates) { cov = 1.0 + (cov - Min) / (Max - Min); } // squeeze between [1,2]
+	_covariates.insert(_covariates.begin(), 1.0);                            // add intercept
+}
+
 void TTimepoints::initializeEffort(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
-	if (_covariates.size() == 1) {
-		_effort = _covariates[0];
-	} else {
+	if (inferEffort()) {
 		// calculate s_{ijk} = sum_{c=1}^C x_{ijkc} * beta_{ic}
 		_effort = 0.0;
 		for (size_t c = 0; c < _covariates.size(); ++c) { _effort += _covariates[c] * Beta->value(c); }
+	} else {
+		_effort = _covariates[1]; // _covariates[0] = intercept -> do not take this one
 	}
 	_effort_old = _effort;
 }
 
-void TTimepoints::updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c) {
+void TTimepoints::updateEffort(TypeBeta NewBeta_c1, TypeBeta OldBeta_c1, TypeBeta NewBeta_c2, TypeBeta OldBeta_c2,
+                               size_t c1, size_t c2) {
 	// remember current effort
-	_effort_old = _effort;
-	// update effort: no need to re-calculate sum over all beta, just update with difference
+	_effort_old      = _effort;
+	// update effort: no need to re-calculate sum over all beta, just update with difference for both beta
 	// s_{ijk}' = s_{ijk} + x_{ijkc} * (beta_{ic}' - beta_{ic})
-	_effort += _covariates[c] * (NewBeta - OldBeta);
+	double newEffort = (double)_effort + _covariates[c1] * ((double)NewBeta_c1 - (double)OldBeta_c1) +
+	                   _covariates[c2] * ((double)NewBeta_c2 - (double)OldBeta_c2); // do not violate Type range
+	_effort = newEffort;
 }
 
 void TTimepoints::resetEffort() {
@@ -97,10 +106,15 @@ void TTimepoints::resetEffort() {
 
 void TTimepoints::write(coretools::TOutputFile &File, std::string location,
                         const TUniqueContainer<size_t> &Timepoints) const {
-	File << location << Timepoints[_timepoint_id] << _counts_per_species << _covariates << coretools::endl;
+	File << location << Timepoints[_timepoint_id] << _counts_per_species;
+	// do not write intercept covariate
+	for (auto it = _covariates.begin() + 1; it != _covariates.end(); ++it) { File << *it; }
+	File << coretools::endl;
 }
 
-void TTimepoints::_simulatePoisson(double lambda) {
+void TTimepoints::simulatePoisson(size_t N0, double phi, double detectionProbs) {
+	coretools::Positive<double> lambda = (double)N0 * phi * detectionProbs;
+
 	lambda *= _effort;
 	if (lambda == 0.0) {
 		_counts_per_species[0] = 0;
@@ -108,13 +122,6 @@ void TTimepoints::_simulatePoisson(double lambda) {
 		_counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom((double)lambda);
 	}
 }
-
-void TTimepoints::simulatePoisson(size_t N0, double phi, double detectionProbs) {
-	coretools::Positive<double> lambda = (double)N0 * phi * detectionProbs;
-	_simulatePoisson(lambda);
-}
-
-void TTimepoints::simulatePoisson(double phi) { _simulatePoisson(phi); }
 
 void TTimepoints::simulateNB(double phi, double a, double mu_ij) {
 	// first draw lambda from a Gamma distr and then from there draw counts from Pois
@@ -128,12 +135,6 @@ void TTimepoints::simulateNB(double phi, double a, double mu_ij) {
 // TLocations
 //-------------------------------------------
 
-size_t TLocations::size() const { return _timepoints.size(); }
-
-TypeNu TLocations::nu(size_t species_id) const { return _nu[species_id]; }
-
-size_t TLocations::location_id() const { return _location_id; }
-
 TLocations::TLocations(const TTimepoints &pt, size_t location_id) {
 	_location_id = location_id;
 	add(pt);
@@ -143,6 +144,12 @@ TLocations::TLocations(size_t location_id, size_t TimepointSize, size_t numSpeci
 	_location_id = location_id;
 	for (size_t t = 0; t < TimepointSize; t++) { _timepoints.emplace_back(t, numSpecies, numCovariates); }
 }
+
+size_t TLocations::size() const { return _timepoints.size(); }
+
+TypeNu TLocations::nu(size_t species_id) const { return _nu[species_id]; }
+
+size_t TLocations::location_id() const { return _location_id; }
 
 const TTimepoints &TLocations::operator[](const size_t index) const { return _timepoints[index]; }
 
@@ -196,8 +203,11 @@ void TLocations::initializeEffort(const std::shared_ptr<stattools::TParameterTyp
 	for (auto &timepoint : _timepoints) { timepoint.initializeEffort(Beta); }
 }
 
-void TLocations::updateEffort(TypeBeta NewBeta, TypeBeta OldBeta, size_t c) {
-	for (auto &timepoint : _timepoints) { timepoint.updateEffort(NewBeta, OldBeta, c); }
+void TLocations::updateEffort(TypeBeta NewBeta_c1, TypeBeta OldBeta_c1, TypeBeta NewBeta_c2, TypeBeta OldBeta_c2,
+                              size_t c1, size_t c2) {
+	for (auto &timepoint : _timepoints) {
+		timepoint.updateEffort(NewBeta_c1, OldBeta_c1, NewBeta_c2, OldBeta_c2, c1, c2);
+	}
 }
 
 void TLocations::resetEffort() {
@@ -206,10 +216,6 @@ void TLocations::resetEffort() {
 
 void TLocations::simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs) {
 	for (size_t t = 0; t < _timepoints.size(); t++) { _timepoints[t].simulatePoisson(N0, phi[t], detectionProbs); }
-}
-
-void TLocations::simulatePoisson(const std::vector<double> &phi) {
-	for (size_t t = 0; t < _timepoints.size(); t++) { _timepoints[t].simulatePoisson(phi[t]); }
 }
 
 void TLocations::simulateNB(const std::vector<double> &phi, double a, double mu_ij) {
@@ -233,10 +239,10 @@ TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t Ti
     : _methodName(methodName), _method_id(index), _covariateIDsinUniqueContainer(covariateIDsinUniqueContainer),
       _speciesIDsinUniqueContainer(speciesIDsinUniqueContainer) { // simulate
 
-	_locations.resize(locationSize);
+	_locations.reserve(locationSize);
 	for (size_t i = 0; i < locationSize; i++) {
 		_locations.emplace_back(i, TimepointSize, _speciesIDsinUniqueContainer.size(),
-		                        covariateIDsinUniqueContainer.size());
+		                        covariateIDsinUniqueContainer.size() - 1); // do not add intercept yet
 	}
 }
 
@@ -252,6 +258,30 @@ void TMethods::add(const TTimepoints &pt, size_t location_id) {
 		}
 	}
 	if (!dataPointExists) { _locations.emplace_back(pt, location_id); }
+}
+
+std::pair<TypeCovariate, TypeCovariate> TMethods::_getMinMaxCovariates() const {
+	TypeCovariate overallMin = TypeCovariate::max(); // initialize to largest possible value
+	TypeCovariate overallMax = TypeCovariate::min(); // initialize to possible possible value
+	for (const auto &loc : _locations) {
+		for (size_t t = 0; t < loc.size(); ++t) {
+			const auto &cov = loc[t].covariates();
+			// update min
+			const auto min  = *std::min_element(cov.begin(), cov.end());
+			if (min < overallMin) { overallMin = min; }
+			// update max
+			const auto max = *std::max_element(cov.begin(), cov.end());
+			if (max > overallMax) { overallMax = max; }
+		}
+	}
+	return {overallMin, overallMax};
+}
+
+void TMethods::standardizeCovariatesAndAddIntercept() {
+	auto [min, max] = _getMinMaxCovariates();
+	for (auto &loc : _locations) {
+		for (auto &timepoint : loc) { timepoint.standardizeCovariatesAndAddIntercept(min, max); }
+	}
 }
 
 void TMethods::fillIDVectors(size_t totalSizeOfUniqueContainer) {
@@ -272,6 +302,8 @@ void TMethods::sorttimes(const std::vector<size_t> &sortingIndex) {
 }
 
 void TMethods::initializeEffort() {
+	_beta->normalizeToSum1AfterUpdate();
+
 	// initialize effort
 	for (auto &location : _locations) { location.initializeEffort(_beta); }
 }
@@ -281,6 +313,7 @@ const std::string &TMethods::name() const { return _methodName; }
 
 size_t TMethods::method_id() const { return _method_id; }
 size_t TMethods::numCovariates() const { return _covariateIDsinUniqueContainer.size(); }
+bool TMethods::inferEffort() const { return _covariateIDsinUniqueContainer.size() > 2; }
 
 bool TMethods::hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const {
 	return _hasDataForSpeciesID[speciesIDinUniqueContainer];
@@ -345,66 +378,83 @@ void TMethods::_simulateCovariate() {
 	std::string effortString = instances::parameters().getParameterWithDefault("covariates", "Poisson(1000)");
 	if (str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
-		for (size_t c = 0; c < numCovariates(); ++c) { _simulateOneCovariate(c, effortString); }
+		for (size_t c = 0; c < numCovariates() - 1; ++c) { _simulateOneCovariate(c, effortString); }
 	} else if (str::stringContains(effortString, ',')) {
 		// cases 2 and 4: comma-separated string of numbers (case 2) or distributions (case 4) or both
 		std::vector<std::string> vec = _splitVecWithDistributions(effortString);
-		if (vec.size() != numCovariates()) {
+		if (vec.size() != numCovariates() - 1) { // ignore intercept
 			UERROR("The size of covariates provided with argument 'covariates' (", vec.size(),
 			       ") does not match the number of covariates (", numCovariates(), ").");
 		}
 		for (size_t c = 0; c < vec.size(); ++c) { _simulateOneCovariate(c, vec[c]); }
 	} else {
 		// case 3: use the same distribution for all covariates
-		for (size_t c = 0; c < numCovariates(); ++c) { _simulateOneCovariate(c, effortString); }
+		for (size_t c = 0; c < numCovariates() - 1; ++c) { _simulateOneCovariate(c, effortString); }
 	}
+
+	// standarize covariates
+	standardizeCovariatesAndAddIntercept();
+
 	// now that we have simulated all covariates: re-calculate effort
 	initializeEffort();
 }
 
 // function to simulate
-std::pair<size_t, size_t> TMethods::_getIndexInDetectionProbabilitiesToSimulate(
-    const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-    const TUniqueContainer<std::string> &locations, size_t i) {
-	std::string locName  = locations[_locations[i].location_id()];
-	std::string methName = _methodName;
-	size_t locIndex      = detectionProbs.getDimensionName(0)->getIndex(locName);
-	size_t methIndex     = detectionProbs.getDimensionName(1)->getIndex(methName);
-	return {locIndex, methIndex};
+coretools::Probability TMethods::_getDetectionProbability(
+    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
+    const TUniqueContainer<std::string> &locations, size_t j) {
+	// go over all entries of file with detection probabilities and find method/location combination
+
+	std::string locName = locations[_locations[j].location_id()];
+
+	const auto [methodNamesFromDetection, locationNamesFromDetection, probs] = detectionProbs;
+	for (size_t l = 0; l < methodNamesFromDetection.size(); ++l) {
+		if (methodNamesFromDetection[l] == _methodName && locationNamesFromDetection[l] == locName) { return probs[l]; }
+	}
+	UERROR("Could not find location '", locName, " within method ", _methodName,
+	       "' in file with detection probabilities!");
 }
 
-void TMethods::simulatePoisson(size_t N0, const std::vector<double> &phi,
-                               const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                               const TUniqueContainer<std::string> &locations) {
-	for (size_t i = 0; i < size(); i++) {
-		auto [locIndexInDetection, methIndexInDetection] =
-		    _getIndexInDetectionProbabilitiesToSimulate(detectionProbs, locations, i);
-		_locations[i].simulatePoisson(N0, phi, detectionProbs(locIndexInDetection, methIndexInDetection));
+void TMethods::_setBetaSingleCovariate() {
+	if (!inferEffort()) {
+		_beta->set(0, 0.0); // set intercept-beta to zero
+		_beta->set(1, 1.0); // set cov-beta to one
 	}
 }
 
-void TMethods::simulatePoisson(const std::vector<double> &phi) {
-	_simulateCovariate();
-	for (size_t i = 0; i < size(); i++) { _locations[i].simulatePoisson(phi); }
+void TMethods::simulatePoisson(
+    size_t N0, const std::vector<double> &phi,
+    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
+    const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
+	// simulate covariates, if necessary
+	_beta->normalizeToSum1AfterUpdate();
+	_setBetaSingleCovariate();
+
+	if (SimulateCovariates) { _simulateCovariate(); }
+
+	for (size_t j = 0; j < size(); j++) { // loop over all locations
+		auto delta = _getDetectionProbability(detectionProbs, locations, j);
+		_locations[j].simulatePoisson(N0, phi, delta);
+	}
 }
 
-std::vector<double> TMethods::simulateNB(size_t N0, const std::vector<double> &phi,
-                                         const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                                         const TUniqueContainer<std::string> &locations, double A) {
+std::vector<double> TMethods::simulateNB(
+    size_t N0, const std::vector<double> &phi,
+    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
+    const TUniqueContainer<std::string> &locations, double A, bool SimulateCovariates) {
+	// simulate covariates, if necessary
+	_beta->normalizeToSum1AfterUpdate();
+	_setBetaSingleCovariate();
+
+	if (SimulateCovariates) { _simulateCovariate(); }
+
 	std::vector<double> mus(_locations.size());
-	for (size_t i = 0; i < size(); i++) {
-		auto [locIndexInDetection, methIndexInDetection] =
-		    _getIndexInDetectionProbabilitiesToSimulate(detectionProbs, locations, i);
-		mus[i] = (double)N0 * detectionProbs(locIndexInDetection, methIndexInDetection);
-		_locations[i].simulateNB(phi, A, mus[i]);
+	for (size_t j = 0; j < size(); j++) { // loop over all locations
+		auto delta = _getDetectionProbability(detectionProbs, locations, j);
+		mus[j]     = (double)N0 * delta;
+		_locations[j].simulateNB(phi, A, mus[j]);
 	}
 	return mus;
-}
-
-void TMethods::simulateNB(const std::vector<double> &phi, double a, const std::vector<double> &mu,
-                          bool SimulateEffort) {
-	if (SimulateEffort) { _simulateCovariate(); }
-	for (size_t i = 0; i < size(); i++) { _locations[i].simulateNB(phi, a, mu[i]); }
 }
 
 void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
@@ -426,28 +476,33 @@ void TMethods::estimateInitialBeta() {
 	// TODO: How to initialize beta?
 	// set initial value of all beta's to one
 	for (size_t c = 0; c < _beta->totalSize(); ++c) { _beta->setInitial(c, 1.0); }
+	_beta->normalizeToSum1AfterUpdate();
 	// set effort based on initial values of beta
 	initializeEffort();
-	if (numCovariates() == 1) { // if only a single covariate: do not update beta
+	if (!inferEffort()) { // if only a single covariate: do not update beta
+		_setBetaSingleCovariate();
 		_beta->setIsUpdated(false);
 	}
 }
 
-void TMethods::_updateBeta(size_t c, const std::vector<std::unique_ptr<TEpochModel>> &EpochModels) {
+void TMethods::_updateBeta(size_t c1, size_t c2, const std::vector<std::unique_ptr<TEpochModel>> &EpochModels) {
 	// propose new value
-	if (c == 1) { return; }
-	if (!_beta->updateSpecificIndex(c)) { return; } // beta is not updated -> stop here
+	_beta->updatePairWiseSumOneVector(c1, c2);
+
 	// update effort for all locations and timepoints of current method
-	for (auto &location : _locations) { location.updateEffort(_beta->value(c), _beta->oldValue(c), c); }
+	for (auto &location : _locations) {
+		location.updateEffort(_beta->value(c1), _beta->oldValue(c1), _beta->value(c2), _beta->oldValue(c2), c1, c2);
+	}
 	// calculate Hastings ratio
-	double logRatio = _beta->getLogPriorRatio(c);
+	double logRatio = _beta->getLogPriorRatio(c1) + _beta->getLogPriorDensity(c2);
 	std::vector<std::vector<double>> LLs(EpochModels.size());
 	for (size_t s = 0; s < EpochModels.size(); ++s) {
 		LLs[s] = EpochModels[s]->calculateLLForBetaUpdate(*this);
 		logRatio += coretools::containerSum(LLs[s]) - coretools::containerSum(EpochModels[s]->oldLLs());
 	}
 	// decide if accept or reject
-	if (_beta->acceptOrReject(logRatio, c)) {
+	coretools::TRange range(c1, c2);
+	if (_beta->acceptOrReject(logRatio, range, c1)) {
 		// accepted: set likelihood in all epoch models
 		for (size_t s = 0; s < EpochModels.size(); ++s) { EpochModels[s]->setLLs(LLs[s]); }
 	} else {
@@ -457,7 +512,16 @@ void TMethods::_updateBeta(size_t c, const std::vector<std::unique_ptr<TEpochMod
 }
 
 void TMethods::updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &EpochModels) {
-	for (size_t c = 0; c < numCovariates(); ++c) { _updateBeta(c, EpochModels); }
+	if (!_beta->isUpdated()) { return; }
+
+	stattools::TIndexSampler sampler(numCovariates()); // draw random indices from range [0, numCovariates]
+	sampler.sampleIndices();
+
+	for (size_t c = 0; c < sampler.length(); ++c) {
+		// pick two indices i to update
+		auto [c1, c2] = sampler.getIndexPair(c);
+		_updateBeta(c1, c2, EpochModels);
+	}
 }
 
 //-------------------------------------------

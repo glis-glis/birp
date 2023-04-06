@@ -55,12 +55,24 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
             {Filename}) {
 
 	// create beta
-	// TODO: which prior on beta?
+	_sigmaBeta.resize(Methods->size());
 	_beta.resize(Methods->size());
 	for (size_t i = 0; i < Methods->size(); ++i) {
+		// create sigma beta (variance of Dirichlet prior on beta_i)
+		auto name_sigma_beta = "sigma_beta_" + (*Methods)[i].name();
+		auto prior_sigma_beta =
+		    std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigmaBeta, 1>>();
+		TParameterDefinition def_sigma_beta({Filename, "1"});
+		if (!(*Methods)[i].inferEffort()) { def_sigma_beta.update(false); }
+		_sigmaBeta[i] = std::make_shared<stattools::TParameterTyped<TypeSigmaBeta, 1>>(
+		    name_sigma_beta, prior_sigma_beta, def_sigma_beta);
+
+		// create beta
 		auto name  = "beta_" + (*Methods)[i].name();
-		auto prior = std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeBeta, 1>>();
-		TParameterDefinition def(Filename);
+		auto prior = std::make_shared<
+		    stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeBeta, 1, TypeSigmaBeta>>(
+		    _sigmaBeta[i].get());
+		TParameterDefinition def(Filename, readAlphaDirichlet("alpha_beta", CovariateNames->size(), 1.0));
 		_beta[i] = std::make_shared<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
 	}
 
@@ -83,6 +95,7 @@ TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::str
 	DAGBuilder.addToDAG({&_gamma, &_timesOfChange});
 	if (NegativeBinomial) { DAGBuilder.addToDAG({&_mu, &_sigmaMu, &_logA}); }
 	for (auto &b : _beta) { DAGBuilder.addToDAG(b.get()); }
+	for (auto &s : _sigmaBeta) { DAGBuilder.addToDAG(s.get()); }
 	DAGBuilder.addToDAG(_data.get());
 	DAGBuilder.buildDAG();
 }
@@ -202,8 +215,9 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	}
 
 	std::vector<std::string> covariateNames = _getSpeciesOrCovariateNames(infile, effortIndices);
-	std::vector<size_t> covariate_ids       = {};
-	for (const auto &name : covariateNames) { covariate_ids.push_back(_covariateNames.add(name)); }
+	covariateNames.insert(covariateNames.begin(), "intercept"); // add extra intercept covariate
+	std::vector<size_t> covariate_ids(covariateNames.size());
+	for (size_t c = 0; c < covariateNames.size(); ++c) { covariate_ids[c] = _covariateNames.add(covariateNames[c]); }
 
 	// add new method: name is derived from filename
 	std::string_view methodNameFull = Filename;
@@ -233,7 +247,11 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		// add timepoint to data, either in existing object or create new one
 		_methods.back().add(pt, location_id); // back: goes to last element
 	}
-	for (auto &m : _methods) { m.fillIDVectors(_speciesNames.size()); }
+
+	// standardize covariates
+	_methods.back().standardizeCovariatesAndAddIntercept();
+
+	_methods.back().fillIDVectors(_speciesNames.size());
 }
 
 void TBirpCore::_sortTimepoints() {
@@ -274,6 +292,7 @@ std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &met
 	}
 	// add covariate name to base header vector
 	for (const auto &covID : method.covariateIDsinUniqueContainer()) {
+		if (_covariateNames[covID] == "intercept") { continue; } // do not write intercept to file
 		header.push_back("cov_" + _covariateNames[covID]);
 	}
 	return header;
@@ -320,11 +339,12 @@ std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
 }
 
 std::vector<size_t> TBirpCore::_simulateCovNames() {
-	size_t numCovs = parameters().getParameterWithDefault("numCovariates", 1); // todo does this parameter exist?
-	std::vector<size_t> covariates_ids(numCovs);
-	for (size_t n = 0; n < numCovs; n++) {
-		covariates_ids[n] = _covariateNames.add(coretools::str::toString(n + 1));
-	}
+	size_t numCovs = parameters().getParameterWithDefault("numCovariates", 1);
+	if (numCovs == 0) { UERROR("Argument 'numCovariates' must be at least 1!"); }
+	// fill names and ids and add intercept
+	std::vector<size_t> covariates_ids(numCovs + 1);
+	covariates_ids[0] = _covariateNames.add("intercept");
+	for (size_t n = 1; n < numCovs + 1; n++) { covariates_ids[n] = _covariateNames.add(coretools::str::toString(n)); }
 	return covariates_ids;
 }
 

@@ -161,7 +161,6 @@ std::vector<double> TEpochModel::_calcSigma(const TLocations &loc, const std::ve
 	std::vector<double> sigma(loc.size());
 	for (size_t k = 0; k < loc.size(); k++) {
 		// calculate sigma and fill into p (will normalize later)
-		std::cout << "j = " << loc.location_id() << ", k = " << k << ": " << loc[k].effort() << std::endl;
 		sigma[k] = phi[k] * loc[k].effort();
 	}
 	return sigma;
@@ -236,9 +235,7 @@ void TEpochModel::_updateGamma(const std::vector<TMethods> &Methods) {
 void TEpochModel::update(const std::vector<TMethods> &Methods) { _updateGamma(Methods); }
 
 void TEpochModel::_setSimulatedGammaToZero() {
-	if (!_gamma->hasFixedInitialValue()) {
-		for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->set(g, 0.0); }
-	}
+	for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->setInitial(g, 0.0); }
 }
 
 void TEpochModel::setLLs(const std::vector<double> &LLs) { _oldLL = LLs; }
@@ -263,18 +260,15 @@ double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, c
 	return LL;
 }
 
-void TPoissonEpochModel::simulate(std::vector<TMethods> &methods, size_t N0,
-                                  const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                                  const TUniqueContainer<std::string> &locations) {
+void TPoissonEpochModel::simulate(
+    std::vector<TMethods> &methods, size_t N0,
+    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
+    const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
+	// set gammas to zero (if not specified otherwise)
 	_setSimulatedGammaToZero();
-	for (auto &method : methods) { method.simulatePoisson(N0, _calculatePhi(), detectionProbs, locations); }
-}
 
-void TPoissonEpochModel::simulate(std::vector<TMethods> &methods) {
-	_setSimulatedGammaToZero();
 	for (auto &method : methods) {
-		std::vector<double> phiTmp = _calculatePhi();
-		method.simulatePoisson(_calculatePhi());
+		method.simulatePoisson(N0, _calculatePhi(), detectionProbs, locations, SimulateCovariates);
 	}
 }
 
@@ -422,36 +416,29 @@ void TNegBinEpochModel::estimateInitialPriorParameters(const std::vector<TMethod
 	TEpochModel::estimateInitialPriorParameters(Methods);
 }
 
-double TNegBinEpochModel::_simulate(TMethods &Method) {
-	_setSimulatedGammaToZero();
-	if (!_logA->hasFixedInitialValue()) { _logA->set(log(Method.size())); }
+double TNegBinEpochModel::_setAForSimulation() {
+	_logA->setInitial(log(_numMethLoc));
 	// calculate a = exp(log(a))
 	const double a = exp(_logA->value());
 	return a;
 }
 
-void TNegBinEpochModel::simulate(std::vector<TMethods> &methods, size_t N0,
-                                 const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-                                 const TUniqueContainer<std::string> &locations) {
+void TNegBinEpochModel::simulate(
+    std::vector<TMethods> &methods, size_t N0,
+    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
+    const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
+	// set a and gamma (if not specified otherwise)
+	_setSimulatedGammaToZero();
+	double A = _setAForSimulation();
+
 	for (auto &method : methods) {
 		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
-		double A                = _simulate(method);
+
 		std::vector<double> phi = _calculatePhi();
 		// simulate mus based on detectionProb and a: will return a vector with length = numLocations
-		auto mus                = method.simulateNB(N0, phi, detectionProbs, locations, A);
+		auto mus                = method.simulateNB(N0, phi, detectionProbs, locations, A, SimulateCovariates);
 		coretools::normalize(mus);
 		for (size_t c = 0; c < method.size(); ++c) { _mu->set(c, mus[c]); }
-	}
-}
-
-void TNegBinEpochModel::simulate(std::vector<TMethods> &methods) {
-	for (auto &method : methods) {
-		double a = _simulate(method);
-		// collect values from _mu and store in vector of length numLocations
-		_mu->normalizeToSum1AfterUpdate();
-		std::vector<double> mu(method.size());
-		for (size_t c = 0; c < method.size(); ++c) { mu[c] = _mu->value(c); }
-		method.simulateNB(_calculatePhi(), a, mu, true);
 	}
 }
 

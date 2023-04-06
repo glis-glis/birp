@@ -78,59 +78,61 @@ double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 
 std::vector<size_t> TBirpPrior::_readN0FromCommandLine() const {
 	std::vector<size_t> N0;
-	std::vector<size_t> N0default = {100};
+	std::vector<size_t> N0default = {1000};
 	parameters().fillParameterIntoContainerWithDefault("N0", N0, ',', N0default);
+	if (N0.size() != _numSpecies) {
+		UERROR("Size of N0 (", N0.size(), ") does not match the number of species (", _numSpecies, ")!");
+	}
 	return N0;
 }
 
-coretools::TMultiDimensionalStorage<double, 2> TBirpPrior::_readDetectionProbFile() const {
+auto TBirpPrior::_readDetectionProbFile() const {
+	std::vector<std::string> methodNamesFromDetections;
+	std::vector<std::string> locationNamesFromDetections;
+	std::vector<coretools::Probability> detectionsProbs;
 	if (parameters().parameterExists("detectionProbFile")) {
 		// TODO are detection probabilities the same across all species or one file per species?
 		std::string filename = parameters().getParameterFilename("detectionProbFile");
 
-		auto locationNames = std::make_shared<coretools::TNamesStrings>();
-		auto methodNames   = std::make_shared<coretools::TNamesStrings>();
+		coretools::TInputFile file(filename, coretools::TFile_Filetype::header);
+		if (file.numCols() != 3 || file.header()[0] != "method" || file.header()[1] != "location" ||
+		    file.header()[3] != "detectionProbs") {
+			UERROR("Invalid header in file '", filename,
+			       "': Expected 3 columns with names 'method', 'location' and 'detectionsProbs'!");
+		}
 
-		// read file
-		coretools::TDataReaderBase<double, 2> reader;
-		size_t guessNumRows = 50; // doesn't matter, not too many anyways
-		coretools::TMultiDimensionalStorage<double, 2> detectionProbs;
-		reader.read(filename, &detectionProbs, {locationNames, methodNames}, {'\n', '\t'}, {true, true}, {0, 0},
-		            {false, false}, guessNumRows, coretools::colNames_multiline);
-		return detectionProbs;
+		std::vector<std::string> tmp;
+		while (file.read(tmp)) {
+			methodNamesFromDetections.push_back(tmp[0]);
+			locationNamesFromDetections.push_back(tmp[1]);
+			detectionsProbs.push_back(coretools::str::fromString<coretools::Probability>(tmp[2]));
+		}
 	} else {
-		coretools::TMultiDimensionalStorage<double, 2> storage({_locations->size(), _methods->size()});
-		storage.fill(1.0);
-		auto locationNames = std::make_shared<coretools::TNamesStrings>();
-		auto methodNames   = std::make_shared<coretools::TNamesStrings>();
-		for (const auto &location : *_locations) { locationNames->addName({location}); }
-		for (const auto &method : *_methods) { methodNames->addName({method.name()}); }
-		storage.setDimensionNames({locationNames, methodNames});
-		return storage;
+		// detectionProbFile is not given -> just create as many method/locations as there are and use default = 1.0
+		for (auto &method : *_methods) {
+			for (auto &loc : method) {
+				methodNamesFromDetections.push_back(method.name());
+				locationNamesFromDetections.push_back((*_locations)[loc.location_id()]);
+				detectionsProbs.emplace_back(1.0);
+			}
+		}
 	}
+	return std::make_tuple(methodNamesFromDetections, locationNamesFromDetections, detectionsProbs);
 }
 
 void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called when simulated
 	// first calculate effort
 	for (auto &method : *_methods) { method.initializeEffort(); }
 
-	if (parameters().parameterExists("simulationFile")) { // already read simulation parameters from file?
-		_simulateFromFile();
-	} else {
-		_simulateFromCommandLine();
-	}
-}
-
-void TBirpPrior::_simulateFromFile() {
 	auto detectionProbs = _readDetectionProbFile();
 	auto N0             = _readN0FromCommandLine();
-	for (size_t s = 0; s < _epochModel.size(); s++) {
-		_epochModel[s]->simulate(*_methods, N0[s], detectionProbs, *_locations);
-	}
-}
 
-void TBirpPrior::_simulateFromCommandLine() {
-	for (size_t s = 0; s < _epochModel.size(); s++) { _epochModel[s]->simulate(*_methods); }
+	// do we need to simulate covariates?
+	bool simulateCovariates = !parameters().parameterExists("simulationFile");
+
+	for (size_t s = 0; s < _epochModel.size(); s++) {
+		_epochModel[s]->simulate(*_methods, N0[s], detectionProbs, *_locations, simulateCovariates);
+	}
 }
 
 //------------------------------------
