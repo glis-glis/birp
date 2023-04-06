@@ -274,6 +274,9 @@ std::pair<TypeCovariate, TypeCovariate> TMethods::_getMinMaxCovariates() const {
 			if (max > overallMax) { overallMax = max; }
 		}
 	}
+	if (overallMin == overallMax){
+		UERROR("Error in standardizing covariates: all covariates have the same value (", overallMin, ").");
+	}
 	return {overallMin, overallMax};
 }
 
