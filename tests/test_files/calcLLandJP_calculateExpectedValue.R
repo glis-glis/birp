@@ -61,7 +61,11 @@ calcLLandJPforTest <- function(gamma, data, rho){
 set.seed(1000)
 # test 1
 gamma = c(-2,1.5)
-x <- simulate_birp(efforts = 100, gamma = gamma, times = 1:4, times.of.change = 2)
+# efforts now need to be normalized to lie between 1 and 2!
+eff <- matrix(c(100,110,90,80), ncol=4)
+eff <- (eff-min(eff))/(max(eff)-min(eff))+1
+x <- simulate_birp(efforts = eff, gamma = gamma, times = 1:4, times.of.change = 2)
+x$counts <- matrix(c(11,2,8,27),ncol=4) ## changing counts according to test file for c++
 data <- x
 # calc rho
 rho <- .calculateRho.birp_epochs(times = 1:4, times.of.change = 2)
@@ -69,8 +73,12 @@ rho <- .calculateRho.birp_epochs(times = 1:4, times.of.change = 2)
 calcLLandJPforTest(gamma=gamma, data = data, rho = rho)
 
 # test 2
+set.seed(1000)
 gamma = c(-1,1)
-x <- simulate_birp(efforts = 100, gamma = gamma, times = 1:10, times.of.change = 4)
+eff <- matrix(c(100,110,rep(100,8)), ncol=10)
+eff <- (eff-min(eff))/(max(eff)-min(eff))+1
+x <- simulate_birp(efforts = eff, gamma = gamma, times = 1:10, times.of.change = 4)
+x$counts <- matrix(c(32,16,7,3,2,13,28,108,247,735),ncol=10) ## changing counts according to test file for c++
 data <- x
 # calc rho
 rho <- .calculateRho.birp_epochs(times = 1:10, times.of.change = 4)
@@ -84,6 +92,8 @@ times.of.change = 3
 mu <- 1
 a <- 1
 effort <- rep(100,4)
+effort[2] <- 110
+
 rho <- .calculateRho.birp_epochs(1:4, times.of.change)
 # before taking the exponent, standardize logPhi so that the mean is zero (this is what we do in c++)
 logPhi <- rho %*% gamma

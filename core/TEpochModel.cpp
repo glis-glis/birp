@@ -256,7 +256,9 @@ double TPoissonEpochModel::_calculateLL(const std::vector<double> & /*sigma*/, c
                                         const std::vector<double> &p, size_t index_in_counts,
                                         size_t /*ix_linNumMethLoc*/) const {
 	double LL = 0.0;
-	for (size_t k = 0; k < loc.size(); k++) { LL += (double)loc[k].counts_per_species(index_in_counts) * log(p[k]); }
+	for (size_t k = 0; k < loc.size(); k++) {
+        LL += (double)loc[k].counts_per_species(index_in_counts) * log(p[k]);
+    }
 	return LL;
 }
 

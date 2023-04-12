@@ -34,9 +34,10 @@ public:
     std::unique_ptr<stattools::TParameterTyped<TypeGamma, 1>> gamma;
     std::shared_ptr<TPoissonEpochModelBridge> epochModel;
     std::unique_ptr<stattools::TParameterTyped<TypeTime, 1>> timesOfChange;
+    std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> beta;
 
     void initialize(const std::vector<size_t> &TimesOfChange, const TUniqueContainer<size_t> &Timepoints,
-                    const std::vector<TMethods> &Methods,
+                    std::vector<TMethods> &Methods,
                     std::vector<double> NewGamma = {}, std::vector<double> OldGamma = {}) {
         // this function is always called whenever a test is called TEST_F(TBirpPriorTest, ...)
         using namespace stattools::prior;
@@ -56,6 +57,15 @@ public:
                 std::make_shared<TPoissonEpochModelBridge>(gamma.get(),
                                                            timesOfChange.get()); // get(): unique pointer gets raw pointer
         epochModel->initializeInferred(Timepoints, {}, Methods);
+
+        std::vector<double> vals_beta = {1.0};
+        testing::initializeStorageParameter(beta, "beta", {1}, vals_beta, vals_beta);
+        std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> shared = std::move(beta);
+        for (auto &m: Methods) {
+            for (auto &loc: m) {
+                loc.initializeEffort(shared);
+            }
+        }
     }
 };
 
@@ -64,8 +74,9 @@ TEST_F(TEpochModelPoissonTest, _fillRho_easy1) {
     test._readFile("../tests/test_files/method_lookingForWolves.csv");
     test._sortTimepoints();
     auto times = test.timepoints();
+    auto methods = test.methods();
     std::vector<size_t> timesOfChange = {2018};
-    initialize(timesOfChange, times, test.methods());
+    initialize(timesOfChange, times, methods);
 
     // define expected 1D output vector (one row is one epoch)
     std::vector<std::vector<size_t>> outExp = {
@@ -83,8 +94,9 @@ TEST_F(TEpochModelPoissonTest, _fillRho_easy2) {
     test._readFile("../tests/test_files/method_lookingForFloesselhecht.csv");
     test._sortTimepoints();
     auto times = test.timepoints();
+    auto methods = test.methods();
     std::vector<size_t> timesOfChange = {2002};
-    initialize(timesOfChange, times, test.methods());
+    initialize(timesOfChange, times, methods);
 
     // define expected 1D output vector (one row is one epoch)
     std::vector<std::vector<size_t>> outExp = {{2000, 2001, 2002, 2002, 2002},
@@ -99,9 +111,10 @@ TEST_F(TEpochModelPoissonTest, _fillRho_TimesOfChange_same_as_times) {
     TBirpCoreBridge test;
     test._readFile("../tests/test_files/method_fossilExtraction_TOC_same_as_times.csv");
     auto times = test.timepoints();
+    auto methods = test.methods();
     test._sortTimepoints();
     std::vector<size_t> timesOfChange = {3, 7};
-    initialize(timesOfChange, times, test.methods());
+    initialize(timesOfChange, times, methods);
     // define expected 1D output vector (one row is one epoch)
     std::vector<std::vector<size_t>> outExp = {{1, 2, 3, 3, 3, 3, 3, 3, 3},
                                                {0, 0, 0, 1, 2, 3, 4, 4, 4},
@@ -117,8 +130,9 @@ TEST_F(TEpochModelPoissonTest, _fillRho_TimesOfChange_empty) {
     TBirpCoreBridge test;
     test._readFile("../tests/test_files/method_lureWithCake_TOC_empty.csv");
     auto times = test.timepoints();
+    auto methods = test.methods();
     std::vector<size_t> timesOfChange = {};
-    initialize(timesOfChange, times, test.methods());
+    initialize(timesOfChange, times, methods);
 
     EXPECT_EQ(timesOfChange.size(), 0);
 }
@@ -129,8 +143,9 @@ TEST_F(TEpochModelPoissonTest, _getEpochStarts_easy1) {
     TBirpCoreBridge test;
     test._readFile("../tests/test_files/method_loudYelling2.csv");
     auto times = test.timepoints();
+    auto methods = test.methods();
     std::vector<size_t> timesOfChange = {3, 8};
-    initialize(timesOfChange, times, test.methods());
+    initialize(timesOfChange, times, methods);
 
     // call function
     auto epochStarts = epochModel->_getEpochStarts(times);
@@ -155,8 +170,8 @@ TEST_F(TEpochModelPoissonTest, _calculateLLandJP_1) {
     initialize(timesOfChange, times, methods, NewGamma);
 
     // define expected result
-    double expectedLL = -52.768731;
-    double expectedJP = 4.420733;
+    double expectedLL = -53.208730;
+    double expectedJP = 4.837511;
     auto [LL, JP] = epochModel->_calculateLLandJP(methods);
     // call function
     EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL));
@@ -176,8 +191,8 @@ TEST_F(TEpochModelPoissonTest, _calculateLLandJP_2) {
     initialize(timesOfChange, times, methods, NewGamma);
 
     // define expected result
-    double expectedLL = -1422.29668;
-    double expectedJP = 12.89151;
+    double expectedLL = -1424.31159;
+    double expectedJP = 13.01153;
     auto [LL, JP] = epochModel->_calculateLLandJP(methods);
     // call function
     EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL));
@@ -216,10 +231,11 @@ public:
     std::unique_ptr<stattools::TParameterTyped<TypeMu, 1>> mu;
     std::unique_ptr<stattools::TParameterTyped<TypeLogA, 1>> logA;
     std::shared_ptr<TNegBinEpochModelBridge> epochModel;
-
+    std::unique_ptr<stattools::TParameterTyped<TypeBeta, 1>> beta; // for Madleinas HACK
 
     void initialize(const std::vector<size_t> &TimesOfChange, const TUniqueContainer<size_t> &Timepoints,
-                    const std::vector<TMethods> &Methods, const TUniqueContainer<std::string> &Locations, size_t numMethLoc,
+                    std::vector<TMethods> &Methods, const TUniqueContainer<std::string> &Locations,
+                    size_t numMethLoc,
                     std::vector<double> NewGamma = {}, std::vector<double> NewMu = {}, std::vector<double> NewLogA = {},
                     std::vector<double> OldGamma = {}, std::vector<double> OldMu = {},
                     std::vector<double> OldLogA = {}) {
@@ -245,7 +261,7 @@ public:
 
         // create mu
         if (OldMu.empty()) { OldMu.resize(numMethLoc, 1.0); }
-        if (NewMu.empty()) { NewMu.resize( numMethLoc, 1.0); }
+        if (NewMu.empty()) { NewMu.resize(numMethLoc, 1.0); }
         std::array<size_t, 1> dimensionsMu = {numMethLoc};
         testing::initializeStorageParameter(mu, "mu", dimensionsMu, OldMu, NewMu);
 
@@ -253,6 +269,17 @@ public:
                                                                mu.get(),
                                                                logA.get()); // get(): unique pointer gets raw pointer // TODO
         epochModel->initializeInferred(Timepoints, Locations, Methods);
+
+        // Madleinas HACK
+        std::vector<double> vals_beta = {1.0};
+        testing::initializeStorageParameter(beta, "beta", {1}, vals_beta, vals_beta);
+        std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> shared = std::move(beta);
+        for (auto &m: Methods) {
+            for (auto &loc: m) {
+                loc.initializeEffort(shared);
+            }
+        }
+
     }
 };
 
@@ -271,19 +298,20 @@ TEST_F(TEpochModelNegBinTest, _calculateLL) {
     initialize(timesOfChange, times, methods, locations, numMethLoc, NewGamma, NewMu);
     // define expected result
     // double expectedLL = -361.9808; this is from old test -> delete
-    double expectedLL = -108.7528;
+    double expectedLL = -112.6817;
     auto [LL, JP] = epochModel->_calculateLLandJP(methods);
     // call function
-    EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL));
+    EXPECT_FLOAT_EQ(expectedLL, coretools::containerSum(LL)); // lol
 }
 // TODO test JP in NB?
 
 // testing _getMethAndLocIndex
 TEST_F(TEpochModelNegBinTest, _getMethAndLocIndex) {
     TBirpCoreBridge test;
-    std::vector<std::string> filenames = {"/home/liam/git/birp_cpp2/tests/test_files/method_butterflies1.csv", "/home/liam/git/birp_cpp2/tests/test_files/method_butterflies2.csv",
+    std::vector<std::string> filenames = {"/home/liam/git/birp_cpp2/tests/test_files/method_butterflies1.csv",
+                                          "/home/liam/git/birp_cpp2/tests/test_files/method_butterflies2.csv",
                                           "/home/liam/git/birp_cpp2/tests/test_files/method_butterflies3.csv"};
-    for (const auto& name: filenames) {
+    for (const auto &name: filenames) {
         test._readFile(name);
     }
     auto methods = test.methods();
@@ -300,7 +328,8 @@ TEST_F(TEpochModelNegBinTest, _getMethAndLocIndex) {
         for (auto loc: m) {
             auto [m_id, l_id] = epochModel->_getMethAndLocIndex(counter, methods);
             // print out stuff
-            std::cout << "method: " << m.method_id() << " m_id: " << m_id << " loc: " << loc.location_id() << " l_id: " << l_id << std::endl;
+            //std::cout << "method: " << m.method_id() << " m_id: " << m_id << " loc: " << loc.location_id() << " l_id: "
+                     // << l_id << std::endl;
             // call function
             EXPECT_EQ(m_id, method_id_truthVec[counter]);
             EXPECT_EQ(l_id, location_id_truthVec[counter]);
