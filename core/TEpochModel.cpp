@@ -159,7 +159,7 @@ arma::mat TEpochModel::_calcFisherInfo(const std::vector<double> &p, const std::
 
 std::vector<double> TEpochModel::_calcSigma(const TLocations &loc, const std::vector<double> &phi) const {
 	std::vector<double> sigma(loc.size());
-	for (size_t k = 0; k < loc.size(); k++) {
+	for (size_t k = 0; k < loc.size(); k++) { // todo: is this ok? one location might not have all timepoints -> need to take phi of correct timepoint
 		// calculate sigma and fill into p (will normalize later)
 		sigma[k] = phi[k] * loc[k].effort();
 	}
