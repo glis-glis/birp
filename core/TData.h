@@ -235,4 +235,44 @@ public:
 	           const TUniqueContainer<size_t> &Timepoints) const;
 };
 
+//-------------------------------------------
+// TData
+//-------------------------------------------
+
+class TData {
+private:
+	std::vector<TMethods> _methods;
+
+	size_t _numSpecies;
+
+	std::vector<size_t> _numMethLoc; // per species
+
+	// indices (per species)
+	std::vector<std::vector<std::pair<size_t, size_t>>> _linear_to_i_j;
+	std::vector<std::vector<std::vector<size_t>>> _i_j_to_linear;
+
+	// fill indices
+	std::pair<size_t, size_t> _getMethAndLocIndex(size_t ij_index, size_t speciesID) const;
+	void _fillMethLocIndices();
+
+public:
+	TData();
+	virtual ~TData() = default;
+
+	void addMethod(const TMethods &Method);
+
+	// iterators
+	size_t size() const;
+	const TMethods &operator[](const size_t index) const;
+	std::vector<TMethods>::const_iterator cbegin() const;
+	std::vector<TMethods>::iterator begin();
+	std::vector<TMethods>::const_iterator cend() const;
+	std::vector<TMethods>::iterator end();
+
+	// getters
+	size_t numMethLoc(size_t SpeciesIDInUniqueContainer) const;
+	size_t i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t j) const;
+	const std::pair<size_t, size_t> &linear_to_i_j(size_t SpeciesIDInUniqueContainer, size_t linear) const;
+};
+
 #endif // BIRP_TDATA_H

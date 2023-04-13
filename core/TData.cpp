@@ -274,7 +274,7 @@ std::pair<TypeCovariate, TypeCovariate> TMethods::_getMinMaxCovariates() const {
 			if (max > overallMax) { overallMax = max; }
 		}
 	}
-	if (overallMin == overallMax){
+	if (overallMin == overallMax) {
 		UERROR("Error in standardizing covariates: all covariates have the same value (", overallMin, ").");
 	}
 	return {overallMin, overallMax};
@@ -525,6 +525,76 @@ void TMethods::updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &Epoch
 		auto [c1, c2] = sampler.getIndexPair(c);
 		_updateBeta(c1, c2, EpochModels);
 	}
+}
+
+//-------------------------------------------
+// TData
+//-------------------------------------------
+
+TData::TData(){
+
+};
+
+void TData::addMethod(const TMethods &Method) { _methods.emplace_back(Method); }
+
+std::pair<size_t, size_t> TData::_getMethAndLocIndex(size_t ij_index, size_t speciesID) const {
+	// returns the actual indices of specific method and location, not id in unique container.
+	size_t counter = 0;
+	for (size_t i = 0; i < _methods.size(); i++) {
+		if (_methods[i].hasDataForSpeciesID(speciesID)) {
+			if (counter + _methods[i].size() > ij_index) {
+				size_t j = ij_index - counter;
+				return {i, j};
+			}
+		}
+		counter += _methods[i].size();
+	}
+	DEVERROR("Did not find method and location index for species - this should not happen.");
+}
+
+void TData::_fillMethLocIndices() {
+	// fill linear to i_j
+	_linear_to_i_j.resize(_numSpecies);
+	for (size_t species = 0; species < _numSpecies; ++species) {
+		_linear_to_i_j[species].resize(_numMethLoc[species]);
+		for (size_t ij = 0; ij < _numMethLoc[species]; ++ij) {
+			_linear_to_i_j[species][ij] = _getMethAndLocIndex(ij, species);
+		}
+	}
+
+	// fill i_j to linear
+	_i_j_to_linear.resize(_numSpecies);
+	for (size_t species = 0; species < _numSpecies; ++species) {
+		_i_j_to_linear[species].resize(_methods.size());           // size = numMethods
+		for (size_t i = 0; i < _methods.size(); ++i) {
+			_i_j_to_linear[species][i].resize(_methods[i].size()); // size = numLocations of this method
+			for (size_t j = 0; j < _methods[i].size(); ++j) {
+				auto it =
+				    std::find(_linear_to_i_j[species].begin(), _linear_to_i_j[species].end(), std::make_pair(i, j));
+				_i_j_to_linear[species][i][j] = std::distance(_linear_to_i_j[species].begin(), it);
+			}
+		}
+	}
+}
+
+size_t TData::size() const { return _methods.size(); }
+
+const TMethods &TData::operator[](const size_t index) const { return _methods[index]; }
+
+std::vector<TMethods>::const_iterator TData::cbegin() const { return _methods.cbegin(); }
+
+std::vector<TMethods>::iterator TData::begin() { return _methods.begin(); }
+
+std::vector<TMethods>::const_iterator TData::cend() const { return _methods.cend(); }
+
+std::vector<TMethods>::iterator TData::end() { return _methods.end(); }
+
+size_t TData::numMethLoc(size_t SpeciesIDInUniqueContainer) const { return _numMethLoc[SpeciesIDInUniqueContainer]; }
+size_t TData::i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t j) const {
+	return _i_j_to_linear[SpeciesIDInUniqueContainer][i][j];
+}
+const std::pair<size_t, size_t> &TData::linear_to_i_j(size_t SpeciesIDInUniqueContainer, size_t linear) const {
+	return _linear_to_i_j[SpeciesIDInUniqueContainer][linear];
 }
 
 //-------------------------------------------

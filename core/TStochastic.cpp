@@ -35,6 +35,14 @@ void TGamma::initializeInferred(const TUniqueContainer<size_t> &Timepoints) {
 	_fillRho(Timepoints);
 }
 
+void TGamma::estimateInitialPriorParameters(TLikelihoodCalculator &LikelihoodCalculator) {
+	// TODO: something more sophisticated?
+	for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->set(g, 0.0); }
+
+	// set _oldLL and _oldJP
+	_oldJP = LikelihoodCalculator.calculateJeffreyPrior();
+}
+
 std::vector<size_t> TGamma::_getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const {
 	// return start of each epoch, including for a hypothetical epoch after the last epoch
 	assert(!Timepoints.empty());
@@ -72,11 +80,11 @@ coretools::StrictlyPositive<double> TGamma::calculateDeltaTime(size_t k) {
 	// todo: calculate t_k - t_{k-1}
 }
 
-void TGamma::updateGamma(TPhi &Phi, TLikelihoodCalculator &LikelihoodCalculator) {
+void TGamma::updateGamma(TPhi &Phi, TLikelihood &Likelihood) {
 	for (size_t m = 0; m < _numEpochs; m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma->updateSpecificIndex(m)) {
 			const double LLRatio       = Phi.calculateLLRatioForUpdateGamma();
-			const double newJP         = LikelihoodCalculator.calculateJeffreyPrior();
+			const double newJP         = Likelihood.calculateJeffreyPrior();
 			const double logPriorRatio = newJP - _oldJP; // in log
 
 			const double logH = LLRatio + logPriorRatio;
@@ -88,6 +96,13 @@ void TGamma::updateGamma(TPhi &Phi, TLikelihoodCalculator &LikelihoodCalculator)
 		}
 	}
 }
+
+void TGamma::_setSimulatedGammaToZero() {
+	for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->setInitial(g, 0.0); }
+}
+
+// getters for test functions
+size_t TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 
 //------------------------------------------
 // TPhi
@@ -158,7 +173,7 @@ void TPhi::swapTryCur() {
 	std::swap(_tryLogTransitionProbs, _curLogTransitionProbs);
 }
 
-void TPhi::_updatePhi(size_t j, size_t k, TLikelihoodCalculator &LikelihoodCalculator) {
+void TPhi::_updatePhi(size_t j, size_t k, TLikelihood &Likelihood) {
 	const auto &phi = _phi[j];
 	// propose a new value
 	phi->updateSpecificIndex(k);
@@ -167,7 +182,7 @@ void TPhi::_updatePhi(size_t j, size_t k, TLikelihoodCalculator &LikelihoodCalcu
 	const auto logRightNeighbour = _calculateLogTransitionProbability(j, k + 1);
 	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
 	// and k)
-	const auto LLRatio           = LikelihoodCalculator.calculateLLRatio(j, k);
+	const auto LLRatio           = Likelihood.calculateLLRatio(j, k);
 	const double logH            = LLRatio + logLeftNeighbour + logRightNeighbour - _curLogTransitionProbs[j][k] -
 	                    _curLogTransitionProbs[j][k + 1];
 	if (phi->acceptOrReject(logH, k)) {
@@ -178,16 +193,16 @@ void TPhi::_updatePhi(size_t j, size_t k, TLikelihoodCalculator &LikelihoodCalcu
 	}
 }
 
-void TPhi::_updatePhi(TLikelihoodCalculator &LikelihoodCalculator) {
+void TPhi::_updatePhi(TLikelihood &Likelihood) {
 	for (size_t j = 0; j < _phi.size(); ++j) { // loop over all locations
 		for (size_t k = 1; k < _phi[j]->totalSize(); ++k) {
 			// loop over all timepoints (ignore first, since this is always 1)
-			_updatePhi(j, k);
+			_updatePhi(j, k, Likelihood);
 		}
 	}
 }
 
-void TPhi::_updateSigma(TLikelihoodCalculator &LikelihoodCalculator) {
+void TPhi::_updateSigma(TLikelihood &Likelihood) {
 	// propose a new value
 	_sigma->update();
 
@@ -197,7 +212,7 @@ void TPhi::_updateSigma(TLikelihoodCalculator &LikelihoodCalculator) {
 		for (size_t k = 1; k < _phi[j]->totalSize(); ++k) {
 			_tryLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k);
 			logTransitionRatio += _tryLogTransitionProbs[j][k] - _curLogTransitionProbs[j][k];
-			LLRatio += LikelihoodCalculator.calculateLLRatio(j, k);
+			LLRatio += Likelihood.calculateLLRatio(j, k);
 		}
 	}
 
@@ -209,7 +224,7 @@ void TPhi::_updateSigma(TLikelihoodCalculator &LikelihoodCalculator) {
 	}
 }
 
-void TPhi::update(TLikelihoodCalculator &LikelihoodCalculator) {
-	_updatePhi(LikelihoodCalculator);
-	_updateSigma(LikelihoodCalculator)
+void TPhi::update(TLikelihood &Likelihood) {
+	_updatePhi(Likelihood);
+	_updateSigma(Likelihood)
 }

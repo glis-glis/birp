@@ -7,11 +7,13 @@
 
 #include "BirpTypes.h"
 #include "TData.h"
+#include "TDistributions.h"
 #include "coretools/Math/TMatrix.h"
 #include "stattools/ParametersObservations/TObservationTyped.h"
 #include "stattools/ParametersObservations/TParameterTyped.h"
 #include <armadillo>
 #include <vector>
+#include "TLikelihood.h"
 
 //------------------------------------------
 // TGamma
@@ -20,6 +22,7 @@
 class TPhi; // forward declaration
 
 class TGamma {
+	// yellow box
 protected:
 	// Birp parameters and co-variates
 	stattools::TParameterTyped<TypeGamma, 1> *_gamma        = nullptr;
@@ -46,7 +49,7 @@ public:
 	coretools::StrictlyPositive<double> calculateDelta(size_t k);
 	coretools::StrictlyPositive<double> calculateDeltaTime(size_t k);
 
-	void updateGamma(TPhi &Phi, TLikelihoodCalculator &LikelihoodCalculator);
+	void updateGamma(TPhi &Phi, TLikelihood &Likelihood);
 };
 
 //------------------------------------------
@@ -54,6 +57,7 @@ public:
 //------------------------------------------
 
 class TPhi {
+	// link between yellow and green box
 protected:
 	std::vector<stattools::TParameterTyped<TypePhi, 1> *> _phi; // vector over all locations
 	stattools::TParameterTyped<TypeSigma, 1> *_sigma = nullptr;
@@ -69,8 +73,8 @@ protected:
 	coretools::Positive<double> _calculateLogTransitionProbability(size_t j, size_t k) const;
 
 	// update functions
-	void _updatePhi(size_t j, size_t k, TLikelihoodCalculator &LikelihoodCalculator);
-	void _updateSigma(TLikelihoodCalculator &LikelihoodCalculator);
+	void _updatePhi(size_t j, size_t k, TLikelihood &Likelihood);
+	void _updateSigma(TLikelihood &Likelihood);
 
 public:
 	TPhi(std::vector<stattools::TParameterTyped<TypePhi, 1> *> Phi, stattools::TParameterTyped<TypeSigma, 1> *Sigma,
@@ -83,7 +87,22 @@ public:
 	double calculateLLRatioForUpdateGamma();
 	void swapTryCur();
 
-	void update(TLikelihoodCalculator &LikelihoodCalculator);
+	void update(TLikelihood &Likelihood);
+};
+
+//------------------------------------------
+// TStochastic
+//------------------------------------------
+
+class TStochastic {
+	// green box
+protected:
+	TPhi _phi;
+	TDistributionBase *_distr; // Poisson or negative binomial
+
+public:
+	TStochastic();
+	virtual ~TStochastic() = default;
 };
 
 #endif // BIRP_TSTOCHASTIC_H
