@@ -10,30 +10,36 @@
 using namespace coretools::instances;
 
 TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
-                       stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                       stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, std::string Prefix)
-    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _numSpecies(numSpecies), _out(std::move(Prefix)) {
+                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
+                       size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+                       stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
+                       std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix)
+    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _covariateNames(CovariateNames),
+      _numSpecies(numSpecies), _out(std::move(Prefix)) {
 	// constructor for Poisson model
 
-
 	addPriorParameter({Gamma, TimesOfChange});
+	for (auto &b : Beta) { addPriorParameter(b.get()); }
 	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
 	_epochModel.emplace_back(std::make_unique<TPoissonEpochModel>(Gamma, TimesOfChange));
+	for (size_t i = 0; i < _methods->size(); ++i) { (*_methods)[i].addBeta(Beta[i]); }
 }
 
 TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints, size_t numSpecies,
-                       stattools::TParameterTyped<TypeGamma, 1> *Gamma,
+                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
+                       size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                        stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                        stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
-                       std::string Prefix)
-    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _numSpecies(numSpecies), _out(std::move(Prefix)) {
+                       std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix)
+    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _covariateNames(CovariateNames),
+      _numSpecies(numSpecies), _out(std::move(Prefix)) {
 	// constructor for Negative Binomial model
 
 	addPriorParameter({Gamma, TimesOfChange, Mu, LogA});
+	for (auto &b : Beta) { addPriorParameter(b.get()); }
 	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
 	_epochModel.emplace_back(std::make_unique<TNegBinEpochModel>(Gamma, TimesOfChange, Mu, LogA));
+	for (size_t i = 0; i < _methods->size(); ++i) { (*_methods)[i].addBeta(Beta[i]); }
 }
 
 std::string TBirpPrior::name() const { return "birp"; }
@@ -45,9 +51,11 @@ void TBirpPrior::initializeInferred() {
 	for (size_t s = 0; s < _numSpecies; s++) {
 		_epochModel[s]->initializeInferred(*_timepoints, *_locations, *_methods);
 	}
+	for (auto &_method : *_methods) { _method.initializeInferred(*_covariateNames); }
 }
 
 void TBirpPrior::estimateInitialPriorParameters() {
+	for (auto &_method : *_methods) { _method.estimateInitialBeta(); }
 	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->estimateInitialPriorParameters(*_methods); }
 }
 
@@ -56,10 +64,10 @@ void TBirpPrior::estimateInitialPriorParameters() {
 
 void TBirpPrior::updateParams() {
 	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->update(*_methods); }
+	for (auto &_method : *_methods) { _method.updateBeta(_epochModel); }
 }
 
 double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
-	// TODO: is this correct for multi-species case?
 	double sum = 0.0;
 	for (size_t s = 0; s < _numSpecies; ++s) { sum += _epochModel[s]->calculateLL(*_methods); }
 	return sum;
@@ -70,56 +78,61 @@ double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 
 std::vector<size_t> TBirpPrior::_readN0FromCommandLine() const {
 	std::vector<size_t> N0;
-	std::vector<size_t> N0default = {100};
+	std::vector<size_t> N0default = {1000};
 	parameters().fillParameterIntoContainerWithDefault("N0", N0, ',', N0default);
+	if (N0.size() != _numSpecies) {
+		UERROR("Size of N0 (", N0.size(), ") does not match the number of species (", _numSpecies, ")!");
+	}
 	return N0;
 }
 
-coretools::TMultiDimensionalStorage<double, 2> TBirpPrior::_readDetectionProbFile() const {
+auto TBirpPrior::_readDetectionProbFile() const {
+	std::vector<std::string> methodNamesFromDetections;
+	std::vector<std::string> locationNamesFromDetections;
+	std::vector<coretools::Probability> detectionsProbs;
 	if (parameters().parameterExists("detectionProbFile")) {
 		// TODO are detection probabilities the same across all species or one file per species?
 		std::string filename = parameters().getParameterFilename("detectionProbFile");
 
-		auto locationNames = std::make_shared<coretools::TNamesStrings>();
-		auto methodNames   = std::make_shared<coretools::TNamesStrings>();
+		coretools::TInputFile file(filename, coretools::TFile_Filetype::header);
+		if (file.numCols() != 3 || file.header()[0] != "method" || file.header()[1] != "location" ||
+		    file.header()[3] != "detectionProbs") {
+			UERROR("Invalid header in file '", filename,
+			       "': Expected 3 columns with names 'method', 'location' and 'detectionsProbs'!");
+		}
 
-		// read file
-		coretools::TDataReaderBase<double, 2> reader;
-		size_t guessNumRows = 50; // doesn't matter, not too many anyways
-		coretools::TMultiDimensionalStorage<double, 2> detectionProbs;
-		reader.read(filename, &detectionProbs, {locationNames, methodNames}, {'\n', '\t'}, {true, true}, {0, 0},
-		            {false, false}, guessNumRows, coretools::colNames_multiline);
-		return detectionProbs;
+		std::vector<std::string> tmp;
+		while (file.read(tmp)) {
+			methodNamesFromDetections.push_back(tmp[0]);
+			locationNamesFromDetections.push_back(tmp[1]);
+			detectionsProbs.push_back(coretools::str::fromString<coretools::Probability>(tmp[2]));
+		}
 	} else {
-		coretools::TMultiDimensionalStorage<double, 2> storage({_locations->size(), _methods->size()});
-		storage.fill(1.0);
-		auto locationNames = std::make_shared<coretools::TNamesStrings>();
-		auto methodNames   = std::make_shared<coretools::TNamesStrings>();
-		for (const auto &location : *_locations) { locationNames->addName({location}); }
-		for (const auto &method : *_methods) { methodNames->addName({method.name()}); }
-		storage.setDimensionNames({locationNames, methodNames});
-		return storage;
+		// detectionProbFile is not given -> just create as many method/locations as there are and use default = 1.0
+		for (auto &method : *_methods) {
+			for (auto &loc : method) {
+				methodNamesFromDetections.push_back(method.name());
+				locationNamesFromDetections.push_back((*_locations)[loc.location_id()]);
+				detectionsProbs.emplace_back(1.0);
+			}
+		}
 	}
+	return std::make_tuple(methodNamesFromDetections, locationNamesFromDetections, detectionsProbs);
 }
 
-void TBirpPrior::_simulateUnderPrior(Storage *) {         // this function gets called when simulated
-	if (parameters().parameterExists("simulationFile")) { // already read simulation parameters from file?
-		_simulateFromFile();
-	} else {
-		_simulateFromCommandLine();
-	}
-}
+void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called when simulated
+	// first calculate effort
+	for (auto &method : *_methods) { method.initializeEffort(); }
 
-void TBirpPrior::_simulateFromFile() {
 	auto detectionProbs = _readDetectionProbFile();
 	auto N0             = _readN0FromCommandLine();
-	for (size_t s = 0; s < _epochModel.size(); s++) {
-		_epochModel[s]->simulate(*_methods, N0[s], detectionProbs, *_locations);
-	}
-}
 
-void TBirpPrior::_simulateFromCommandLine() {
-	for (size_t s = 0; s < _epochModel.size(); s++) { _epochModel[s]->simulate(*_methods); }
+	// do we need to simulate covariates?
+	bool simulateCovariates = !parameters().parameterExists("simulationFile");
+
+	for (size_t s = 0; s < _epochModel.size(); s++) {
+		_epochModel[s]->simulate(*_methods, N0[s], detectionProbs, *_locations, simulateCovariates);
+	}
 }
 
 //------------------------------------

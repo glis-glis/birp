@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+class TEpochModel;
+
 //-------------------------------------------
 // TTimepoints
 //-------------------------------------------
@@ -19,11 +21,9 @@ class TTimepoints {
 private:
 	std::vector<TypeCovariate> _covariates;
 	std::vector<TypeCounts> _counts_per_species;
-	TypeEffort _effort     = 0; // TODO how to store effort and distinguish betewen covariate?
+	TypeEffort _effort     = 0;
 	TypeEffort _effort_old = 0;
 	size_t _timepoint_id   = 0;
-
-	void _simulatePoisson(double lambda);
 
 public:
 	TTimepoints() = default;
@@ -36,35 +36,31 @@ public:
 	// setters
 	void setTimepoint(size_t timepointToAdd);
 
-	void setEffort(TypeEffort effortToAdd);
+	void setCovariate(size_t c, TypeCovariate Covariate);
+	void standardizeCovariatesAndAddIntercept(TypeCovariate Min, TypeCovariate Max);
 
 	void write(coretools::TOutputFile &File, std::string location, const TUniqueContainer<size_t> &Timepoints) const;
 
 	// getters
-	std::vector<TypeCovariate> covariates();
-
+	std::vector<TypeCovariate> covariates() const;
 	size_t numSpecies() const;
-
 	TypeCounts counts_per_species(size_t species_id) const;
-
-	std::vector<size_t> species_id();
-
 	TypeEffort effort() const;
-
-	TypeEffort effort_old();
-
+	TypeEffort effort_old() const;
 	size_t timepoint_id() const;
+	bool inferEffort() const;
 
-	// functions for simulating effort
-	template<class Object> void simulateEffort(Object obj) {
-		_effort = obj.sample();
-		if (_covariates.size() == 1) { _covariates[0] = _effort; } // TODO is this correct
-	}
+	// update effort
+	void initializeEffort(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void updateEffort(TypeBeta NewBeta_c1, TypeBeta OldBeta_c1, TypeBeta NewBeta_c2, TypeBeta OldBeta_c2, size_t c1,
+	                  size_t c2);
+	void resetEffort();
+
+	// functions for simulating covariates
+	template<class Object> void simulateCovariate(size_t c, Object obj) { _covariates[c] = obj.sample(); }
 
 	// functions for simulating under Poisson model
 	void simulatePoisson(size_t N0, double phi, double detectionProbs);
-
-	void simulatePoisson(double phi);
 
 	// functions for simulating under Negative Binomial model
 	void simulateNB(double phi, double a, double mu_ij);
@@ -114,9 +110,15 @@ public:
 
 	std::vector<TTimepoints>::iterator end();
 
+	// update effort
+	void initializeEffort(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void updateEffort(TypeBeta NewBeta_c1, TypeBeta OldBeta_c1, TypeBeta NewBeta_c2, TypeBeta OldBeta_c2, size_t c1,
+	                  size_t c2);
+	void resetEffort();
+
 	// functions for simulating effort
-	template<class Object> void simulateEffort(Object obj) {
-		for (auto &timepoint : _timepoints) { timepoint.simulateEffort(obj); }
+	template<class Object> void simulateCovariate(size_t c, Object obj) {
+		for (auto &timepoint : _timepoints) { timepoint.simulateCovariate(c, obj); }
 	}
 
 	// functions for simulating under Poisson model
@@ -135,77 +137,102 @@ public:
 class TMethods {
 private:
 	std::string _methodName;
-	std::vector<double> _beta;
-	std::vector<TLocations> _locations;
 	size_t _method_id;
-	std::vector<std::string> _covariateNames;
+
+	std::vector<TLocations> _locations;
+
+	std::vector<size_t> _covariateIDsinUniqueContainer;
 	// variables to identify correct species in epoch model
 	std::vector<size_t> _speciesIDsinUniqueContainer;
 	std::vector<bool> _hasDataForSpeciesID;
 	std::vector<size_t> _indexInCounts;
 
-	template<class Distribution> void _simulateEffort(const std::string &Params) {
-		Distribution distr(Params);
-		for (size_t i = 0; i < size(); i++) { _locations[i].simulateEffort(distr); }
-	}
+	// beta (regression coefficients)
+	std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> _beta;
 
-	void _simulateEffort();
-	std::pair<size_t, size_t>
-	_getIndexInDetectionProbabilitiesToSimulate(const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	                                            const TUniqueContainer<std::string> &locations, size_t i);
+	// update functions for beta
+	void _updateBeta(size_t c1, size_t c2, const std::vector<std::unique_ptr<TEpochModel>> &EpochModels);
+
+	// standardize covariates
+	std::pair<TypeCovariate, TypeCovariate> _getMinMaxCovariates() const;
+	void _setBetaSingleCovariate();
+
+	// simulate
+	void _simulateOneCovariate(size_t c, const std::string &Cov);
+	std::vector<std::string> _splitVecWithDistributions(const std::string &Input);
+	template<class Distribution> void _simulateCovariateFromDistribution(size_t c, const std::string &Params) {
+		Distribution distr(Params);
+		for (size_t i = 0; i < size(); i++) { _locations[i].simulateCovariate(c, distr); }
+	}
+	void _simulateCovariate();
+	coretools::Probability _getDetectionProbability(std::tuple<std::vector<std::string>, std::vector<std::string>,
+	                                                           std::vector<coretools::Probability>> &detectionProbs,
+	                                                const TUniqueContainer<std::string> &locations, size_t j);
 
 public:
-	explicit TMethods(const std::string_view &methodName, size_t index, const std::vector<std::size_t> &species_id);
+	explicit TMethods(const std::string_view &methodName, size_t index,
+	                  const std::vector<std::size_t> &speciesIDsinUniqueContainer,
+	                  const std::vector<std::size_t> &covariateIDsinUniqueContainer);
 
 	TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
-	         const std::vector<size_t> &species_ids, const std::vector<std::string> &covariateNames);
+	         const std::vector<size_t> &speciesIDsinUniqueContainer,
+	         const std::vector<std::size_t> &covariateIDsinUniqueContainer);
 
 	TMethods() = default;
 
+	// add parameters beta
+	void addBeta(std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+
+	// add data
+	void add(const TTimepoints &pt, size_t location_id);
+
+	// finalize data filling
+	void sorttimes(const std::vector<size_t> &index);
+	void checkEffortBiggerThanZero();
+	void standardizeCovariatesAndAddIntercept();
 	void fillIDVectors(size_t totalSizeOfUniqueContainer);
+	void initializeEffort();
 
 	// getters
 	size_t size() const;
-	std::string methodName() const;
-	std::vector<std::string> covariateNames() const;
+	const std::string &name() const;
 	size_t method_id() const;
+	size_t numCovariates() const;
+	bool inferEffort() const;
+
+	// access counts and covariates
 	const std::vector<size_t> &speciesIDsinUniqueContainer() const;
+	const std::vector<size_t> &covariateIDsinUniqueContainer() const;
+	size_t covariateIDinUniqueContainer(size_t c) const;
 	bool hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const;
 	size_t getIndexInCounts(size_t speciesIDinUniqueContainer) const;
 
-	void add(const TTimepoints &pt, size_t location_id);
-
-	std::string name() const;
-
-	void sorttimes(const std::vector<size_t> &index);
-
-	void checkEffortBiggerThanZero();
-
-	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<size_t> &Timepoints) const;
-
+	// iterators
 	const TLocations &operator[](const size_t index) const { return _locations[index]; }
-
 	std::vector<TLocations>::const_iterator cbegin() const;
-
 	std::vector<TLocations>::iterator begin();
-
 	std::vector<TLocations>::const_iterator cend() const;
-
 	std::vector<TLocations>::iterator end();
+
+	// update effort
+	void initializeInferred(const TUniqueContainer<std::string> &CovariateNames);
+	void estimateInitialBeta();
+	void updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &EpochModels);
 
 	// functions for simulating
 	void simulatePoisson(size_t N0, const std::vector<double> &phi,
-	                     const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	                     const TUniqueContainer<std::string> &locations);
-
-	void simulatePoisson(const std::vector<double> &phi);
+	                     std::tuple<std::vector<std::string>, std::vector<std::string>,
+	                                std::vector<coretools::Probability>> &detectionProbs,
+	                     const TUniqueContainer<std::string> &locations, bool SimulateCovariates);
 
 	std::vector<double> simulateNB(size_t N0, const std::vector<double> &phi,
-	                               const coretools::TMultiDimensionalStorage<double, 2> &detectionProbs,
-	                               const TUniqueContainer<std::string> &locations, double A);
+	                               std::tuple<std::vector<std::string>, std::vector<std::string>,
+	                                          std::vector<coretools::Probability>> &detectionProbs,
+	                               const TUniqueContainer<std::string> &locations, double A, bool SimulateCovariates);
 
-	void simulateNB(const std::vector<double> &phi, double A, const std::vector<double> &Mu, bool SimulateEffort);
+	// writing
+	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+	           const TUniqueContainer<size_t> &Timepoints) const;
 };
 
 #endif // BIRP_TDATA_H

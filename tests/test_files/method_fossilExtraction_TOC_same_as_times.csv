@@ -1,10 +1,10 @@
 location,timepoint,counts_dinosaurs,cov_effort
 beach,1,46,1
-beach,2,5,1
-beach,3,6,1
+beach,2,5,2
+beach,3,6,3
 beach,4,26,1
-beach,5,32,1
-beach,6,27,1
+beach,5,32,2
+beach,6,27,3
 beach,7,18,1
-beach,8,17,1
-beach,9,29,1
+beach,8,17,2
+beach,9,29,3

@@ -1,2 +1,0 @@
-gamma_1	gamma_2	timesOfChange_1
--0.5	0.5	3
