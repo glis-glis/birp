@@ -129,12 +129,12 @@ void TStochastic::_updatePhi(size_t j, size_t k, const TData &Data, TLikelihood 
 	const auto logPriorRatio = _prior->calculateLogPriorRatio(j, k) + _prior->calculateLogPriorRatio(j, k + 1);
 	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
 	// and k)
-	const auto LLRatio       = Likelihood.calculateLLRatio(j, Data, *this, *_distr);
+	const auto LLRatio       = Likelihood.calculateLLRatio_perLocation(j, Data, *this, *_distr);
 	const double logH        = LLRatio + logPriorRatio;
 	if (_phi->acceptOrReject(logH, ix)) {
 		_prior->swapTryCur(j, k);
 		_prior->swapTryCur(j, k + 1);
-		// todo: tell LikelihoodCalculator that update was accepted??
+		Likelihood.swapTryCur_perLocation(j, Data);
 	}
 }
 
@@ -156,15 +156,15 @@ void TStochastic::_updateSigma(const TData &Data, TLikelihood &Likelihood) {
 	for (size_t j = 0; j < _phi->dimensions()[0]; ++j) { // loop over all locations
 		for (size_t k = 1; k < _phi[j].dimensions()[1]; ++k) {
 			logTransitionRatio += _prior->calculateLogPriorRatio(j, k);
-			LLRatio += Likelihood.calculateLLRatio(j, Data, *this, *_distr);
 		}
 	}
+	LLRatio = Likelihood.calculateLLRatio(Data, *this, *_distr);
 
 	const double logH = logTransitionRatio + LLRatio;
 	if (_sigma->acceptOrReject(logH, 0)) {
 		// accepted: update transition probabilities
 		_prior->swapTryCur();
-		// todo: tell LikelihoodCalculator that update was accepted??
+		Likelihood.swapTryCur();
 	}
 }
 

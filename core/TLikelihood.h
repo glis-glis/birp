@@ -37,29 +37,34 @@ class TLikelihood {
 private:
 	size_t _speciesIDinUniqueContainer = 0;
 
-	// temporary values, stored for speed
-	std::vector<double> _oldLL;
+	// temporary values of likelihood
+	std::vector<double> _tryLL;
+	std::vector<double> _curLL;
 
-	// likelihood
-	static std::vector<double> _calcSigma(const TLocations &loc, const TModelBase &Model);
+	// Fisher information
 	static arma::mat _calcFisherInfo(const TGamma &Gamma, const std::vector<double> &p,
 	                                 const std::vector<double> &sigma, TypeNu nu);
 
 protected:
 public:
-	TLikelihood(size_t SpeciesIDinUniqueContainer);
+	TLikelihood(size_t SpeciesIDinUniqueContainer, const TData &Data);
 	virtual ~TLikelihood() = default;
 
 	// calculate sigma
 	static std::vector<double> calculateSigma(const TLocations &loc, const TModelBase &Model);
 
 	double calculateJeffreyPrior(const TData &Data, const TGamma &Gamma, const TModelBase &Model) const;
-	double calculateLLRatio(const TData &Data, const TModelBase &Model, const TDistributionBase &Distribution) const;
-	double calculateLLRatio(size_t j, const TData &Data, const TModelBase &Model,
-	                        const TDistributionBase &Distribution) const;
+	double calculateLLRatio(const TData &Data, const TModelBase &Model, const TDistributionBase &Distribution);
+	double calculateLLRatio_perLocation(size_t j, const TData &Data, const TModelBase &Model,
+	                                    const TDistributionBase &Distribution);
 
-	std::vector<double> calculateLLForBetaUpdate(size_t i, const TData &Data, const TModelBase &Model,
-	                                             const TDistributionBase &Distribution) const;
+	double calculateLLRatio_perMethod(size_t i, const TData &Data, const TModelBase &Model,
+	                                  const TDistributionBase &Distribution);
+
+	void swapTryCur();
+	void swapTryCur_perLocation(size_t j, const TData &Data);
+	void swapTryCur_perMethod(size_t i, const TData &Data);
+
 	// get and set likelihoods
 	void setLLs(const std::vector<double> &LLs);
 	const std::vector<double> &oldLLs() const;

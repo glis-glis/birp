@@ -36,7 +36,7 @@ public:
 
 	TypePhi phi(size_t location_id, size_t timepoint_id) const override;
 
-	void updateGamma(const TData &Data, const TLikelihood &Likelihood);
+	void updateGamma(const TData &Data, TLikelihood &Likelihood);
 };
 
 #endif // BIRP_TDETERMINISTIC_H

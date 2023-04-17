@@ -13,6 +13,9 @@
 
 class TEpochModel;
 class TModelBase;
+class TData;
+class TDistributionBase;
+class TLikelihood;
 
 //-------------------------------------------
 // TTimepoints
@@ -150,8 +153,8 @@ private:
 	std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> _beta;
 
 	// update functions for beta
-	void _updateBeta(size_t c1, size_t c2, const std::vector<std::unique_ptr<TEpochModel>> &EpochModels);
-
+	void _updateBeta(size_t c1, size_t c2, std::vector<TLikelihood> &Likelihoods, const TData &Data,
+	                 const std::vector<TModelBase> &Models, const std::vector<TDistributionBase> &Distributions);
 	// standardize covariates
 	std::pair<TypeCovariate, TypeCovariate> _getMinMaxCovariates() const;
 	void _setBetaSingleCovariate();
@@ -216,8 +219,8 @@ public:
 	// update effort
 	void initializeInferred(const TUniqueContainer<std::string> &CovariateNames);
 	void estimateInitialBeta();
-	void updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &EpochModels);
-
+	void updateBeta(std::vector<TLikelihood> &Likelihoods, const TData &Data, const std::vector<TModelBase> &Models,
+	                const std::vector<TDistributionBase> &Distributions);
 	// functions for simulating
 	void simulatePoisson(size_t N0, const TModelBase &Model,
 	                     std::tuple<std::vector<std::string>, std::vector<std::string>,

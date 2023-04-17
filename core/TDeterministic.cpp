@@ -26,16 +26,14 @@ void TDeterministic::_fillPhi() {
 
 TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id) const { return _phi[timepoint_id]; }
 
-void TDeterministic::updateGamma(const TData &Data, const TLikelihood &Likelihood) {
+void TDeterministic::updateGamma(const TData &Data, TLikelihood &Likelihood) {
 	for (size_t m = 0; m < _gamma->numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma->updateSpecificIndex(m)) {
 			const auto LLRatio         = Likelihood.calculateLLRatio(Data, *this, *_distr);
 			const double logPriorRatio = _gamma->getLogPriorRatio(Data, Likelihood, *this); // Jeffrey prior
 
 			const double logH = LLRatio + logPriorRatio;
-			if (_gamma->acceptOrReject(logH, m)) {
-				// todo: tell Likelihood to update likelihood
-			}
+			if (_gamma->acceptOrReject(logH, m)) { Likelihood.swapTryCur(); }
 		}
 	}
 }

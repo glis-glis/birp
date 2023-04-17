@@ -3,6 +3,7 @@
 //
 
 #include "TData.h"
+#include "TDistributions.h"
 #include "TEpochModel.h"
 #include "TLikelihood.h"
 #include "stattools/ParametersObservations/TIndexSampler.h"
@@ -493,7 +494,8 @@ void TMethods::estimateInitialBeta() {
 	}
 }
 
-void TMethods::_updateBeta(size_t c1, size_t c2, const std::vector<std::unique_ptr<TEpochModel>> &EpochModels) {
+void TMethods::_updateBeta(size_t c1, size_t c2, std::vector<TLikelihood> &Likelihoods, const TData &Data,
+                           const std::vector<TModelBase> &Models, const std::vector<TDistributionBase> &Distributions) {
 	// propose new value
 	_beta->updatePairWiseSumOneVector(c1, c2);
 
@@ -503,23 +505,22 @@ void TMethods::_updateBeta(size_t c1, size_t c2, const std::vector<std::unique_p
 	}
 	// calculate Hastings ratio
 	double logRatio = _beta->getLogPriorRatio(c1) + _beta->getLogPriorDensity(c2);
-	std::vector<std::vector<double>> LLs(EpochModels.size());
-	for (size_t s = 0; s < EpochModels.size(); ++s) {
-		LLs[s] = EpochModels[s]->calculateLLForBetaUpdate(*this);
-		logRatio += coretools::containerSum(LLs[s]) - coretools::containerSum(EpochModels[s]->oldLLs());
+	for (size_t s = 0; s < Likelihoods.size(); ++s) { // loop over species
+		logRatio += Likelihoods[s].calculateLLRatio_perMethod(method_id(), Data, Models[s], Distributions[s]);
 	}
 	// decide if accept or reject
 	coretools::TRange range(c1, c2);
 	if (_beta->acceptOrReject(logRatio, range, c1)) {
 		// accepted: set likelihood in all epoch models
-		for (size_t s = 0; s < EpochModels.size(); ++s) { EpochModels[s]->setLLs(LLs[s]); }
+		for (size_t s = 0; s < Likelihoods.size(); ++s) { Likelihoods[s].swapTryCur_perMethod(method_id(), Data); }
 	} else {
 		// rejected: re-set effort to old value before update
 		for (auto &location : _locations) { location.resetEffort(); }
 	}
 }
 
-void TMethods::updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &EpochModels) {
+void TMethods::updateBeta(std::vector<TLikelihood> &Likelihoods, const TData &Data,
+                          const std::vector<TModelBase> &Models, const std::vector<TDistributionBase> &Distributions) {
 	if (!_beta->isUpdated()) { return; }
 
 	stattools::TIndexSampler sampler(numCovariates()); // draw random indices from range [0, numCovariates]
@@ -528,7 +529,7 @@ void TMethods::updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &Epoch
 	for (size_t c = 0; c < sampler.length(); ++c) {
 		// pick two indices i to update
 		auto [c1, c2] = sampler.getIndexPair(c);
-		_updateBeta(c1, c2, EpochModels);
+		_updateBeta(c1, c2, Likelihoods, Data, Models, Distributions);
 	}
 }
 
