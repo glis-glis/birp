@@ -28,18 +28,17 @@ std::vector<double> TLikelihood::_calculatePhi() const {
 }
 */
 
-arma::mat TLikelihood::_calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma,
+arma::mat TLikelihood::_calcFisherInfo(TGamma *Gamma, const std::vector<double> &p, const std::vector<double> &sigma,
                                        TypeNu nu) const {
-	arma::mat R(p.size(), _numEpochs);
-	arma::mat RtP(_numEpochs, p.size());
+	arma::mat R(p.size(), Gamma->numEpochs());
+	arma::mat RtP(Gamma->numEpochs(), p.size());
 	for (size_t k = 0; k < p.size(); k++) {
-		for (size_t m = 0; m < _numEpochs; m++) {
+		for (size_t m = 0; m < Gamma->numEpochs(); m++) {
 			double denom       = 0.0;
 			double rhoSumSigma = 0.0;
 			for (size_t l = 0; l < p.size(); l++) {
 				denom += sigma[l];
-				rhoSumSigma += ((double)_rho(k, m) - (double)_rho(l, m)) *
-				               sigma[l]; // todo: needs access to "standard" rho -> how to get this?
+				rhoSumSigma += ((double)Gamma->rho(k, m) - (double)Gamma->rho(l, m)) * sigma[l];
 			}
 			denom     = denom * denom;
 			R(k, m)   = sigma[k] * rhoSumSigma / denom;
@@ -51,29 +50,26 @@ arma::mat TLikelihood::_calcFisherInfo(const std::vector<double> &p, const std::
 	return nu * tmp;
 }
 
-std::vector<double> TLikelihood::_calcSigma(const TLocations &loc, const std::vector<double> &phi) const {
+std::vector<double> TLikelihood::_calcSigma(const TLocations &loc, const TStochastic &Stochastic) const {
 	std::vector<double> sigma(loc.size());
-	for (size_t k = 0; k < loc.size();
-	     k++) { // todo: is this ok? one location might not have all timepoints -> need to take phi of correct timepoint
+	for (size_t k = 0; k < loc.size(); k++) {
 		// calculate sigma and fill into p (will normalize later)
-		sigma[k] = phi[k] * loc[k].effort();
+		sigma[k] = Stochastic.phi(loc.location_id(), loc[k].timepoint_id()) * loc[k].effort();
 	}
 	return sigma;
 }
 
-double TLikelihood::calculateJeffreyPrior(const TData &Data, size_t SpeciesIDinUniqueContainer,
+double TLikelihood::calculateJeffreyPrior(const TData &Data, TGamma *Gamma, size_t SpeciesIDinUniqueContainer,
                                           const TStochastic &Stochastic) const {
 	// used in update of gamma of stochastic model
-	arma::mat fisherInfo(_numEpochs, _numEpochs, arma::fill::zeros);
+	arma::mat fisherInfo(Gamma->numEpochs(), Gamma->numEpochs(), arma::fill::zeros);
 	size_t ix_linNumMethLoc = 0;
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
 		if (method.hasDataForSpeciesID(SpeciesIDinUniqueContainer)) {
 			size_t index_in_counts = method.getIndexInCounts(SpeciesIDinUniqueContainer);
 			for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
-				std::vector<double> phi =
-				    Stochastic.calculatePhi(l); // todo: is l the correct index? Not every method has every location!
-				std::vector sigma     = _calcSigma(method[l], phi);
+				std::vector sigma     = _calcSigma(l, method[l], Stochastic);
 				std::vector<double> p = sigma;
 				// now normalize by row sum!
 				coretools::normalize(p);
@@ -96,7 +92,7 @@ double TLikelihood::calculateLLRatio(const TData &Data, size_t j, size_t k, size
 		if (method.hasDataForSpeciesID(SpeciesIDinUniqueContainer)) {
 			size_t index_in_counts = method.getIndexInCounts(SpeciesIDinUniqueContainer);
 			for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
-				if (l != j) { continue; }
+				//if (l != j) { continue; }
 				std::vector<double> phi =
 				    Stochastic.calculatePhi(l); // todo: is l the correct index? Not every method has every location!
 				std::vector sigma     = _calcSigma(method[l], phi);

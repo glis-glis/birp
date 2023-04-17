@@ -14,6 +14,7 @@
 #include <vector>
 
 class TStochastic; // forward declaration
+class TGamma;
 
 //---------------------------------------
 // TLikelihood
@@ -28,7 +29,8 @@ protected:
 
 	// likelihood
 	std::vector<double> _calcSigma(const TLocations &loc, const std::vector<double> &phi) const;
-	arma::mat _calcFisherInfo(const std::vector<double> &p, const std::vector<double> &sigma, TypeNu nu) const;
+	arma::mat _calcFisherInfo(TGamma *Gamma, const std::vector<double> &p, const std::vector<double> &sigma,
+	                          TypeNu nu) const;
 
 public:
 	TLikelihood();
@@ -68,7 +70,7 @@ public:
 		return {LL, JP};
 	};
 
-	double calculateJeffreyPrior(const TData &Data, size_t SpeciesIDinUniqueContainer,
+	double calculateJeffreyPrior(const TData &Data, size_t SpeciesIDinUniqueContainer, TGamma *Gamma,
 	                             const TStochastic &Stochastic) const;
 	double calculateLLRatio(const TData &Data, size_t j, size_t k, size_t SpeciesIDinUniqueContainer,
 	                        TDistributionBase *Distribution, const TStochastic &Stochastic) const;

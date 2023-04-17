@@ -6,6 +6,7 @@
 #define BIRP_TDETERMINISTIC_H
 
 #include "TDistributions.h"
+#include "TGamma.h"
 #include "TLikelihood.h"
 
 //------------------------------------------
@@ -16,27 +17,14 @@ class TDeterministic {
 	// red box
 protected:
 	// gamma and times of change
-	stattools::TParameterTyped<TypeGamma, 1> *_gamma        = nullptr;
-	stattools::TParameterTyped<TypeTime, 1> *_timesOfChange = nullptr;
+	TGamma *_gamma = nullptr;
 
-	TDistributionBase *_distr;
+	TDistributionBase *_distr = nullptr;
 
-	// number of epochs
-	size_t _numEpochs = 0;
-
-	// rho
-	coretools::TMatrix<size_t> _rho;
-
-	// Jeffrey's prior
-	double _oldJP = 0.0;
-
-	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
-	std::vector<size_t> _getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const;
 	double _calculateLogPhi_k(size_t k) const;
 
 public:
-	TDeterministic(stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	               stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
+	TDeterministic(TGamma *Gamma);
 	virtual ~TDeterministic() = default;
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints);
