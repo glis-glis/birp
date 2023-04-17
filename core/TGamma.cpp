@@ -6,7 +6,6 @@
 
 #include "coretools/Main/TParameters.h"
 #include "coretools/Math/TProbabilityDistributions.h"
-#include <utility>
 
 using namespace coretools::instances;
 
@@ -35,12 +34,12 @@ void TGamma::initializeInferred(const TUniqueContainer<size_t> &Timepoints) {
 	_fillRho(Timepoints);
 }
 
-void TGamma::estimateInitialGamma(TLikelihood &Likelihood) {
+void TGamma::estimateInitialGamma(TLikelihood &Likelihood, const TData &Data, const TModelBase &Model) {
 	// TODO: something more sophisticated?
 	for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->set(g, 0.0); }
 
 	// set _oldLL and _oldJP
-	_curJP = Likelihood.calculateJeffreyPrior();
+	_curJP = Likelihood.calculateJeffreyPrior(Data, *this, Model);
 	_tryJP = _curJP;
 }
 
@@ -85,9 +84,9 @@ void TGamma::_setSimulatedGammaToZero() {
 
 bool TGamma::updateSpecificIndex(size_t m) { return _gamma->updateSpecificIndex(m); }
 
-double TGamma::getLogPriorRatio(TLikelihood &Likelihood) {
+double TGamma::getLogPriorRatio(const TData &Data, const TLikelihood &Likelihood, const TModelBase &Model) {
 	// -> prior on gamma: Jeffrey prior
-	_tryJP = Likelihood.calculateJeffreyPrior();
+	_tryJP = Likelihood.calculateJeffreyPrior(Data, *this, Model);
 	return _tryJP - _curJP;
 }
 

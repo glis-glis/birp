@@ -12,6 +12,7 @@
 #include <vector>
 
 class TEpochModel;
+class TModelBase;
 
 //-------------------------------------------
 // TTimepoints
@@ -122,12 +123,10 @@ public:
 	}
 
 	// functions for simulating under Poisson model
-	void simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs);
-
-	void simulatePoisson(const std::vector<double> &phi);
+	void simulatePoisson(size_t N0, const TModelBase &Model, double detectionProbs);
 
 	// functions for simulating under Negative Binomial model
-	void simulateNB(const std::vector<double> &phi, double a, double mu_ij);
+	void simulateNB(const TModelBase &Model, double a, double mu_ij);
 };
 
 //-------------------------------------------
@@ -220,12 +219,12 @@ public:
 	void updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &EpochModels);
 
 	// functions for simulating
-	void simulatePoisson(size_t N0, const std::vector<double> &phi,
+	void simulatePoisson(size_t N0, const TModelBase &Model,
 	                     std::tuple<std::vector<std::string>, std::vector<std::string>,
 	                                std::vector<coretools::Probability>> &detectionProbs,
 	                     const TUniqueContainer<std::string> &locations, bool SimulateCovariates);
 
-	std::vector<double> simulateNB(size_t N0, const std::vector<double> &phi,
+	std::vector<double> simulateNB(size_t N0, const TModelBase &Model,
 	                               std::tuple<std::vector<std::string>, std::vector<std::string>,
 	                                          std::vector<coretools::Probability>> &detectionProbs,
 	                               const TUniqueContainer<std::string> &locations, double A, bool SimulateCovariates);

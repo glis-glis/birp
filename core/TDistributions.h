@@ -13,6 +13,9 @@
 #include <armadillo>
 #include <vector>
 
+// forward declarations
+class TModelBase;
+
 //---------------------------------------
 // TDistribution
 //---------------------------------------
@@ -32,7 +35,7 @@ public:
 	virtual double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                           size_t index_in_counts, size_t ix_linNumMethLoc) const = 0;
 
-	virtual void simulate(TData &methods, size_t N0,
+	virtual void simulate(TData &Data, const TModelBase &Model, size_t N0,
 	                      std::tuple<std::vector<std::string>, std::vector<std::string>,
 	                                 std::vector<coretools::Probability>> &detectionProbs,
 	                      const TUniqueContainer<std::string> &locations, bool SimulateCovariates) = 0;
@@ -52,7 +55,7 @@ public:
 	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;
 
 	// simulation
-	void simulate(TData &methods, size_t N0,
+	void simulate(TData &Data, const TModelBase &Model, size_t N0,
 	              std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>>
 	                  &detectionProbs,
 	              const TUniqueContainer<std::string> &locations, bool SimulateCovariates) override;
@@ -69,8 +72,8 @@ protected:
 	stattools::TParameterTyped<TypeLogA, 1> *_logA = nullptr;
 
 	// update functions
-	void _updateMu(const TData &Data);
-	void _updateLogA(const TData &Data);
+	void _updateMu(const TData &Data, const TModelBase &Model);
+	void _updateLogA(const TData &Data, const TModelBase &Model);
 
 	// initialization
 	void _estimateInitialMu(const TData &Data);
@@ -85,14 +88,14 @@ public:
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
 	                        const TData &Data) override;
-	virtual void update(const TData &Data);
+	virtual void update(const TData &Data, const TModelBase &Model);
 	void estimateInitialPriorParameters(const TData &Data) override;
 
 	double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;
 
 	// simulate
-	void simulate(TData &Data, size_t N0,
+	void simulate(TData &Data, const TModelBase &Model, size_t N0,
 	              std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>>
 	                  &detectionProbs,
 	              const TUniqueContainer<std::string> &locations, bool SimulateCovariates) override;

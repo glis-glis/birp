@@ -52,7 +52,7 @@ public:
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints);
 
 	// update gamma
-	void updateGamma(TLikelihood &Likelihood);
+	void updateGamma(const TData &Data, const TLikelihood &Likelihood, const TModelBase &Model);
 	double calculateLL() const;
 	double calculateLLRatioForUpdateGamma();
 	void swapTryCur();
@@ -65,7 +65,7 @@ public:
 // TStochastic
 //------------------------------------------
 
-class TStochastic {
+class TStochastic : public TModelBase {
 	// green box
 protected:
 	// parameters
@@ -75,21 +75,22 @@ protected:
 	// ptr to prior above
 	TStochasticPrior *_prior;
 
-	TDistributionBase *_distr; // Poisson or negative binomial
+	// distribution: Poisson or negative binomial
+	TDistributionBase *_distr = nullptr;
 
 	// update functions
-	void _updatePhi(size_t j, size_t k, TLikelihood &Likelihood);
-	void _updateSigma(TLikelihood &Likelihood);
-	void _updatePhi(TLikelihood &Likelihood);
+	void _updatePhi(size_t j, size_t k, const TData &Data, TLikelihood &Likelihood);
+	void _updateSigma(const TData &Data, TLikelihood &Likelihood);
+	void _updatePhi(const TData &Data, TLikelihood &Likelihood);
 
 public:
 	TStochastic(stattools::TParameterTyped<TypePhi, 2> *Phi,
 	            stattools::TParameterTyped<TypeSigma, 1> *Sigma, TStochasticPrior *Prior);
 	virtual ~TStochastic() = default;
 
-	void update(TLikelihood &Likelihood);
+	void update(const TData &Data, TLikelihood &Likelihood);
 
-	coretools::StrictlyPositive<double> phi(size_t j, size_t k) const;
+	TypePhi phi(size_t location_id, size_t timepoint_k) const override;
 };
 
 #endif // BIRP_TSTOCHASTIC_H

@@ -45,11 +45,11 @@ public:
 	~TGamma() = default;
 
 	void initializeInferred(const TUniqueContainer<size_t> &Timepoints);
-	void estimateInitialGamma(TLikelihood &Likelihood);
+	void estimateInitialGamma(TLikelihood &Likelihood, const TData &Data, const TModelBase &Model);
 
 	std::vector<size_t> getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const;
 
-	double getLogPriorRatio(TLikelihood &Likelihood);
+	double getLogPriorRatio(const TData &Data, const TLikelihood &Likelihood, const TModelBase &Model);
 
 	bool updateSpecificIndex(size_t m);
 	bool acceptOrReject(double logH, size_t m);

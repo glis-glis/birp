@@ -4,6 +4,7 @@
 
 #include "TData.h"
 #include "TEpochModel.h"
+#include "TLikelihood.h"
 #include "stattools/ParametersObservations/TIndexSampler.h"
 #include <regex>
 
@@ -214,12 +215,16 @@ void TLocations::resetEffort() {
 	for (auto &timepoint : _timepoints) { timepoint.resetEffort(); }
 }
 
-void TLocations::simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs) {
-	for (size_t t = 0; t < _timepoints.size(); t++) { _timepoints[t].simulatePoisson(N0, phi[t], detectionProbs); }
+void TLocations::simulatePoisson(size_t N0, const TModelBase &Model, double detectionProbs) {
+	for (size_t t = 0; t < _timepoints.size(); t++) {
+		_timepoints[t].simulatePoisson(N0, Model.phi(location_id(), _timepoints[t].timepoint_id()), detectionProbs);
+	}
 }
 
-void TLocations::simulateNB(const std::vector<double> &phi, double a, double mu_ij) {
-	for (size_t t = 0; t < _timepoints.size(); t++) { _timepoints[t].simulateNB(phi[t], a, mu_ij); }
+void TLocations::simulateNB(const TModelBase &Model, double a, double mu_ij) {
+	for (size_t t = 0; t < _timepoints.size(); t++) {
+		_timepoints[t].simulateNB(Model.phi(location_id(), _timepoints[t].timepoint_id()), a, mu_ij);
+	}
 }
 
 //-------------------------------------------
@@ -426,7 +431,7 @@ void TMethods::_setBetaSingleCovariate() {
 }
 
 void TMethods::simulatePoisson(
-    size_t N0, const std::vector<double> &phi,
+    size_t N0, const TModelBase &Model,
     std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
     const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
 	// simulate covariates, if necessary
@@ -437,12 +442,12 @@ void TMethods::simulatePoisson(
 
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
 		auto delta = _getDetectionProbability(detectionProbs, locations, j);
-		_locations[j].simulatePoisson(N0, phi, delta);
+		_locations[j].simulatePoisson(N0, Model, delta);
 	}
 }
 
 std::vector<double> TMethods::simulateNB(
-    size_t N0, const std::vector<double> &phi,
+    size_t N0, const TModelBase &Model,
     std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
     const TUniqueContainer<std::string> &locations, double A, bool SimulateCovariates) {
 	// simulate covariates, if necessary
@@ -455,7 +460,7 @@ std::vector<double> TMethods::simulateNB(
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
 		auto delta = _getDetectionProbability(detectionProbs, locations, j);
 		mus[j]     = (double)N0 * delta;
-		_locations[j].simulateNB(phi, A, mus[j]);
+		_locations[j].simulateNB(Model, A, mus[j]);
 	}
 	return mus;
 }

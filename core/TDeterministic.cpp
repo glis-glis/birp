@@ -10,7 +10,7 @@ using namespace coretools::instances;
 // TDeterministic
 //------------------------------------------
 
-TDeterministic::TDeterministic(TGamma *Gamma) : _gamma(Gamma) {}
+TDeterministic::TDeterministic(TGamma *Gamma) : _gamma(Gamma) { _phi.resize(_gamma->numTimepoints()); }
 
 double TDeterministic::_calculateLogPhi_k(size_t k) const {
 	double sum = 0.0;
@@ -18,19 +18,19 @@ double TDeterministic::_calculateLogPhi_k(size_t k) const {
 	return sum;
 }
 
-std::vector<double> TDeterministic::calculatePhi(size_t /*j*/) const {
-	std::vector<double> phi(_gamma->numTimepoints());
-	for (size_t k = 0; k < _gamma->numTimepoints(); k++) { phi[k] = _calculateLogPhi_k(k); }
-	coretools::standardizeZeroMean(phi);
-	for (auto &p : phi) { p = exp(p); } // make logPhi to phi
-	return phi;
+void TDeterministic::_fillPhi() {
+	for (size_t k = 0; k < _gamma->numTimepoints(); k++) { _phi[k] = _calculateLogPhi_k(k); }
+	coretools::standardizeZeroMean(_phi);
+	for (auto &p : _phi) { p = exp(p); } // make logPhi to phi
 }
 
-void TDeterministic::updateGamma(TLikelihood &Likelihood) {
+TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id) const { return _phi[timepoint_id]; }
+
+void TDeterministic::updateGamma(const TData &Data, const TLikelihood &Likelihood) {
 	for (size_t m = 0; m < _gamma->numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma->updateSpecificIndex(m)) {
-			const auto LLRatio = Likelihood.calculateLLRatio();
-			const double logPriorRatio = _gamma->getLogPriorRatio(Likelihood); // Jeffrey prior
+			const auto LLRatio         = Likelihood.calculateLLRatio(Data, *this, *_distr);
+			const double logPriorRatio = _gamma->getLogPriorRatio(Data, Likelihood, *this); // Jeffrey prior
 
 			const double logH = LLRatio + logPriorRatio;
 			if (_gamma->acceptOrReject(logH, m)) {

@@ -9,36 +9,30 @@
 // TLikelihood
 //---------------------------------------
 
-TLikelihood::TLikelihood() {}
+TLikelihood::TLikelihood(size_t SpeciesIDinUniqueContainer) : _speciesIDinUniqueContainer(SpeciesIDinUniqueContainer) {}
 
-/*
 // todo: also standardizeZeroMean for stochastic phi?
-double TLikelihood::_calculateLogPhi_k(size_t k) const {
-    double sum = 0.0;
-    for (size_t m = 0; m < _numEpochs; m++) { sum += (double)_rho(k, m) * _gamma->value(m); }
-    return sum;
+
+std::vector<double> TLikelihood::calculateSigma(const TLocations &loc, const TModelBase &Model) {
+	std::vector<double> sigma(loc.size());
+	for (size_t k = 0; k < loc.size(); k++) {
+		// calculate sigma and fill into p (will normalize later)
+		sigma[k] = Model.phi(loc.location_id(), loc[k].timepoint_id()) * loc[k].effort();
+	}
+	return sigma;
 }
 
-std::vector<double> TLikelihood::_calculatePhi() const {
-    std::vector<double> phi(_rho.n_rows);
-    for (size_t k = 0; k < _rho.n_rows; k++) { phi[k] = _calculateLogPhi_k(k); }
-    coretools::standardizeZeroMean(phi);
-    for (auto &p : phi) { p = exp(p); } // make logPhi to phi
-    return phi;
-}
-*/
-
-arma::mat TLikelihood::_calcFisherInfo(TGamma *Gamma, const std::vector<double> &p, const std::vector<double> &sigma,
-                                       TypeNu nu) const {
-	arma::mat R(p.size(), Gamma->numEpochs());
-	arma::mat RtP(Gamma->numEpochs(), p.size());
+arma::mat TLikelihood::_calcFisherInfo(const TGamma &Gamma, const std::vector<double> &p,
+                                       const std::vector<double> &sigma, TypeNu nu) {
+	arma::mat R(p.size(), Gamma.numEpochs());
+	arma::mat RtP(Gamma.numEpochs(), p.size());
 	for (size_t k = 0; k < p.size(); k++) {
-		for (size_t m = 0; m < Gamma->numEpochs(); m++) {
+		for (size_t m = 0; m < Gamma.numEpochs(); m++) {
 			double denom       = 0.0;
 			double rhoSumSigma = 0.0;
 			for (size_t l = 0; l < p.size(); l++) {
 				denom += sigma[l];
-				rhoSumSigma += ((double)Gamma->rho(k, m) - (double)Gamma->rho(l, m)) * sigma[l];
+				rhoSumSigma += ((double)Gamma.rho(k, m) - (double)Gamma.rho(l, m)) * sigma[l];
 			}
 			denom     = denom * denom;
 			R(k, m)   = sigma[k] * rhoSumSigma / denom;
@@ -50,84 +44,86 @@ arma::mat TLikelihood::_calcFisherInfo(TGamma *Gamma, const std::vector<double> 
 	return nu * tmp;
 }
 
-std::vector<double> TLikelihood::_calcSigma(const TLocations &loc, const TStochastic &Stochastic) const {
-	std::vector<double> sigma(loc.size());
-	for (size_t k = 0; k < loc.size(); k++) {
-		// calculate sigma and fill into p (will normalize later)
-		sigma[k] = Stochastic.phi(loc.location_id(), loc[k].timepoint_id()) * loc[k].effort();
-	}
-	return sigma;
-}
-
-double TLikelihood::calculateJeffreyPrior(const TData &Data, TGamma *Gamma, size_t SpeciesIDinUniqueContainer,
-                                          const TStochastic &Stochastic) const {
+double TLikelihood::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma, const TModelBase &Model) const {
 	// used in update of gamma of stochastic model
-	arma::mat fisherInfo(Gamma->numEpochs(), Gamma->numEpochs(), arma::fill::zeros);
+	arma::mat fisherInfo(Gamma.numEpochs(), Gamma.numEpochs(), arma::fill::zeros);
 	size_t ix_linNumMethLoc = 0;
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
-		if (method.hasDataForSpeciesID(SpeciesIDinUniqueContainer)) {
-			size_t index_in_counts = method.getIndexInCounts(SpeciesIDinUniqueContainer);
+		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
+			size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
 			for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
-				std::vector sigma     = _calcSigma(l, method[l], Stochastic);
+				std::vector sigma     = _calcSigma(method[l], Model);
 				std::vector<double> p = sigma;
 				// now normalize by row sum!
 				coretools::normalize(p);
 				// add to JP
-				fisherInfo += _calcFisherInfo(p, sigma, method[l].nu(index_in_counts));
+				fisherInfo += _calcFisherInfo(Gamma, p, sigma, method[l].nu(index_in_counts));
 			}
 		}
 	}
 	return log(arma::det(fisherInfo)); // sqrt drops out in hastings ratio
 }
 
-double TLikelihood::calculateLLRatio(const TData &Data, size_t j, size_t k, size_t SpeciesIDinUniqueContainer,
-                                     TDistributionBase *Distribution, const TStochastic &Stochastic) const {
-	// todo: how to have less code duplication? (first lines are the same for all LL functions)
-	// used in update of phi of stochastic model
-	double LL               = 0.0;
+double TLikelihood::calculateLLRatio(const TData &Data, const TModelBase &Model,
+                                                  const TDistributionBase &Distribution) const {
+	// used in update of gamma of deterministic model and sigma in stochastic model
+	std::vector<double> LL(Data.numMethLoc(_speciesIDinUniqueContainer), 0.0); // LL is per method/location combination
 	size_t ix_linNumMethLoc = 0;
-	for (size_t i = 0; i < Data.size(); ++i) { // loop over all methods
+	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
-		if (method.hasDataForSpeciesID(SpeciesIDinUniqueContainer)) {
-			size_t index_in_counts = method.getIndexInCounts(SpeciesIDinUniqueContainer);
+		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
+			size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
 			for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
-				//if (l != j) { continue; }
-				std::vector<double> phi =
-				    Stochastic.calculatePhi(l); // todo: is l the correct index? Not every method has every location!
-				std::vector sigma     = _calcSigma(method[l], phi);
+				std::vector sigma     = _calcSigma(method[l], Model);
 				std::vector<double> p = sigma;
 				// now normalize by row sum!
 				coretools::normalize(p);
 				// add to Likelihood
-				LL += Distribution->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc);
+				LL[ix_linNumMethLoc] = Distribution.calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc);
 			}
 		}
 	}
-	return LL;
-}
+	return coretools::containerSum(LL); // todo: vector or single number (sum)? Also: currently not a ratio
+};
 
-double TLikelihood::calculateLL(const std::vector<TMethods> &Methods) const {
-	const auto [newLL, newJP] = _calculateLLandJP(Methods);
-	return coretools::containerSum(newLL);
-}
+double TLikelihood::calculateLLRatio(size_t j, const TData &Data, const TModelBase &Model,
+                                     const TDistributionBase &Distribution) const {
+	// used in update of phi in stochastic model
+	double LL = 0.0;
+	for (size_t i = 0; i < Data.size(); ++i) {
+		const auto &method = Data[i];
+		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
+			size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
+			size_t index_in_counts  = method.getIndexInCounts(_speciesIDinUniqueContainer);
+			std::vector sigma       = _calcSigma(method[j], Model);
+			std::vector<double> p   = sigma;
+			// now normalize by row sum!
+			coretools::normalize(p);
+			// add to Likelihood
+			LL += Distribution.calculateLL(sigma, method[j], p, index_in_counts, ix_linNumMethLoc);
+		}
+	}
+	return LL; // todo: vector or single number (sum)? Also: currently not a ratio
+};
 
-std::vector<double> TLikelihood::calculateLLForBetaUpdate(const TMethods &Method) const {
+std::vector<double> TLikelihood::calculateLLForBetaUpdate(size_t i, const TData &Data, const TModelBase &Model,
+                                                          const TDistributionBase &Distribution) const {
 	std::vector<double> LL = _oldLL; // LL is per method/location combination
+	const auto &method     = Data[i];
 
-	if (!Method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return LL; } // chame gd hei ga
+	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return LL; } // chame gd hei ga
 
-	std::vector<double> phi = _calculatePhi();
-	for (size_t j = 0; j < Method.size(); ++j) { // loop over locations
-		const auto &loc        = Method[j];
-		size_t index_in_counts = Method.getIndexInCounts(_speciesIDinUniqueContainer);
-		std::vector sigma      = _calcSigma(loc, phi);
+	for (size_t j = 0; j < method.size(); ++j) {                                 // loop over locations
+		const auto &loc        = method[j];
+		size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
+		std::vector sigma      = _calcSigma(loc, Model);
 		std::vector<double> p  = sigma;
 		// now normalize by row sum!
 		coretools::normalize(p);
 		// calculate Likelihood
-		size_t ij = _i_j_to_linear[Method.method_id()][j];
-		LL[ij]    = _calculateLL(sigma, loc, p, index_in_counts, ij);
+		size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, method.method_id(), j); // method_id should always be the same as i!
+		LL[ix_linNumMethLoc]    =Distribution.calculateLL(sigma, method[j], p, index_in_counts, ix_linNumMethLoc);
 	}
 	return LL;
 }

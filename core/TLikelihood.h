@@ -13,70 +13,53 @@
 #include <armadillo>
 #include <vector>
 
-class TStochastic; // forward declaration
 class TGamma;
+class TDistributionBase;
 
-//---------------------------------------
+//---------------------------------------------------
+// TModelBase
+// pure abstract base class of TStochastic and TDeterministic
+//---------------------------------------------------
+
+class TModelBase {
+public:
+	virtual ~TModelBase()                                             = default;
+	// abstract function for phi
+	virtual TypePhi phi(size_t location_id, size_t timepoint_k) const = 0;
+};
+
+//---------------------------------------------------
 // TLikelihood
-// for both stochastic and deterministic!
-//---------------------------------------
+//---------------------------------------------------
 
 class TLikelihood {
 	// the flower
-protected:
+private:
+	size_t _speciesIDinUniqueContainer = 0;
+
 	// temporary values, stored for speed
 	std::vector<double> _oldLL;
 
 	// likelihood
-	std::vector<double> _calcSigma(const TLocations &loc, const std::vector<double> &phi) const;
-	arma::mat _calcFisherInfo(TGamma *Gamma, const std::vector<double> &p, const std::vector<double> &sigma,
-	                          TypeNu nu) const;
+	static std::vector<double> _calcSigma(const TLocations &loc, const TModelBase &Model);
+	static arma::mat _calcFisherInfo(const TGamma &Gamma, const std::vector<double> &p,
+	                                 const std::vector<double> &sigma, TypeNu nu);
 
+protected:
 public:
-	TLikelihood();
+	TLikelihood(size_t SpeciesIDinUniqueContainer);
 	virtual ~TLikelihood() = default;
 
-	virtual void estimateInitialPriorParameters(const TData &Methods);
+	// calculate sigma
+	static std::vector<double> calculateSigma(const TLocations &loc, const TModelBase &Model);
 
-	template<typename TypePhiCalculator>
-	std::pair<double, double> calculateLLRatioandJP(const TData &Data, size_t SpeciesIDinUniqueContainer,
-	                                                TDistributionBase *Distribution,
-	                                                const TypePhiCalculator &PhiCalculator) const {
-		// used in update of gamma of deterministic model
-		std::vector<double> LL(Data.numMethLoc(SpeciesIDinUniqueContainer),
-		                       0.0); // LL is per method/location combination
-		arma::mat fisherInfo(_numEpochs, _numEpochs, arma::fill::zeros);
-		size_t ix_linNumMethLoc = 0;
-		for (size_t i = 0; i < Data.size(); ++i) {
-			const auto &method = Data[i];
-			if (method.hasDataForSpeciesID(SpeciesIDinUniqueContainer)) {
-				size_t index_in_counts = method.getIndexInCounts(SpeciesIDinUniqueContainer);
-				for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
-					const std::vector<double> &phi = PhiCalculator.calculatePhi(
-					    l); // todo: is l the correct index? Not every method has every location!
-					std::vector sigma     = _calcSigma(method[l], phi);
-					std::vector<double> p = sigma;
-					// now normalize by row sum!
-					coretools::normalize(p);
-					// add to Likelihood
-					LL[ix_linNumMethLoc] =
-					    Distribution->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc);
-					// add to JP
-					fisherInfo += _calcFisherInfo(p, sigma, method[l].nu(index_in_counts));
-				}
-			}
-		}
-		double JP = log(arma::det(fisherInfo)); // sqrt drops out in hastings ratio
-		return {LL, JP};
-	};
+	double calculateJeffreyPrior(const TData &Data, const TGamma &Gamma, const TModelBase &Model) const;
+	double calculateLLRatio(const TData &Data, const TModelBase &Model, const TDistributionBase &Distribution) const;
+	double calculateLLRatio(size_t j, const TData &Data, const TModelBase &Model,
+	                        const TDistributionBase &Distribution) const;
 
-	double calculateJeffreyPrior(const TData &Data, size_t SpeciesIDinUniqueContainer, TGamma *Gamma,
-	                             const TStochastic &Stochastic) const;
-	double calculateLLRatio(const TData &Data, size_t j, size_t k, size_t SpeciesIDinUniqueContainer,
-	                        TDistributionBase *Distribution, const TStochastic &Stochastic) const;
-
-	std::vector<double> calculateLLForBetaUpdate(const TMethods &Method) const;
-
+	std::vector<double> calculateLLForBetaUpdate(size_t i, const TData &Data, const TModelBase &Model,
+	                                             const TDistributionBase &Distribution) const;
 	// get and set likelihoods
 	void setLLs(const std::vector<double> &LLs);
 	const std::vector<double> &oldLLs() const;

@@ -48,15 +48,14 @@ coretools::Positive<double> TStochasticPrior::_calculateLogTransitionProbability
 
 	// calculate mean of normal distribution
 	const auto delta            = _calculateDelta(k);
-	size_t previous_k           = k - 1;
-	const auto phi_j_previous_k = _phi->value({j, previous_k});
+	const auto phi_j_previous_k = _phi->value(_phi->getIndex({j, k - 1}));
 	const auto mean             = phi_j_previous_k * delta;
 
 	// calculate sd of normal distribution
 	const auto deltaTime = _calculateDeltaTime(k);
 	const auto sd        = _sigma->value() * deltaTime;
 
-	const auto phi_j_k = _phi->value({j, k});
+	const auto phi_j_k = _phi->value(_phi->getIndex({j, k}));
 	coretools::probdist::TNormalDistr distr(mean, sd);
 	return distr.logDensity(phi_j_k) + distr.logDensity(-phi_j_k);
 }
@@ -84,11 +83,11 @@ double TStochasticPrior::calculateLL() const {
 	return LL;
 }
 
-void TStochasticPrior::updateGamma(TLikelihood &Likelihood) {
+void TStochasticPrior::updateGamma(const TData &Data, const TLikelihood &Likelihood, const TModelBase &Model) {
 	for (size_t m = 0; m < _gamma->numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma->updateSpecificIndex(m)) {
 			const double LLRatio       = calculateLLRatioForUpdateGamma();
-			const double logPriorRatio = _gamma->getLogPriorRatio(Likelihood); // Jeffrey prior
+			const double logPriorRatio = _gamma->getLogPriorRatio(Data, Likelihood, Model); // Jeffrey prior
 
 			const double logH = LLRatio + logPriorRatio;
 			if (_gamma->acceptOrReject(logH, m)) {
@@ -118,11 +117,11 @@ void TStochasticPrior::swapTryCur(size_t j, size_t k) {
 // TStochastic
 //------------------------------------------
 
-TStochastic::TStochastic(stattools::TParameterTyped<TypePhi, 2> * Phi,
-                         stattools::TParameterTyped<TypeSigma, 1> *Sigma, TStochasticPrior *Prior)
+TStochastic::TStochastic(stattools::TParameterTyped<TypePhi, 2> *Phi, stattools::TParameterTyped<TypeSigma, 1> *Sigma,
+                         TStochasticPrior *Prior)
     : _phi(Phi), _sigma(Sigma), _prior(Prior) {}
 
-void TStochastic::_updatePhi(size_t j, size_t k, TLikelihood &Likelihood) {
+void TStochastic::_updatePhi(size_t j, size_t k, const TData &Data, TLikelihood &Likelihood) {
 	// propose a new value
 	const size_t ix = _phi->getIndex({j, k});
 	_phi->updateSpecificIndex(ix);
@@ -130,7 +129,7 @@ void TStochastic::_updatePhi(size_t j, size_t k, TLikelihood &Likelihood) {
 	const auto logPriorRatio = _prior->calculateLogPriorRatio(j, k) + _prior->calculateLogPriorRatio(j, k + 1);
 	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
 	// and k)
-	const auto LLRatio       = Likelihood.calculateLLRatio(j, k);
+	const auto LLRatio       = Likelihood.calculateLLRatio(j, Data, *this, *_distr);
 	const double logH        = LLRatio + logPriorRatio;
 	if (_phi->acceptOrReject(logH, ix)) {
 		_prior->swapTryCur(j, k);
@@ -139,16 +138,16 @@ void TStochastic::_updatePhi(size_t j, size_t k, TLikelihood &Likelihood) {
 	}
 }
 
-void TStochastic::_updatePhi(TLikelihood &Likelihood) {
+void TStochastic::_updatePhi(const TData &Data, TLikelihood &Likelihood) {
 	for (size_t j = 0; j < _phi->dimensions()[0]; ++j) { // loop over all locations
 		for (size_t k = 1; k < _phi[j].dimensions()[1]; ++k) {
 			// loop over all timepoints (ignore first, since this is always 1)
-			_updatePhi(j, k, Likelihood);
+			_updatePhi(j, k, Data, Likelihood);
 		}
 	}
 }
 
-void TStochastic::_updateSigma(TLikelihood &Likelihood) {
+void TStochastic::_updateSigma(const TData &Data, TLikelihood &Likelihood) {
 	// propose a new value
 	_sigma->update();
 
@@ -157,7 +156,7 @@ void TStochastic::_updateSigma(TLikelihood &Likelihood) {
 	for (size_t j = 0; j < _phi->dimensions()[0]; ++j) { // loop over all locations
 		for (size_t k = 1; k < _phi[j].dimensions()[1]; ++k) {
 			logTransitionRatio += _prior->calculateLogPriorRatio(j, k);
-			LLRatio += Likelihood.calculateLLRatio(j, k);
+			LLRatio += Likelihood.calculateLLRatio(j, Data, *this, *_distr);
 		}
 	}
 
@@ -169,11 +168,11 @@ void TStochastic::_updateSigma(TLikelihood &Likelihood) {
 	}
 }
 
-void TStochastic::update(TLikelihood &Likelihood) {
-	_updatePhi(Likelihood);
-	_updateSigma(Likelihood);
+void TStochastic::update(const TData &Data, TLikelihood &Likelihood) {
+	_updatePhi(Data, Likelihood);
+	_updateSigma(Data, Likelihood);
 }
 
-coretools::StrictlyPositive<double> TStochastic::phi(size_t j, size_t k) const{
-	return _phi->value({j, k});
+coretools::StrictlyPositive<double> TStochastic::phi(size_t j, size_t k) const {
+	return _phi->value(_phi->getIndex({j, k}));
 }

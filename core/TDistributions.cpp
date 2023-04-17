@@ -3,6 +3,7 @@
 //
 
 #include "TDistributions.h"
+#include "TLikelihood.h"
 #include "stattools/ParametersObservations/TIndexSampler.h"
 
 using namespace coretools::instances;
@@ -22,12 +23,10 @@ double TPoissonDistribution::calculateLL(const std::vector<double> & /*sigma*/, 
 }
 
 void TPoissonDistribution::simulate(
-    TData &Data, size_t N0,
+    TData &Data, const TModelBase &Model, size_t N0,
     std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
     const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
-	for (auto &method : Data) {
-		method.simulatePoisson(N0, _calculatePhi(), detectionProbs, locations, SimulateCovariates);
-	}
+	for (auto &method : Data) { method.simulatePoisson(N0, Model, detectionProbs, locations, SimulateCovariates); }
 }
 
 //--------------------------------
@@ -79,7 +78,7 @@ double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const 
 	return coretools::gammaLog(sum_a) - coretools::gammaLog((double)n + sum_a) + term2; // (n+1) drops out
 }
 
-void TNegBinDistribution::_updateMu(const TData &Data) {
+void TNegBinDistribution::_updateMu(const TData &Data, const TModelBase &Model) {
 	stattools::TIndexSampler sampler(
 	    Data.numMethLoc(_speciesIDinUniqueContainer)); // draw random indices from range [0, _numMethLoc]
 	sampler.sampleIndices();
@@ -97,9 +96,8 @@ void TNegBinDistribution::_updateMu(const TData &Data) {
 
 		_mu->updatePairWiseSumOneVector(c1, c2);
 
-		std::vector<double> phi    = _calculatePhi();
-		std::vector<double> sigma1 = _calcSigma(loc1, phi);
-		std::vector<double> sigma2 = _calcSigma(loc2, phi);
+		std::vector<double> sigma1 = TLikelihood::calculateSigma(loc1, Model);
+		std::vector<double> sigma2 = TLikelihood::calculateSigma(loc2, Model);
 
 		size_t index_in_counts1 = m1.getIndexInCounts(_speciesIDinUniqueContainer);
 		const auto newLL1       = calculateLL(sigma1, loc1, {}, index_in_counts1, c1);
@@ -118,15 +116,14 @@ void TNegBinDistribution::_updateMu(const TData &Data) {
 	}
 }
 
-void TNegBinDistribution::_updateLogA(const TData &Data) {
+void TNegBinDistribution::_updateLogA(const TData &Data, const TModelBase &Model) {
 	if (_logA->update()) {
-		std::vector<double> phi = _calculatePhi();
 		std::vector<double> newLL(Data.numMethLoc(_speciesIDinUniqueContainer));
 		for (size_t ij = 0; ij < Data.numMethLoc(_speciesIDinUniqueContainer); ++ij) {
 			auto [m_ix, l_ix]      = Data.linear_to_i_j(_speciesIDinUniqueContainer, ij);
 			const auto &m          = Data[m_ix];
 			const auto &loc        = m[l_ix];
-			std::vector sigma      = _calcSigma(loc, phi);
+			std::vector sigma      = TLikelihood::calculateSigma(loc, Model);
 			size_t index_in_counts = m.getIndexInCounts(_speciesIDinUniqueContainer);
 			newLL[ij]              = calculateLL(sigma, loc, {}, index_in_counts, ij);
 		}
@@ -139,9 +136,9 @@ void TNegBinDistribution::_updateLogA(const TData &Data) {
 	}
 }
 
-void TNegBinDistribution::update(const TData &Data) {
-	if (_mu->isUpdated()) { _updateMu(Data); }
-	if (_logA->isUpdated()) { _updateLogA(Data); }
+void TNegBinDistribution::update(const TData &Data, const TModelBase &Model) {
+	if (_mu->isUpdated()) { _updateMu(Data, Model); }
+	if (_logA->isUpdated()) { _updateLogA(Data, Model); }
 }
 
 void TNegBinDistribution::_estimateInitialMu(const TData &Data) {
@@ -174,7 +171,7 @@ double TNegBinDistribution::_setAForSimulation(const TData &Data) {
 }
 
 void TNegBinDistribution::simulate(
-    TData &Data, size_t N0,
+    TData &Data, const TModelBase &Model, size_t N0,
     std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
     const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
 	// set a
@@ -183,9 +180,8 @@ void TNegBinDistribution::simulate(
 	for (auto &method : Data) {
 		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
 
-		std::vector<double> phi = _calculatePhi();
 		// simulate mus based on detectionProb and a: will return a vector with length = numLocations
-		auto mus                = method.simulateNB(N0, phi, detectionProbs, locations, A, SimulateCovariates);
+		auto mus = method.simulateNB(N0, Model, detectionProbs, locations, A, SimulateCovariates);
 		coretools::normalize(mus);
 		for (size_t c = 0; c < method.size(); ++c) { _mu->set(c, mus[c]); }
 	}
