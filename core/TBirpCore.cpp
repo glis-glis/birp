@@ -224,7 +224,7 @@ void TBirpCore::_writeFile() {
 		// get header here
 		std::vector<std::string> header = _getMethodspecificHeader(method);
 		// append to fileList
-		fileList << method.name() << coretools::endl;
+		fileList << _outname + "_" + method.name() + "_simulatedCounts.txt"  << coretools::endl;
 		// now create actual file with data and write
 		coretools::TOutputFile outfile(Filename, header);
 		method.write(outfile, _locations, _timepoints);
