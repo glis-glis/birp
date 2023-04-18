@@ -7,12 +7,15 @@
 
 #include "BirpTypes.h"
 #include "TData.h"
-#include "TEpochModel.h"
+#include "TModels.h"
 #include "coretools/Files/TFile.h"
 #include "coretools/Files/TOutputFile.h"
 #include "stattools/ParametersObservations/TObservationTyped.h"
 #include "stattools/ParametersObservations/TParameterTyped.h"
-#include "TStochastic.h"
+
+class TBirpCommonModel;
+class TBirpNegBinomAddOn;
+class TBirpStochasticAddOn; // todo get rid of those
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
@@ -21,15 +24,15 @@ private:
 
 protected:
 	// data
-	std::vector<TMethods> *_methods = nullptr;
+	TData &_data;
 
 	// model
-	std::vector<std::unique_ptr<TEpochModel>> _epochModel;
+	std::vector<std::unique_ptr<TModelBase>> _models;
 
-	// locations, timepoints, covNames: these are pointers to the objects that are stored in TBirpCore
-	TUniqueContainer<std::string> *_locations      = nullptr;
-	TUniqueContainer<size_t> *_timepoints          = nullptr;
-	TUniqueContainer<std::string> *_covariateNames = nullptr;
+	// locations, timepoints, covNames: these are references to the objects that are stored in TBirpCore
+	const TUniqueContainer<std::string> &_locations;
+	const TUniqueContainer<size_t> &_timepoints;
+	const TUniqueContainer<std::string> &_covariateNames;
 
 	size_t _numSpecies = 0;
 
@@ -40,29 +43,14 @@ protected:
 	std::vector<size_t> _readN0FromCommandLine() const;
 	auto _readDetectionProbFile() const;
 	void _simulateUnderPrior(Storage *Data) override;
-	void _simulateFromFile(const std::vector<size_t> &N0,
-	                       const std::tuple<std::vector<std::string>, std::vector<std::string>,
-	                                        std::vector<coretools::Probability>> &DetectionProbs);
-	void _simulateFromCommandLine(const std::vector<size_t> &N0,
-	                              const std::tuple<std::vector<std::string>, std::vector<std::string>,
-	                                               std::vector<coretools::Probability>> &DetectionProbs);
 
 public:
 	TBirpPrior() = default;
-
-	TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-	           TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
-	           size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	           stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-	           std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix);
-
-	TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-	           TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
-	           size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	           stattools::TParameterTyped<TypeTime, 1> *TimesOfChange, stattools::TParameterTyped<TypeMu, 1> *Mu,
-	           stattools::TParameterTyped<TypeLogA, 1> *LogA,
-	           std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix);
-
+	TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locations,
+	           const TUniqueContainer<std::size_t> &TimePoints,
+	           const TUniqueContainer<std::string> &CovariateNames, size_t numSpecies,
+	           TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
+	           std::unique_ptr<TBirpStochasticAddOn> &StochasticAddOn, std::string Prefix);
 	~TBirpPrior() override = default;
 
 	void initializeInferred() override;
@@ -80,10 +68,8 @@ public:
 
 	// getters for locations, methods, timepoints, species for tests
 	const TUniqueContainer<std::string> &locations() const;
-
 	const TUniqueContainer<size_t> &timepoints() const;
-
-	const std::vector<TMethods> &methods() const;
+	const TData &data() const;
 };
 
 #endif // TBIRPPRIOR_H

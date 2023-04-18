@@ -21,16 +21,15 @@ class TModelBase;
 //---------------------------------------
 class TDistributionBase {
 protected:
-	size_t _speciesIDinUniqueContainer = 0; // refers to ID in unique container //TODO add to constructor
+	size_t _speciesIDinUniqueContainer = 0; // refers to ID in unique container
 
 public:
-	TDistributionBase();
+	TDistributionBase(size_t SpeciesIDinUniqueContainer);
 	virtual ~TDistributionBase() = default;
 
-	virtual void initializeInferred(const TUniqueContainer<size_t> &Timepoints,
-	                                const TUniqueContainer<std::string> &Locations, const TData &Data) = 0;
-	virtual void update(const TData &Data)                                                             = 0;
-	virtual void estimateInitialPriorParameters(const TData &Data)                                     = 0;
+	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations) = 0;
+	virtual void update(const TData &Data, TModelBase &Model)                            = 0;
+	virtual void estimateInitialParameters(const TData &Data)                            = 0;
 
 	virtual double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                           size_t index_in_counts, size_t ix_linNumMethLoc) const = 0;
@@ -45,11 +44,13 @@ public:
 // TPoissonDistribution
 //---------------------------------------
 class TPoissonDistribution : public TDistributionBase {
-protected:
 public:
-	TPoissonDistribution();
-
+	TPoissonDistribution(size_t SpeciesIDinUniqueContainer);
 	~TPoissonDistribution() override = default;
+
+	void initialize(const TData &, const TUniqueContainer<std::string> &) override{};
+	void update(const TData &, TModelBase &) override{};
+	void estimateInitialParameters(const TData &) override{};
 
 	double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;
@@ -72,8 +73,8 @@ protected:
 	stattools::TParameterTyped<TypeLogA, 1> *_logA = nullptr;
 
 	// update functions
-	void _updateMu(const TData &Data, const TModelBase &Model);
-	void _updateLogA(const TData &Data, const TModelBase &Model);
+	void _updateMu(const TData &Data, TModelBase &Model);
+	void _updateLogA(const TData &Data, TModelBase &Model);
 
 	// initialization
 	void _estimateInitialMu(const TData &Data);
@@ -82,14 +83,14 @@ protected:
 	double _setAForSimulation(const TData &Data);
 
 public:
-	TNegBinDistribution(stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA);
+	TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMu, 1> *Mu,
+	                    stattools::TParameterTyped<TypeLogA, 1> *LogA);
 
 	~TNegBinDistribution() override = default;
 
-	void initializeInferred(const TUniqueContainer<size_t> &Timepoints, const TUniqueContainer<std::string> &Locations,
-	                        const TData &Data) override;
-	virtual void update(const TData &Data, const TModelBase &Model);
-	void estimateInitialPriorParameters(const TData &Data) override;
+	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations) override;
+	void update(const TData &Data, TModelBase &Model) override;
+	void estimateInitialParameters(const TData &Data) override;
 
 	double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;

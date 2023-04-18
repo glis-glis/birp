@@ -15,7 +15,6 @@ class TEpochModel;
 class TModelBase;
 class TData;
 class TDistributionBase;
-class TLikelihood;
 
 //-------------------------------------------
 // TTimepoints
@@ -153,8 +152,7 @@ private:
 	std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> _beta;
 
 	// update functions for beta
-	void _updateBeta(size_t c1, size_t c2, std::vector<TLikelihood> &Likelihoods, const TData &Data,
-	                 const std::vector<TModelBase> &Models, const std::vector<TDistributionBase> &Distributions);
+	void _updateBeta(size_t c1, size_t c2, const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 	// standardize covariates
 	std::pair<TypeCovariate, TypeCovariate> _getMinMaxCovariates() const;
 	void _setBetaSingleCovariate();
@@ -184,6 +182,7 @@ public:
 
 	// add parameters beta
 	void addBeta(std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void initialize(const TUniqueContainer<std::string> &CovariateNames);
 
 	// add data
 	void add(const TTimepoints &pt, size_t location_id);
@@ -217,10 +216,8 @@ public:
 	std::vector<TLocations>::iterator end();
 
 	// update effort
-	void initializeInferred(const TUniqueContainer<std::string> &CovariateNames);
 	void estimateInitialBeta();
-	void updateBeta(std::vector<TLikelihood> &Likelihoods, const TData &Data, const std::vector<TModelBase> &Models,
-	                const std::vector<TDistributionBase> &Distributions);
+	void updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 	// functions for simulating
 	void simulatePoisson(size_t N0, const TModelBase &Model,
 	                     std::tuple<std::vector<std::string>, std::vector<std::string>,
@@ -266,10 +263,12 @@ public:
 	// iterators
 	size_t size() const;
 	const TMethods &operator[](const size_t index) const;
+	TMethods &operator[](const size_t index);
 	std::vector<TMethods>::const_iterator cbegin() const;
 	std::vector<TMethods>::iterator begin();
 	std::vector<TMethods>::const_iterator cend() const;
 	std::vector<TMethods>::iterator end();
+	TMethods &back();
 
 	// getters
 	size_t numMethLoc(size_t SpeciesIDInUniqueContainer) const;

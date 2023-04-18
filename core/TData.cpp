@@ -4,8 +4,7 @@
 
 #include "TData.h"
 #include "TDistributions.h"
-#include "TEpochModel.h"
-#include "TLikelihood.h"
+#include "TModels.h"
 #include "stattools/ParametersObservations/TIndexSampler.h"
 #include <regex>
 
@@ -471,7 +470,7 @@ void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::s
 	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
 }
 
-void TMethods::initializeInferred(const TUniqueContainer<std::string> &CovariateNames) {
+void TMethods::initialize(const TUniqueContainer<std::string> &CovariateNames) {
 	// initialize beta: first get appropriate covariate name
 	auto covNames = std::make_shared<coretools::TNamesStrings>();
 	for (size_t c = 0; c < numCovariates(); ++c) {
@@ -494,8 +493,8 @@ void TMethods::estimateInitialBeta() {
 	}
 }
 
-void TMethods::_updateBeta(size_t c1, size_t c2, std::vector<TLikelihood> &Likelihoods, const TData &Data,
-                           const std::vector<TModelBase> &Models, const std::vector<TDistributionBase> &Distributions) {
+void TMethods::_updateBeta(size_t c1, size_t c2, const TData &Data,
+                           const std::vector<std::unique_ptr<TModelBase>> &Models) {
 	// propose new value
 	_beta->updatePairWiseSumOneVector(c1, c2);
 
@@ -505,22 +504,21 @@ void TMethods::_updateBeta(size_t c1, size_t c2, std::vector<TLikelihood> &Likel
 	}
 	// calculate Hastings ratio
 	double logRatio = _beta->getLogPriorRatio(c1) + _beta->getLogPriorDensity(c2);
-	for (size_t s = 0; s < Likelihoods.size(); ++s) { // loop over species
-		logRatio += Likelihoods[s].calculateLLRatio_perMethod(method_id(), Data, Models[s], Distributions[s]);
+	for (size_t s = 0; s < Models.size(); ++s) { // loop over species
+		logRatio += Models[s]->calculateLLRatio_perMethod(method_id(), Data);
 	}
 	// decide if accept or reject
 	coretools::TRange range(c1, c2);
 	if (_beta->acceptOrReject(logRatio, range, c1)) {
 		// accepted: set likelihood in all epoch models
-		for (size_t s = 0; s < Likelihoods.size(); ++s) { Likelihoods[s].swapTryCur_perMethod(method_id(), Data); }
+		for (size_t s = 0; s < Models.size(); ++s) { Models[s]->swapTryCur_perMethod(method_id(), Data); }
 	} else {
 		// rejected: re-set effort to old value before update
 		for (auto &location : _locations) { location.resetEffort(); }
 	}
 }
 
-void TMethods::updateBeta(std::vector<TLikelihood> &Likelihoods, const TData &Data,
-                          const std::vector<TModelBase> &Models, const std::vector<TDistributionBase> &Distributions) {
+void TMethods::updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models) {
 	if (!_beta->isUpdated()) { return; }
 
 	stattools::TIndexSampler sampler(numCovariates()); // draw random indices from range [0, numCovariates]
@@ -529,7 +527,7 @@ void TMethods::updateBeta(std::vector<TLikelihood> &Likelihoods, const TData &Da
 	for (size_t c = 0; c < sampler.length(); ++c) {
 		// pick two indices i to update
 		auto [c1, c2] = sampler.getIndexPair(c);
-		_updateBeta(c1, c2, Likelihoods, Data, Models, Distributions);
+		_updateBeta(c1, c2, Data, Models);
 	}
 }
 
@@ -587,6 +585,8 @@ size_t TData::size() const { return _methods.size(); }
 
 const TMethods &TData::operator[](const size_t index) const { return _methods[index]; }
 
+TMethods &TData::operator[](const size_t index) { return _methods[index]; }
+
 std::vector<TMethods>::const_iterator TData::cbegin() const { return _methods.cbegin(); }
 
 std::vector<TMethods>::iterator TData::begin() { return _methods.begin(); }
@@ -594,6 +594,7 @@ std::vector<TMethods>::iterator TData::begin() { return _methods.begin(); }
 std::vector<TMethods>::const_iterator TData::cend() const { return _methods.cend(); }
 
 std::vector<TMethods>::iterator TData::end() { return _methods.end(); }
+TMethods &TData::back() { return _methods.back(); }
 
 size_t TData::numMethLoc(size_t SpeciesIDInUniqueContainer) const { return _numMethLoc[SpeciesIDInUniqueContainer]; }
 size_t TData::i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t j) const {

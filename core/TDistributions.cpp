@@ -3,16 +3,24 @@
 //
 
 #include "TDistributions.h"
-#include "TLikelihood.h"
+#include "TModels.h"
 #include "stattools/ParametersObservations/TIndexSampler.h"
 
 using namespace coretools::instances;
 
 //--------------------------------
-// TPoissonEpochModel
+// TDistributionBase
 //--------------------------------
 
-TPoissonDistribution::TPoissonDistribution() : TDistributionBase() {}
+TDistributionBase::TDistributionBase(size_t SpeciesIDinUniqueContainer)
+    : _speciesIDinUniqueContainer(SpeciesIDinUniqueContainer) {}
+
+//--------------------------------
+// TPoissonDistribution
+//--------------------------------
+
+TPoissonDistribution::TPoissonDistribution(size_t SpeciesIDinUniqueContainer)
+    : TDistributionBase(SpeciesIDinUniqueContainer) {}
 
 double TPoissonDistribution::calculateLL(const std::vector<double> & /*sigma*/, const TLocations &loc,
                                          const std::vector<double> &p, size_t index_in_counts,
@@ -26,16 +34,20 @@ void TPoissonDistribution::simulate(
     TData &Data, const TModelBase &Model, size_t N0,
     std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
     const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
-	for (auto &method : Data) { method.simulatePoisson(N0, Model, detectionProbs, locations, SimulateCovariates); }
+
+	for (auto &method : Data) {
+		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
+		method.simulatePoisson(N0, Model, detectionProbs, locations, SimulateCovariates);
+	}
 }
 
 //--------------------------------
-// TNegBinEpochModel
+// TNegBinDistribution
 //--------------------------------
 
-TNegBinDistribution::TNegBinDistribution(stattools::TParameterTyped<TypeMu, 1> *Mu,
+TNegBinDistribution::TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMu, 1> *Mu,
                                          stattools::TParameterTyped<TypeLogA, 1> *LogA)
-    : TDistributionBase() {
+    : TDistributionBase(SpeciesIDinUniqueContainer) {
 	_mu   = Mu;
 	_logA = LogA;
 
@@ -43,8 +55,7 @@ TNegBinDistribution::TNegBinDistribution(stattools::TParameterTyped<TypeMu, 1> *
 	TypeLogA::setMax(10.0);
 }
 
-void TNegBinDistribution::initializeInferred(const TUniqueContainer<size_t> &Timepoints,
-                                             const TUniqueContainer<std::string> &Locations, const TData &Data) {
+void TNegBinDistribution::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations) {
 	// initialize mu
 	auto muNames = std::make_shared<coretools::TNamesStrings>();
 	for (size_t i = 0; i < Data.size(); ++i) {
@@ -78,7 +89,7 @@ double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const 
 	return coretools::gammaLog(sum_a) - coretools::gammaLog((double)n + sum_a) + term2; // (n+1) drops out
 }
 
-void TNegBinDistribution::_updateMu(const TData &Data, const TModelBase &Model) {
+void TNegBinDistribution::_updateMu(const TData &Data, TModelBase &Model) {
 	stattools::TIndexSampler sampler(
 	    Data.numMethLoc(_speciesIDinUniqueContainer)); // draw random indices from range [0, _numMethLoc]
 	sampler.sampleIndices();
@@ -96,47 +107,47 @@ void TNegBinDistribution::_updateMu(const TData &Data, const TModelBase &Model) 
 
 		_mu->updatePairWiseSumOneVector(c1, c2);
 
-		std::vector<double> sigma1 = TLikelihood::calculateSigma(loc1, Model);
-		std::vector<double> sigma2 = TLikelihood::calculateSigma(loc2, Model);
+		std::vector<double> sigma1 = Model.calculateSigma(loc1);
+		std::vector<double> sigma2 = Model.calculateSigma(loc2);
 
 		size_t index_in_counts1 = m1.getIndexInCounts(_speciesIDinUniqueContainer);
 		const auto newLL1       = calculateLL(sigma1, loc1, {}, index_in_counts1, c1);
 		size_t index_in_counts2 = m2.getIndexInCounts(_speciesIDinUniqueContainer);
 		const auto newLL2       = calculateLL(sigma2, loc2, {}, index_in_counts2, c2);
 
-		const double LLRatio = newLL1 + newLL2 - _oldLL[c1] - _oldLL[c2]; // in log
+		const double LLRatio = newLL1 + newLL2 - Model.curLL(c1) - Model.curLL(c2); // in log
 		const double logH    = LLRatio + _mu->getLogPriorRatio(c1) + _mu->getLogPriorRatio(c2);
 
 		coretools::TRange range(c1, c2);
 		if (_mu->acceptOrReject(logH, range, c1)) {
 			// accepted -> update LL
-			_oldLL[c1] = newLL1;
-			_oldLL[c2] = newLL2;
+			Model.setCurLL(c1, newLL1);
+			Model.setCurLL(c2, newLL2);
 		}
 	}
 }
 
-void TNegBinDistribution::_updateLogA(const TData &Data, const TModelBase &Model) {
+void TNegBinDistribution::_updateLogA(const TData &Data, TModelBase &Model) {
 	if (_logA->update()) {
 		std::vector<double> newLL(Data.numMethLoc(_speciesIDinUniqueContainer));
 		for (size_t ij = 0; ij < Data.numMethLoc(_speciesIDinUniqueContainer); ++ij) {
 			auto [m_ix, l_ix]      = Data.linear_to_i_j(_speciesIDinUniqueContainer, ij);
 			const auto &m          = Data[m_ix];
 			const auto &loc        = m[l_ix];
-			std::vector sigma      = TLikelihood::calculateSigma(loc, Model);
+			std::vector sigma      = Model.calculateSigma(loc);
 			size_t index_in_counts = m.getIndexInCounts(_speciesIDinUniqueContainer);
 			newLL[ij]              = calculateLL(sigma, loc, {}, index_in_counts, ij);
 		}
-		const double LLRatio = coretools::containerSum(newLL) - coretools::containerSum(_oldLL);
+		const double LLRatio = coretools::containerSum(newLL) - Model.sumCurLL();
 		const double logH    = LLRatio + _logA->getLogPriorRatio();
 		if (_logA->acceptOrReject(logH, 0)) {
 			// accepted -> update LL
-			_oldLL = newLL;
+			Model.setCurLL(newLL);
 		}
 	}
 }
 
-void TNegBinDistribution::update(const TData &Data, const TModelBase &Model) {
+void TNegBinDistribution::update(const TData &Data, TModelBase &Model) {
 	if (_mu->isUpdated()) { _updateMu(Data, Model); }
 	if (_logA->isUpdated()) { _updateLogA(Data, Model); }
 }
@@ -157,7 +168,7 @@ void TNegBinDistribution::_estimateInitialMu(const TData &Data) {
 	_mu->normalizeToSum1AfterUpdate();
 }
 
-void TNegBinDistribution::estimateInitialPriorParameters(const TData &Data) {
+void TNegBinDistribution::estimateInitialParameters(const TData &Data) {
 	// initialize mu
 	_estimateInitialMu(Data);
 	_logA->setInitial(0.0); // log(1) = 0
