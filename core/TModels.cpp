@@ -203,20 +203,22 @@ TDeterministic::TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &D
                                const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
                                stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                                stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
-    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _gamma(Gamma, TimesOfChange) {
-
-	_phi.resize(_gamma.numTimepoints());
-}
+    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _gamma(Gamma, TimesOfChange) {}
 
 void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
                                 const TUniqueContainer<std::size_t> &TimePoints) {
 	_initializeDistribution(Data, Locations);
 	_gamma.initialize(TimePoints);
+
+	_newPhi.resize(_gamma.numTimepoints());
+	_oldPhi = _newPhi;
 }
 
 void TDeterministic::estimateInitial(const TData &Data) {
 	_estimateInitialParameters(Data);
 	_gamma.estimateInitialGamma(Data, *this);
+	_fillPhi();
+	_oldPhi = _newPhi;
 }
 
 double TDeterministic::_calculateLogPhi_k(size_t k) const {
@@ -226,12 +228,12 @@ double TDeterministic::_calculateLogPhi_k(size_t k) const {
 }
 
 void TDeterministic::_fillPhi() {
-	for (size_t k = 0; k < _gamma.numTimepoints(); k++) { _phi[k] = _calculateLogPhi_k(k); }
-	coretools::standardizeZeroMean(_phi);
-	for (auto &p : _phi) { p = exp(p); } // make logPhi to phi
+	for (size_t k = 0; k < _gamma.numTimepoints(); k++) { _newPhi[k] = _calculateLogPhi_k(k); }
+	coretools::standardizeZeroMean(_newPhi);
+	for (auto &p : _newPhi) { p = exp(p); } // make logPhi to phi
 }
 
-TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id) const { return _phi[timepoint_id]; }
+TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id) const { return _newPhi[timepoint_id]; }
 
 void TDeterministic::update(const TData &Data) {
 	// update distribution parameters
@@ -239,11 +241,18 @@ void TDeterministic::update(const TData &Data) {
 
 	for (size_t m = 0; m < _gamma.numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma.updateSpecificIndex(m)) {
+			_fillPhi();
 			const auto LLRatio         = calculateLLRatio(Data);
 			const double logPriorRatio = _gamma.getLogPriorRatio(Data, *this); // Jeffrey prior
 
 			const double logH = LLRatio + logPriorRatio;
-			if (_gamma.acceptOrReject(logH, m)) { swapTryCur(); }
+			if (_gamma.acceptOrReject(logH, m)) {
+				// accepted
+				swapTryCur();
+			} else {
+				// reject
+				_newPhi = _oldPhi;
+			}
 		}
 	}
 }
@@ -254,6 +263,7 @@ void TDeterministic::simulate(
     const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
 
 	_gamma.setSimulatedGammaToZero();
+	_fillPhi();
 	_simulateDistributionParameters(Data, N0, detectionProbs, locations, SimulateCovariates);
 };
 

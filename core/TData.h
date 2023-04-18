@@ -11,7 +11,6 @@
 #include <string>
 #include <vector>
 
-class TEpochModel;
 class TModelBase;
 class TData;
 class TDistributionBase;
@@ -242,7 +241,7 @@ class TData {
 private:
 	std::vector<TMethods> _methods;
 
-	size_t _numSpecies;
+	size_t _numSpecies = 0;
 
 	std::vector<size_t> _numMethLoc; // per species
 
@@ -251,14 +250,16 @@ private:
 	std::vector<std::vector<std::vector<size_t>>> _i_j_to_linear;
 
 	// fill indices
+	void _fillNumMethLocs();
 	std::pair<size_t, size_t> _getMethAndLocIndex(size_t ij_index, size_t speciesID) const;
-	void _fillMethLocIndices();
 
 public:
 	TData();
 	virtual ~TData() = default;
 
 	void addMethod(const TMethods &Method);
+
+	void fillMethLocIndices(size_t NumSpecies);
 
 	// iterators
 	size_t size() const;

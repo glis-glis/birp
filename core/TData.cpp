@@ -3,7 +3,6 @@
 //
 
 #include "TData.h"
-#include "TDistributions.h"
 #include "TModels.h"
 #include "stattools/ParametersObservations/TIndexSampler.h"
 #include <regex>
@@ -425,8 +424,8 @@ coretools::Probability TMethods::_getDetectionProbability(
 
 void TMethods::_setBetaSingleCovariate() {
 	if (!inferEffort()) {
-		_beta->set(0, 0.0); // set intercept-beta to zero
-		_beta->set(1, 1.0); // set cov-beta to one
+		_beta->set(0, 1e-10); // set intercept-beta to zero
+		_beta->set(1, 1.0);   // set cov-beta to one
 	}
 }
 
@@ -535,11 +534,19 @@ void TMethods::updateBeta(const TData &Data, const std::vector<std::unique_ptr<T
 // TData
 //-------------------------------------------
 
-TData::TData(){
-
-};
+TData::TData() = default;
 
 void TData::addMethod(const TMethods &Method) { _methods.emplace_back(Method); }
+
+void TData::_fillNumMethLocs() {
+	// check how many combinations of methods/locations we have - used to initialize vector of LL
+	_numMethLoc.resize(_numSpecies, 0);
+	for (size_t species = 0; species < _numSpecies; ++species) {
+		for (const auto &m : _methods) {
+			if (m.hasDataForSpeciesID(species)) { _numMethLoc[species] += m.size(); }
+		}
+	}
+}
 
 std::pair<size_t, size_t> TData::_getMethAndLocIndex(size_t ij_index, size_t speciesID) const {
 	// returns the actual indices of specific method and location, not id in unique container.
@@ -556,7 +563,11 @@ std::pair<size_t, size_t> TData::_getMethAndLocIndex(size_t ij_index, size_t spe
 	DEVERROR("Did not find method and location index for species - this should not happen.");
 }
 
-void TData::_fillMethLocIndices() {
+void TData::fillMethLocIndices(size_t NumSpecies) {
+	_numSpecies = NumSpecies;
+
+	_fillNumMethLocs();
+
 	// fill linear to i_j
 	_linear_to_i_j.resize(_numSpecies);
 	for (size_t species = 0; species < _numSpecies; ++species) {

@@ -6,16 +6,13 @@
 #define TBIRPPRIOR_H
 
 #include "BirpTypes.h"
+#include "TBirpConfiguration.h"
 #include "TData.h"
 #include "TModels.h"
 #include "coretools/Files/TFile.h"
 #include "coretools/Files/TOutputFile.h"
 #include "stattools/ParametersObservations/TObservationTyped.h"
 #include "stattools/ParametersObservations/TParameterTyped.h"
-
-class TBirpCommonModel;
-class TBirpNegBinomAddOn;
-class TBirpStochasticAddOn; // todo get rid of those
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
@@ -47,9 +44,8 @@ protected:
 public:
 	TBirpPrior() = default;
 	TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<std::size_t> &TimePoints,
-	           const TUniqueContainer<std::string> &CovariateNames, size_t numSpecies,
-	           TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
+	           const TUniqueContainer<std::size_t> &TimePoints, const TUniqueContainer<std::string> &CovariateNames,
+	           size_t numSpecies, TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
 	           std::unique_ptr<TBirpStochasticAddOn> &StochasticAddOn, std::string Prefix);
 	~TBirpPrior() override = default;
 

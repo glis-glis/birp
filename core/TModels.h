@@ -6,17 +6,17 @@
 #define BIRP_TMODELS_H
 
 #include "BirpTypes.h"
+#include "TBirpConfiguration.h"
 #include "TData.h"
+#include "TDistributions.h"
 #include "TGamma.h"
 #include "coretools/Math/TMatrix.h"
 #include "stattools/ParametersObservations/TObservationTyped.h"
 #include "stattools/ParametersObservations/TParameterTyped.h"
 #include <armadillo>
 #include <vector>
-#include "TDistributions.h"
 
 class TGamma;
-class TBirpNegBinomAddOn;
 
 //---------------------------------------------------
 // TModelBase
@@ -45,9 +45,9 @@ protected:
 	void _estimateInitialParameters(const TData &Data);
 	void _updateDistributionParameters(const TData &Data);
 	void _simulateDistributionParameters(TData &Data, size_t N0,
-	                           std::tuple<std::vector<std::string>, std::vector<std::string>,
-	                                      std::vector<coretools::Probability>> &detectionProbs,
-	                           const TUniqueContainer<std::string> &locations, bool SimulateCovariates);
+	                                     std::tuple<std::vector<std::string>, std::vector<std::string>,
+	                                                std::vector<coretools::Probability>> &detectionProbs,
+	                                     const TUniqueContainer<std::string> &locations, bool SimulateCovariates);
 
 public:
 	TModelBase(size_t SpeciesIDinUniqueContainer, const TData &Data,
@@ -96,7 +96,8 @@ protected:
 	TGamma _gamma;
 
 	// store temporary phi
-	std::vector<TypePhi> _phi;
+	std::vector<double> _newPhi;
+	std::vector<double> _oldPhi;
 
 	void _fillPhi();
 	double _calculateLogPhi_k(size_t k) const;
