@@ -60,6 +60,7 @@ public:
 	size_t numTimepoints() const;
 	TypeGamma gamma(size_t m) const;
 	size_t rho(size_t row, size_t col) const;
+	std::vector<double> phi() const;
 };
 
 //------------------------------------------
@@ -79,17 +80,21 @@ protected:
 	coretools::TMatrix<size_t> _stochasticRho;
 	std::vector<size_t> _deltaTimeVec;
 
-	// store log transition probabilities: per location and timepoint
-	std::vector<std::vector<coretools::Positive<double>>> _tryLogTransitionProbs;
-	std::vector<std::vector<coretools::Positive<double>>> _curLogTransitionProbs;
+	// temporary variable: delta
+	std::vector<double> _oldDelta;
+	std::vector<double> _newDelta;
 
-	// fill rho
+	// store log transition probabilities: per location and timepoint
+	std::vector<std::vector<double>> _tryLogTransitionProbs;
+	std::vector<std::vector<double>> _curLogTransitionProbs;
+
+	// fill rho and delta
 	void _fillStochasticRho(const TUniqueContainer<size_t> &Timepoints);
-	coretools::StrictlyPositive<double> _calculateDelta(size_t k) const;
-	size_t _calculateDeltaTime(size_t k) const;
+	void _initializeDelta();
+	void _initializeTransitionProbabilities();
 
 	// transition probabilities
-	coretools::Positive<double> _calculateLogTransitionProbability(size_t j, size_t k) const;
+	double _calculateLogTransitionProbability(size_t j, size_t k) const;
 
 public:
 	TStochasticPrior(stattools::TParameterTyped<TypePhi, 2> *Phi, stattools::TParameterTyped<TypeSigma, 1> *Sigma,
@@ -111,6 +116,9 @@ public:
 	double calculateLogPriorRatio(size_t j, size_t k);
 
 	void setSimulatedGammaToZero();
+
+	// getters
+	std::vector<double> phi() const;
 };
 
 #endif // BIRP_TGAMMA_H

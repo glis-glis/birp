@@ -25,8 +25,6 @@ TModelBase::TModelBase(size_t SpeciesIDinUniqueContainer, const TData &Data,
 	_tryLL.resize(Data.numMethLoc(_speciesIDinUniqueContainer), 0.0);
 }
 
-// todo: also standardizeZeroMean for stochastic phi?
-
 void TModelBase::_initializeDistribution(const TData &Data, const TUniqueContainer<std::string> &Locations) {
 	_distr->initialize(Data, Locations);
 }
@@ -209,8 +207,7 @@ double TModelBase::sumCurLL() const { return coretools::containerSum(_curLL); }
 void TModelBase::setCurLL(size_t ij, double Value) { _curLL[ij] = Value; }
 void TModelBase::setCurLL(const std::vector<double> &Values) { _curLL = Values; }
 
-// TODO
-// automatically remove data sets with less than two time points with effort > 0?
+// TODO: issue warning if data sets with less than two time points with effort > 0
 
 //------------------------------------------
 // TDeterministic
@@ -243,17 +240,7 @@ void TDeterministic::initializeTempVariables(const TData &Data) {
 	_initializeLL(Data);
 }
 
-double TDeterministic::_calculateLogPhi_k(size_t k) const {
-	double sum = 0.0;
-	for (size_t m = 0; m < _gamma.numEpochs(); m++) { sum += (double)_gamma.rho(k, m) * _gamma.gamma(m); }
-	return sum;
-}
-
-void TDeterministic::_fillPhi() {
-	for (size_t k = 0; k < _gamma.numTimepoints(); k++) { _newPhi[k] = _calculateLogPhi_k(k); }
-	coretools::standardizeZeroMean(_newPhi);
-	for (auto &p : _newPhi) { p = exp(p); } // make logPhi to phi
-}
+void TDeterministic::_fillPhi() { _newPhi = _gamma.phi(); }
 
 TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id) const { return _newPhi[timepoint_id]; }
 
@@ -316,13 +303,25 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 	_sigma->initStorage();
 }
 
+void TStochastic::_setPhiFromDeterministic() {
+	auto deterministicPhi = _prior.phi();
+	for (size_t j = 0; j < _phi->dimensions()[0]; ++j) {     // loop over locations
+		for (size_t k = 0; k < _phi->dimensions()[1]; ++k) { // loop over timepoints
+			const auto index = _phi->getIndex({j, k});       // get linear index
+			_phi->setInitial(index, deterministicPhi[k]);
+		}
+	}
+}
+
 void TStochastic::estimateInitial(const TData &Data) {
 	_estimateInitialParameters(Data);
 	_prior.estimateInitialGamma();
 
-	// todo: how to initialize phi? probably to values of deterministic model
-	for (size_t i = 0; i < _phi->totalSize(); ++i) { _phi->setInitial(i, 1.0); }
-	_sigma->setInitial(1.0);
+	// initialize phi based on deterministic phi
+	_setPhiFromDeterministic();
+
+	// set smallish sigma
+	_sigma->setInitial(0.1);
 }
 
 void TStochastic::initializeTempVariables(const TData &Data) {
@@ -356,20 +355,16 @@ void TStochastic::_updatePhi(const TData &Data) {
 	}
 }
 
-void TStochastic::_updateSigma(const TData &Data) {
+void TStochastic::_updateSigma() {
 	// propose a new value
-	_sigma->update();
+	if (!_sigma->update()) { return; }
 
-	double logTransitionRatio = 0.0;
-	double LLRatio            = 0.0;
+	double LLRatio = 0.0;
 	for (size_t j = 0; j < _phi->dimensions()[0]; ++j) { // loop over all locations
-		for (size_t k = 1; k < _phi[j].dimensions()[1]; ++k) {
-			logTransitionRatio += _prior.calculateLogPriorRatio(j, k);
-		}
+		for (size_t k = 1; k < _phi[j].dimensions()[1]; ++k) { LLRatio += _prior.calculateLogPriorRatio(j, k); }
 	}
-	LLRatio = calculateLLRatio(Data);
 
-	const double logH = logTransitionRatio + LLRatio;
+	const double logH = LLRatio + _sigma->getLogPriorRatio();
 	if (_sigma->acceptOrReject(logH, 0)) {
 		// accepted: update transition probabilities
 		_prior.swapTryCur();
@@ -384,8 +379,8 @@ void TStochastic::update(const TData &Data) {
 	// update gamma
 	_prior.updateGamma(Data, *this);
 
-	_updatePhi(Data);
-	_updateSigma(Data);
+	if (_phi->isUpdated()) { _updatePhi(Data); }
+	if (_sigma->isUpdated()) { _updateSigma(); }
 }
 
 void TStochastic::simulate(
@@ -396,8 +391,7 @@ void TStochastic::simulate(
 	// simulate gamma
 	_prior.setSimulatedGammaToZero();
 
-	// todo: how to simulate phi? Probably also from deterministic case
-	for (size_t i = 0; i < _phi->totalSize(); ++i) { _phi->setInitial(i, 1.0); }
+	_setPhiFromDeterministic();
 
 	_simulateDistributionParameters(Data, N0, detectionProbs, locations, SimulateCovariates);
 };

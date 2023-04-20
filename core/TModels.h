@@ -102,7 +102,6 @@ protected:
 	std::vector<double> _oldPhi;
 
 	void _fillPhi();
-	double _calculateLogPhi_k(size_t k) const;
 
 public:
 	TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,
@@ -141,8 +140,9 @@ protected:
 
 	// update functions
 	void _updatePhi(size_t j, size_t k, const TData &Data);
-	void _updateSigma(const TData &Data);
+	void _updateSigma();
 	void _updatePhi(const TData &Data);
+	void _setPhiFromDeterministic();
 
 public:
 	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data,
