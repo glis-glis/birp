@@ -300,7 +300,7 @@ std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &met
 
 void TBirpCore::_writeFile() {
 	// make second file that stores names of all methodFiles generated during the simulation
-	coretools::TOutputFile fileList("allFilesGenerated");
+	coretools::TOutputFile fileList("allFilesGenerated"); // todo how to safe it to different path?
 	// write file line by line
 	for (auto &method : _methods) {
 		// get filename here.
