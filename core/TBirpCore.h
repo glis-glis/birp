@@ -19,34 +19,6 @@
 #include "stattools/Priors/TPriorExponential.h"
 #include "stattools/Priors/TPriorUniform.h"
 
-//------------------------------------------
-// TBirpModel
-//------------------------------------------
-
-class TBirpModel {
-private:
-	// all parameters of model (including prior parameters)
-	stattools::TParameterTyped<TypeGamma, 1> _gamma;
-	stattools::TParameterTyped<TypeTime, 1> _timesOfChange;
-
-	// only relevant for negative binomial model
-	stattools::TParameterTyped<TypeSigmaMu, 1> _sigmaMu;
-	stattools::TParameterTyped<TypeMu, 1> _mu;
-	stattools::TParameterTyped<TypeLogA, 1> _logA;
-
-	// covariates: regression coefficients
-	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeSigmaBeta, 1>>> _sigmaBeta;
-	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> _beta;
-
-	std::unique_ptr<stattools::TObservationTyped<TypeCounts, 2>> _data;
-
-public:
-	TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-	           TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
-	           TUniqueContainer<std::string> *CovariateNames, const std::string &Filename,
-	           stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial);
-};
-
 //--------------------------------------
 // TBirpCore
 //--------------------------------------
@@ -57,7 +29,7 @@ protected:
 
 	// locations, methods, timepoints
 	TUniqueContainer<std::string> _locations;
-	std::vector<TMethods> _methods;
+	TData _data;
 	TUniqueContainer<size_t> _timepoints;
 	TUniqueContainer<std::string> _covariateNames;
 	TUniqueContainer<std::string> _speciesNames;

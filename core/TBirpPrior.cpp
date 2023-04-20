@@ -3,43 +3,40 @@
 //
 
 #include "TBirpPrior.h"
-#include "TEpochModel.h"
+#include "TBirpCore.h"
+#include "TModels.h"
 #include "coretools/Storage/TDataFile.h"
 #include <utility>
 
 using namespace coretools::instances;
 
-TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
-                       size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                       stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-                       std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix)
-    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _covariateNames(CovariateNames),
+TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locations,
+                       const TUniqueContainer<std::size_t> &TimePoints,
+                       const TUniqueContainer<std::string> &CovariateNames, size_t numSpecies,
+                       TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
+                       std::unique_ptr<TBirpStochasticAddOn> &StochasticAddOn, std::string Prefix)
+    : _data(Data), _locations(Locations), _timepoints(TimePoints), _covariateNames(CovariateNames),
       _numSpecies(numSpecies), _out(std::move(Prefix)) {
-	// constructor for Poisson model
 
-	addPriorParameter({Gamma, TimesOfChange});
-	for (auto &b : Beta) { addPriorParameter(b.get()); }
+	// stattools: tell which ones are prior parameters
+	addPriorParameter({&CommonModel.gamma, &CommonModel.timesOfChange});
+	for (auto &b : CommonModel.beta) { addPriorParameter(b.get()); }
 	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
-	_epochModel.emplace_back(std::make_unique<TPoissonEpochModel>(Gamma, TimesOfChange));
-	for (size_t i = 0; i < _methods->size(); ++i) { (*_methods)[i].addBeta(Beta[i]); }
-}
+	if (NegBinomAddOn) { addPriorParameter({&NegBinomAddOn->mu, &NegBinomAddOn->logA}); }
+	if (StochasticAddOn) { addPriorParameter({&StochasticAddOn->phi, &StochasticAddOn->sigma}); }
 
-TBirpPrior::TBirpPrior(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *CovariateNames,
-                       size_t numSpecies, stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                       stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-                       stattools::TParameterTyped<TypeMu, 1> *Mu, stattools::TParameterTyped<TypeLogA, 1> *LogA,
-                       std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> &Beta, std::string Prefix)
-    : _methods(Methods), _locations(Locations), _timepoints(TimePoints), _covariateNames(CovariateNames),
-      _numSpecies(numSpecies), _out(std::move(Prefix)) {
-	// constructor for Negative Binomial model
+	// create models
+	size_t speciesID = 0;
+	if (StochasticAddOn) {
+		_models.emplace_back(std::make_unique<TStochastic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
+		                                                   &CommonModel.timesOfChange, &StochasticAddOn->phi,
+		                                                   &StochasticAddOn->sigma));
+	} else {
+		_models.emplace_back(std::make_unique<TDeterministic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
+		                                                      &CommonModel.timesOfChange));
+	}
 
-	addPriorParameter({Gamma, TimesOfChange, Mu, LogA});
-	for (auto &b : Beta) { addPriorParameter(b.get()); }
-	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
-	_epochModel.emplace_back(std::make_unique<TNegBinEpochModel>(Gamma, TimesOfChange, Mu, LogA));
-	for (size_t i = 0; i < _methods->size(); ++i) { (*_methods)[i].addBeta(Beta[i]); }
+	for (size_t i = 0; i < Data.size(); ++i) { _data[i].addBeta(CommonModel.beta[i]); }
 }
 
 std::string TBirpPrior::name() const { return "birp"; }
@@ -48,28 +45,27 @@ std::string TBirpPrior::name() const { return "birp"; }
 // Initialization
 
 void TBirpPrior::initializeInferred() {
-	for (size_t s = 0; s < _numSpecies; s++) {
-		_epochModel[s]->initializeInferred(*_timepoints, *_locations, *_methods);
-	}
-	for (auto &_method : *_methods) { _method.initializeInferred(*_covariateNames); }
+	for (auto &_method : _data) { _method.initialize(_covariateNames); }
+	for (size_t s = 0; s < _numSpecies; s++) { _models[s]->initialize(_data, _locations, _timepoints); }
 }
 
 void TBirpPrior::estimateInitialPriorParameters() {
-	for (auto &_method : *_methods) { _method.estimateInitialBeta(); }
-	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->estimateInitialPriorParameters(*_methods); }
+	for (auto &_method : _data) { _method.estimateInitialBeta(); }
+	for (size_t s = 0; s < _numSpecies; ++s) { _models[s]->estimateInitial(_data); }
 }
 
 //------------------------------------
 // MCMC
 
 void TBirpPrior::updateParams() {
-	for (size_t s = 0; s < _numSpecies; ++s) { _epochModel[s]->update(*_methods); }
-	for (auto &_method : *_methods) { _method.updateBeta(_epochModel); }
+	for (size_t s = 0; s < _numSpecies; ++s) { _models[s]->update(_data); }
+	for (auto &_method : _data) { _method.updateBeta(_data, _models); }
 }
 
 double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
+	// calculates likelihood
 	double sum = 0.0;
-	for (size_t s = 0; s < _numSpecies; ++s) { sum += _epochModel[s]->calculateLL(*_methods); }
+	for (size_t s = 0; s < _numSpecies; ++s) { sum += _models[s]->sumCurLL(); }
 	return sum;
 }
 
@@ -109,10 +105,10 @@ auto TBirpPrior::_readDetectionProbFile() const {
 		}
 	} else {
 		// detectionProbFile is not given -> just create as many method/locations as there are and use default = 1.0
-		for (auto &method : *_methods) {
+		for (auto &method : _data) {
 			for (auto &loc : method) {
 				methodNamesFromDetections.push_back(method.name());
-				locationNamesFromDetections.push_back((*_locations)[loc.location_id()]);
+				locationNamesFromDetections.push_back(_locations[loc.location_id()]);
 				detectionsProbs.emplace_back(1.0);
 			}
 		}
@@ -122,7 +118,7 @@ auto TBirpPrior::_readDetectionProbFile() const {
 
 void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called when simulated
 	// first calculate effort
-	for (auto &method : *_methods) { method.initializeEffort(); }
+	for (auto &method : _data) { method.initializeEffort(); }
 
 	auto detectionProbs = _readDetectionProbFile();
 	auto N0             = _readN0FromCommandLine();
@@ -130,16 +126,16 @@ void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called w
 	// do we need to simulate covariates?
 	bool simulateCovariates = !parameters().parameterExists("simulationFile");
 
-	for (size_t s = 0; s < _epochModel.size(); s++) {
-		_epochModel[s]->simulate(*_methods, N0[s], detectionProbs, *_locations, simulateCovariates);
+	for (size_t s = 0; s < _models.size(); s++) {
+		_models[s]->simulate(_data, N0[s], detectionProbs, _locations, simulateCovariates);
 	}
 }
 
 //------------------------------------
 // Getters
 
-const TUniqueContainer<std::string> &TBirpPrior::locations() const { return *_locations; }
+const TUniqueContainer<std::string> &TBirpPrior::locations() const { return _locations; }
 
-const std::vector<TMethods> &TBirpPrior::methods() const { return *_methods; }
+const TData &TBirpPrior::data() const { return _data; }
 
-const TUniqueContainer<size_t> &TBirpPrior::timepoints() const { return *_timepoints; }
+const TUniqueContainer<size_t> &TBirpPrior::timepoints() const { return _timepoints; }

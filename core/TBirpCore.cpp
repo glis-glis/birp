@@ -17,89 +17,6 @@ using namespace coretools::instances;
 using namespace stattools;
 using namespace stattools::prior;
 
-std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretools::StrictlyPositive<double> Default) {
-	// read values of alpha from command line
-	std::vector<coretools::StrictlyPositive<double>> alphas;
-	if (parameters().parameterExists(ArgName)) {
-		parameters().fillParameterIntoContainer(ArgName, alphas, ',');
-	} else {
-		alphas.push_back(Default);
-	}
-
-	if (alphas.empty()) { UERROR("Invalid argument '", ArgName, "': is empty!"); }
-	if (alphas.size() == 1) { return coretools::str::repeat(alphas[0], Size); }
-	if (alphas.size() == Size) { return coretools::str::concatenateString(alphas, ","); }
-
-	UERROR("Size of argument '", ArgName, "' (", alphas.size(), ") does not match expected size (", Size, ").");
-}
-
-TBirpModel::TBirpModel(std::vector<TMethods> *Methods, TUniqueContainer<std::string> *Locations,
-                       TUniqueContainer<std::size_t> *TimePoints, TUniqueContainer<std::string> *speciesNames,
-                       TUniqueContainer<std::string> *CovariateNames, const std::string &Filename,
-                       stattools::TDAGBuilder &DAGBuilder, bool NegativeBinomial)
-    // TODO: change to improper prior!
-    : _gamma("gamma", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeGamma, 1>>(),
-             {Filename}),
-      _timesOfChange("timesOfChange",
-                     std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeTime, 1>>(),
-                     {Filename}),
-      _sigmaMu("sigmaMu",
-               std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigmaMu, 1>>(),
-               {Filename, "1"}),
-      _mu("mu",
-          std::make_shared<stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeMu, 1, TypeSigmaMu>>(
-              &_sigmaMu),
-          {Filename, readAlphaDirichlet("alpha_mu", TEpochModel::getNumMethLocs(*Methods, 0),
-                                        1.0)}), // todo speciesID 0 because right now single species
-      _logA("logA", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogA, 1>>(),
-            {Filename}) {
-
-	// create beta
-	_sigmaBeta.resize(Methods->size());
-	_beta.resize(Methods->size());
-	for (size_t i = 0; i < Methods->size(); ++i) {
-		// create sigma beta (variance of Dirichlet prior on beta_i)
-		auto name_sigma_beta = "sigma_beta_" + (*Methods)[i].name();
-		auto prior_sigma_beta =
-		    std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigmaBeta, 1>>();
-		TParameterDefinition def_sigma_beta({Filename, "1"});
-		if (!(*Methods)[i].inferEffort()) { def_sigma_beta.update(false); }
-		_sigmaBeta[i] = std::make_shared<stattools::TParameterTyped<TypeSigmaBeta, 1>>(
-		    name_sigma_beta, prior_sigma_beta, def_sigma_beta);
-
-		// create beta
-		auto name  = "beta_" + (*Methods)[i].name();
-		auto prior = std::make_shared<
-		    stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeBeta, 1, TypeSigmaBeta>>(
-		    _sigmaBeta[i].get());
-		TParameterDefinition def(Filename, readAlphaDirichlet("alpha_beta", CovariateNames->size(), 1.0));
-		_beta[i] = std::make_shared<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
-	}
-
-	// create birp prior (Poisson or Negative Binomial)
-	std::shared_ptr<TBirpPrior> birp;
-	if (NegativeBinomial) {
-		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, CovariateNames, speciesNames->size(),
-		                                    &_gamma, &_timesOfChange, &_mu, &_logA, _beta, Filename);
-	} else {
-		birp = std::make_shared<TBirpPrior>(Methods, Locations, TimePoints, CovariateNames, speciesNames->size(),
-		                                    &_gamma, &_timesOfChange, _beta, Filename);
-	}
-
-	// create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
-	coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;
-	_data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>("fakeData", birp, fakeData,
-	                                                                      stattools::TObservationDefinition(Filename));
-
-	// add to DAG
-	DAGBuilder.addToDAG({&_gamma, &_timesOfChange});
-	if (NegativeBinomial) { DAGBuilder.addToDAG({&_mu, &_sigmaMu, &_logA}); }
-	for (auto &b : _beta) { DAGBuilder.addToDAG(b.get()); }
-	for (auto &s : _sigmaBeta) { DAGBuilder.addToDAG(s.get()); }
-	DAGBuilder.addToDAG(_data.get());
-	DAGBuilder.buildDAG();
-}
-
 //--------------------------------------
 // TBirpCore
 //--------------------------------------
@@ -172,6 +89,7 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	}
 	for (const auto &name : filenames) { _readFile(name, hasCounts); }
 	_sortTimepoints();
+	_data.fillMethLocIndices(_speciesNames.size());
 }
 
 std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infile, const std::string &string) {
@@ -227,8 +145,8 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	std::string_view methodNameCropped = coretools::str::readAfter(methodNameFull, '_');
 	std::string methodName             = (std::string)coretools::str::readBeforeLast(methodNameCropped, '.');
 	coretools::str::eraseAllOccurences(methodName, "_simulatedCounts");
-	_methods.emplace_back(methodName, _methods.size(), species_ids,
-	                      covariate_ids); // the index of the method is the current size of the _methods vector
+	TMethods method(methodName, _data.size(), species_ids, covariate_ids);
+	_data.addMethod(method); // the index of the method is the current size of the _methods vector
 
 	std::vector<std::string> row;
 	while (infile.read(row)) {
@@ -245,13 +163,13 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		// create timepoint
 		TTimepoints pt(countVec, covVec, timepoint_id);
 		// add timepoint to data, either in existing object or create new one
-		_methods.back().add(pt, location_id); // back: goes to last element
+		_data.back().add(pt, location_id); // back: goes to last element
 	}
 
 	// standardize covariates
-	_methods.back().standardizeCovariatesAndAddIntercept();
+	_data.back().standardizeCovariatesAndAddIntercept();
 
-	_methods.back().fillIDVectors(_speciesNames.size());
+	_data.back().fillIDVectors(_speciesNames.size());
 }
 
 void TBirpCore::_sortTimepoints() {
@@ -260,7 +178,7 @@ void TBirpCore::_sortTimepoints() {
 
 	std::vector<size_t> sortingIndex = coretools::rankSort(_timepoints);
 	_timepoints                      = coretools::sortContainerByRank(_timepoints, sortingIndex);
-	for (auto &method : _methods) {
+	for (auto &method : _data) {
 		method.checkEffortBiggerThanZero();
 		method.sorttimes(sortingIndex);
 	}
@@ -272,9 +190,7 @@ void TBirpCore::infer() {
 
 	// create model
 	stattools::TDAGBuilder dagBuilder;
-	bool negBinom = parameters().parameterExists("negativeBinomial");
-	TBirpModel model(&_methods, &_locations, &_timepoints, &_speciesNames, &_covariateNames, _outname, dagBuilder,
-	                 negBinom);
+	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateNames, _outname, dagBuilder);
 
 	// run MCMC
 	stattools::TMCMC mcmc;
@@ -302,7 +218,7 @@ void TBirpCore::_writeFile() {
 	// make second file that stores names of all methodFiles generated during the simulation
 	coretools::TOutputFile fileList("allFilesGenerated"); // todo how to safe it to different path?
 	// write file line by line
-	for (auto &method : _methods) {
+	for (auto &method : _data) {
 		// get filename here.
 		std::string Filename            = _outname + "_" + method.name() + "_simulatedCounts.txt";
 		// get header here
@@ -364,17 +280,17 @@ void TBirpCore::simulate() {
 		auto covariate_ids = _simulateCovNames();
 
 		for (size_t m = 0; m < numMethods; ++m) {
-			_methods.emplace_back("Method_" + coretools::str::toString(m + 1), _locations.size(), _timepoints.size(), m,
-			                      species_ids, covariate_ids);
+			TMethods method("Method_" + coretools::str::toString(m + 1), _locations.size(), _timepoints.size(), m,
+			                species_ids, covariate_ids);
+			_data.addMethod(method);
 		}
-		for (auto &m : _methods) { m.fillIDVectors(_speciesNames.size()); }
+		for (auto &m : _data) { m.fillIDVectors(_speciesNames.size()); }
 	}
+	_data.fillMethLocIndices(_speciesNames.size());
 
 	// create model
 	stattools::TDAGBuilder dagBuilder;
-	bool negBinom = parameters().parameterExists("negativeBinomial");
-	TBirpModel model(&_methods, &_locations, &_timepoints, &_speciesNames, &_covariateNames, _outname, dagBuilder,
-	                 negBinom);
+	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateNames, _outname, dagBuilder);
 
 	// run simulator
 	stattools::TSimulator simulator;

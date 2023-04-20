@@ -11,7 +11,9 @@
 #include <string>
 #include <vector>
 
-class TEpochModel;
+class TModelBase;
+class TData;
+class TDistributionBase;
 
 //-------------------------------------------
 // TTimepoints
@@ -122,12 +124,10 @@ public:
 	}
 
 	// functions for simulating under Poisson model
-	void simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs);
-
-	void simulatePoisson(const std::vector<double> &phi);
+	void simulatePoisson(size_t N0, const TModelBase &Model, double detectionProbs);
 
 	// functions for simulating under Negative Binomial model
-	void simulateNB(const std::vector<double> &phi, double a, double mu_ij);
+	void simulateNB(const TModelBase &Model, double a, double mu_ij);
 };
 
 //-------------------------------------------
@@ -151,8 +151,7 @@ private:
 	std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> _beta;
 
 	// update functions for beta
-	void _updateBeta(size_t c1, size_t c2, const std::vector<std::unique_ptr<TEpochModel>> &EpochModels);
-
+	void _updateBeta(size_t c1, size_t c2, const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 	// standardize covariates
 	std::pair<TypeCovariate, TypeCovariate> _getMinMaxCovariates() const;
 	void _setBetaSingleCovariate();
@@ -182,6 +181,7 @@ public:
 
 	// add parameters beta
 	void addBeta(std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void initialize(const TUniqueContainer<std::string> &CovariateNames);
 
 	// add data
 	void add(const TTimepoints &pt, size_t location_id);
@@ -215,17 +215,15 @@ public:
 	std::vector<TLocations>::iterator end();
 
 	// update effort
-	void initializeInferred(const TUniqueContainer<std::string> &CovariateNames);
 	void estimateInitialBeta();
-	void updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &EpochModels);
-
+	void updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 	// functions for simulating
-	void simulatePoisson(size_t N0, const std::vector<double> &phi,
+	void simulatePoisson(size_t N0, const TModelBase &Model,
 	                     std::tuple<std::vector<std::string>, std::vector<std::string>,
 	                                std::vector<coretools::Probability>> &detectionProbs,
 	                     const TUniqueContainer<std::string> &locations, bool SimulateCovariates);
 
-	std::vector<double> simulateNB(size_t N0, const std::vector<double> &phi,
+	std::vector<double> simulateNB(size_t N0, const TModelBase &Model,
 	                               std::tuple<std::vector<std::string>, std::vector<std::string>,
 	                                          std::vector<coretools::Probability>> &detectionProbs,
 	                               const TUniqueContainer<std::string> &locations, double A, bool SimulateCovariates);
@@ -233,6 +231,50 @@ public:
 	// writing
 	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
 	           const TUniqueContainer<size_t> &Timepoints) const;
+};
+
+//-------------------------------------------
+// TData
+//-------------------------------------------
+
+class TData {
+private:
+	std::vector<TMethods> _methods;
+
+	size_t _numSpecies = 0;
+
+	std::vector<size_t> _numMethLoc; // per species
+
+	// indices (per species)
+	std::vector<std::vector<std::pair<size_t, size_t>>> _linear_to_i_j;
+	std::vector<std::vector<std::vector<size_t>>> _i_j_to_linear;
+
+	// fill indices
+	void _fillNumMethLocs();
+	std::pair<size_t, size_t> _getMethAndLocIndex(size_t ij_index, size_t speciesID) const;
+
+public:
+	TData();
+	virtual ~TData() = default;
+
+	void addMethod(const TMethods &Method);
+
+	void fillMethLocIndices(size_t NumSpecies);
+
+	// iterators
+	size_t size() const;
+	const TMethods &operator[](const size_t index) const;
+	TMethods &operator[](const size_t index);
+	std::vector<TMethods>::const_iterator cbegin() const;
+	std::vector<TMethods>::iterator begin();
+	std::vector<TMethods>::const_iterator cend() const;
+	std::vector<TMethods>::iterator end();
+	TMethods &back();
+
+	// getters
+	size_t numMethLoc(size_t SpeciesIDInUniqueContainer) const;
+	size_t i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t j) const;
+	const std::pair<size_t, size_t> &linear_to_i_j(size_t SpeciesIDInUniqueContainer, size_t linear) const;
 };
 
 #endif // BIRP_TDATA_H

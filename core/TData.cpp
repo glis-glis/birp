@@ -3,7 +3,7 @@
 //
 
 #include "TData.h"
-#include "TEpochModel.h"
+#include "TModels.h"
 #include "stattools/ParametersObservations/TIndexSampler.h"
 #include <regex>
 
@@ -214,12 +214,16 @@ void TLocations::resetEffort() {
 	for (auto &timepoint : _timepoints) { timepoint.resetEffort(); }
 }
 
-void TLocations::simulatePoisson(size_t N0, const std::vector<double> &phi, double detectionProbs) {
-	for (size_t t = 0; t < _timepoints.size(); t++) { _timepoints[t].simulatePoisson(N0, phi[t], detectionProbs); }
+void TLocations::simulatePoisson(size_t N0, const TModelBase &Model, double detectionProbs) {
+	for (size_t t = 0; t < _timepoints.size(); t++) {
+		_timepoints[t].simulatePoisson(N0, Model.phi(location_id(), _timepoints[t].timepoint_id()), detectionProbs);
+	}
 }
 
-void TLocations::simulateNB(const std::vector<double> &phi, double a, double mu_ij) {
-	for (size_t t = 0; t < _timepoints.size(); t++) { _timepoints[t].simulateNB(phi[t], a, mu_ij); }
+void TLocations::simulateNB(const TModelBase &Model, double a, double mu_ij) {
+	for (size_t t = 0; t < _timepoints.size(); t++) {
+		_timepoints[t].simulateNB(Model.phi(location_id(), _timepoints[t].timepoint_id()), a, mu_ij);
+	}
 }
 
 //-------------------------------------------
@@ -274,7 +278,7 @@ std::pair<TypeCovariate, TypeCovariate> TMethods::_getMinMaxCovariates() const {
 			if (max > overallMax) { overallMax = max; }
 		}
 	}
-	if (overallMin == overallMax){
+	if (overallMin == overallMax) {
 		UERROR("Error in standardizing covariates: all covariates have the same value (", overallMin, ").");
 	}
 	return {overallMin, overallMax};
@@ -420,13 +424,13 @@ coretools::Probability TMethods::_getDetectionProbability(
 
 void TMethods::_setBetaSingleCovariate() {
 	if (!inferEffort()) {
-		_beta->set(0, 0.0); // set intercept-beta to zero
-		_beta->set(1, 1.0); // set cov-beta to one
+		_beta->set(0, 1e-10); // set intercept-beta to zero
+		_beta->set(1, 1.0);   // set cov-beta to one
 	}
 }
 
 void TMethods::simulatePoisson(
-    size_t N0, const std::vector<double> &phi,
+    size_t N0, const TModelBase &Model,
     std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
     const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
 	// simulate covariates, if necessary
@@ -437,12 +441,12 @@ void TMethods::simulatePoisson(
 
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
 		auto delta = _getDetectionProbability(detectionProbs, locations, j);
-		_locations[j].simulatePoisson(N0, phi, delta);
+		_locations[j].simulatePoisson(N0, Model, delta);
 	}
 }
 
 std::vector<double> TMethods::simulateNB(
-    size_t N0, const std::vector<double> &phi,
+    size_t N0, const TModelBase &Model,
     std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
     const TUniqueContainer<std::string> &locations, double A, bool SimulateCovariates) {
 	// simulate covariates, if necessary
@@ -455,7 +459,7 @@ std::vector<double> TMethods::simulateNB(
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
 		auto delta = _getDetectionProbability(detectionProbs, locations, j);
 		mus[j]     = (double)N0 * delta;
-		_locations[j].simulateNB(phi, A, mus[j]);
+		_locations[j].simulateNB(Model, A, mus[j]);
 	}
 	return mus;
 }
@@ -465,7 +469,7 @@ void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::s
 	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
 }
 
-void TMethods::initializeInferred(const TUniqueContainer<std::string> &CovariateNames) {
+void TMethods::initialize(const TUniqueContainer<std::string> &CovariateNames) {
 	// initialize beta: first get appropriate covariate name
 	auto covNames = std::make_shared<coretools::TNamesStrings>();
 	for (size_t c = 0; c < numCovariates(); ++c) {
@@ -488,7 +492,8 @@ void TMethods::estimateInitialBeta() {
 	}
 }
 
-void TMethods::_updateBeta(size_t c1, size_t c2, const std::vector<std::unique_ptr<TEpochModel>> &EpochModels) {
+void TMethods::_updateBeta(size_t c1, size_t c2, const TData &Data,
+                           const std::vector<std::unique_ptr<TModelBase>> &Models) {
 	// propose new value
 	_beta->updatePairWiseSumOneVector(c1, c2);
 
@@ -498,23 +503,21 @@ void TMethods::_updateBeta(size_t c1, size_t c2, const std::vector<std::unique_p
 	}
 	// calculate Hastings ratio
 	double logRatio = _beta->getLogPriorRatio(c1) + _beta->getLogPriorDensity(c2);
-	std::vector<std::vector<double>> LLs(EpochModels.size());
-	for (size_t s = 0; s < EpochModels.size(); ++s) {
-		LLs[s] = EpochModels[s]->calculateLLForBetaUpdate(*this);
-		logRatio += coretools::containerSum(LLs[s]) - coretools::containerSum(EpochModels[s]->oldLLs());
+	for (size_t s = 0; s < Models.size(); ++s) { // loop over species
+		logRatio += Models[s]->calculateLLRatio_perMethod(method_id(), Data);
 	}
 	// decide if accept or reject
 	coretools::TRange range(c1, c2);
 	if (_beta->acceptOrReject(logRatio, range, c1)) {
 		// accepted: set likelihood in all epoch models
-		for (size_t s = 0; s < EpochModels.size(); ++s) { EpochModels[s]->setLLs(LLs[s]); }
+		for (size_t s = 0; s < Models.size(); ++s) { Models[s]->swapTryCur_perMethod(method_id(), Data); }
 	} else {
 		// rejected: re-set effort to old value before update
 		for (auto &location : _locations) { location.resetEffort(); }
 	}
 }
 
-void TMethods::updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &EpochModels) {
+void TMethods::updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models) {
 	if (!_beta->isUpdated()) { return; }
 
 	stattools::TIndexSampler sampler(numCovariates()); // draw random indices from range [0, numCovariates]
@@ -523,8 +526,93 @@ void TMethods::updateBeta(const std::vector<std::unique_ptr<TEpochModel>> &Epoch
 	for (size_t c = 0; c < sampler.length(); ++c) {
 		// pick two indices i to update
 		auto [c1, c2] = sampler.getIndexPair(c);
-		_updateBeta(c1, c2, EpochModels);
+		_updateBeta(c1, c2, Data, Models);
 	}
+}
+
+//-------------------------------------------
+// TData
+//-------------------------------------------
+
+TData::TData() = default;
+
+void TData::addMethod(const TMethods &Method) { _methods.emplace_back(Method); }
+
+void TData::_fillNumMethLocs() {
+	// check how many combinations of methods/locations we have - used to initialize vector of LL
+	_numMethLoc.resize(_numSpecies, 0);
+	for (size_t species = 0; species < _numSpecies; ++species) {
+		for (const auto &m : _methods) {
+			if (m.hasDataForSpeciesID(species)) { _numMethLoc[species] += m.size(); }
+		}
+	}
+}
+
+std::pair<size_t, size_t> TData::_getMethAndLocIndex(size_t ij_index, size_t speciesID) const {
+	// returns the actual indices of specific method and location, not id in unique container.
+	size_t counter = 0;
+	for (size_t i = 0; i < _methods.size(); i++) {
+		if (_methods[i].hasDataForSpeciesID(speciesID)) {
+			if (counter + _methods[i].size() > ij_index) {
+				size_t j = ij_index - counter;
+				return {i, j};
+			}
+		}
+		counter += _methods[i].size();
+	}
+	DEVERROR("Did not find method and location index for species - this should not happen.");
+}
+
+void TData::fillMethLocIndices(size_t NumSpecies) {
+	_numSpecies = NumSpecies;
+
+	_fillNumMethLocs();
+
+	// fill linear to i_j
+	_linear_to_i_j.resize(_numSpecies);
+	for (size_t species = 0; species < _numSpecies; ++species) {
+		_linear_to_i_j[species].resize(_numMethLoc[species]);
+		for (size_t ij = 0; ij < _numMethLoc[species]; ++ij) {
+			_linear_to_i_j[species][ij] = _getMethAndLocIndex(ij, species);
+		}
+	}
+
+	// fill i_j to linear
+	_i_j_to_linear.resize(_numSpecies);
+	for (size_t species = 0; species < _numSpecies; ++species) {
+		_i_j_to_linear[species].resize(_methods.size());           // size = numMethods
+		for (size_t i = 0; i < _methods.size(); ++i) {
+			_i_j_to_linear[species][i].resize(_methods[i].size()); // size = numLocations of this method
+			for (size_t j = 0; j < _methods[i].size(); ++j) {
+				auto it =
+				    std::find(_linear_to_i_j[species].begin(), _linear_to_i_j[species].end(), std::make_pair(i, j));
+				_i_j_to_linear[species][i][j] = std::distance(_linear_to_i_j[species].begin(), it);
+			}
+		}
+	}
+}
+
+size_t TData::size() const { return _methods.size(); }
+
+const TMethods &TData::operator[](const size_t index) const { return _methods[index]; }
+
+TMethods &TData::operator[](const size_t index) { return _methods[index]; }
+
+std::vector<TMethods>::const_iterator TData::cbegin() const { return _methods.cbegin(); }
+
+std::vector<TMethods>::iterator TData::begin() { return _methods.begin(); }
+
+std::vector<TMethods>::const_iterator TData::cend() const { return _methods.cend(); }
+
+std::vector<TMethods>::iterator TData::end() { return _methods.end(); }
+TMethods &TData::back() { return _methods.back(); }
+
+size_t TData::numMethLoc(size_t SpeciesIDInUniqueContainer) const { return _numMethLoc[SpeciesIDInUniqueContainer]; }
+size_t TData::i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t j) const {
+	return _i_j_to_linear[SpeciesIDInUniqueContainer][i][j];
+}
+const std::pair<size_t, size_t> &TData::linear_to_i_j(size_t SpeciesIDInUniqueContainer, size_t linear) const {
+	return _linear_to_i_j[SpeciesIDInUniqueContainer][linear];
 }
 
 //-------------------------------------------

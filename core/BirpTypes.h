@@ -26,5 +26,7 @@ typedef coretools::StrictlyPositive<double> TypeSigmaMu;
 typedef coretools::MinMaxVariable<double> TypeLogA;
 typedef coretools::StrictlyPositiveWithMax<double> TypeBeta;
 typedef coretools::StrictlyPositive<double> TypeSigmaBeta;
+typedef coretools::StrictlyPositive<double> TypePhi;
+typedef coretools::StrictlyPositive<double> TypeSigma;
 
 #endif // BIRPTYPES_H
