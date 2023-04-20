@@ -76,6 +76,7 @@ protected:
 
 	// rho
 	coretools::TMatrix<size_t> _stochasticRho;
+    std::vector<size_t> _deltaTimeVec;
 
 	// store log transition probabilities: per location and timepoint
 	std::vector<std::vector<coretools::Positive<double>>> _tryLogTransitionProbs;
