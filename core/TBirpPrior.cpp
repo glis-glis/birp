@@ -45,13 +45,18 @@ std::string TBirpPrior::name() const { return "birp"; }
 // Initialization
 
 void TBirpPrior::initializeInferred() {
+	// set size of parameters etc.
 	for (auto &_method : _data) { _method.initialize(_covariateNames); }
 	for (size_t s = 0; s < _numSpecies; s++) { _models[s]->initialize(_data, _locations, _timepoints); }
 }
 
 void TBirpPrior::estimateInitialPriorParameters() {
+	// set initial values of parameters
 	for (auto &_method : _data) { _method.estimateInitialBeta(); }
 	for (size_t s = 0; s < _numSpecies; ++s) { _models[s]->estimateInitial(_data); }
+
+	// now initialize temporary variables (LL, JP etc)
+	for (size_t s = 0; s < _numSpecies; ++s) { _models[s]->initializeTempVariables(_data); }
 }
 
 //------------------------------------

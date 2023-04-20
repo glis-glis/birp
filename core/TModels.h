@@ -48,6 +48,7 @@ protected:
 	                                     std::tuple<std::vector<std::string>, std::vector<std::string>,
 	                                                std::vector<coretools::Probability>> &detectionProbs,
 	                                     const TUniqueContainer<std::string> &locations, bool SimulateCovariates);
+	void _initializeLL(const TData &Data);
 
 public:
 	TModelBase(size_t SpeciesIDinUniqueContainer, const TData &Data,
@@ -57,6 +58,7 @@ public:
 	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
 	                        const TUniqueContainer<std::size_t> &TimePoints)                       = 0;
 	virtual void estimateInitial(const TData &Data)                                                = 0;
+	virtual void initializeTempVariables(const TData &Data)                                        = 0;
 	virtual void update(const TData &Data)                                                         = 0;
 	virtual void simulate(TData &Data, size_t N0,
 	                      std::tuple<std::vector<std::string>, std::vector<std::string>,
@@ -112,6 +114,7 @@ public:
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
 	                const TUniqueContainer<std::size_t> &TimePoints) override;
 	void estimateInitial(const TData &Data) override;
+	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
 	void simulate(TData &Data, size_t N0,
@@ -151,6 +154,7 @@ public:
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
 	                const TUniqueContainer<std::size_t> &TimePoints) override;
 	void estimateInitial(const TData &Data) override;
+	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
 	void simulate(TData &Data, size_t N0,

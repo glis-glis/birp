@@ -2,7 +2,6 @@
 // Created by Liam on 23/08/22.
 //
 #include "TModels.h"
-#include "TBirpCore.h"
 #include "TDistributions.h"
 
 //---------------------------------------
@@ -24,8 +23,6 @@ TModelBase::TModelBase(size_t SpeciesIDinUniqueContainer, const TData &Data,
 	// LL is per method/location combination
 	_curLL.resize(Data.numMethLoc(_speciesIDinUniqueContainer), 0.0);
 	_tryLL.resize(Data.numMethLoc(_speciesIDinUniqueContainer), 0.0);
-
-	// todo: fill likelihoods after initialization
 }
 
 // todo: also standardizeZeroMean for stochastic phi?
@@ -97,6 +94,26 @@ double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma)
 	}
 	return log(arma::det(fisherInfo)); // sqrt drops out in hastings ratio
 }
+
+void TModelBase::_initializeLL(const TData &Data) {
+	// loop over all datapoints (methods - locations - timepoints) of a single species
+	// used to initialize curLL
+	size_t ix_linNumMethLoc = 0;
+	for (size_t i = 0; i < Data.size(); ++i) {
+		const auto &method = Data[i];
+		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
+			size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
+			for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
+				std::vector sigma     = calculateSigma(method[l]);
+				std::vector<double> p = sigma;
+				// now normalize by row sum!
+				coretools::normalize(p);
+				// add to Likelihood
+				_curLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc);
+			}
+		}
+	}
+};
 
 double TModelBase::calculateLLRatio(const TData &Data) {
 	// loop over all datapoints (methods - locations - timepoints) of a single species
@@ -216,9 +233,14 @@ void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::s
 
 void TDeterministic::estimateInitial(const TData &Data) {
 	_estimateInitialParameters(Data);
-	_gamma.estimateInitialGamma(Data, *this);
+	_gamma.estimateInitialGamma();
 	_fillPhi();
 	_oldPhi = _newPhi;
+}
+
+void TDeterministic::initializeTempVariables(const TData &Data) {
+	_gamma.initializeJP(Data, *this);
+	_initializeLL(Data);
 }
 
 double TDeterministic::_calculateLogPhi_k(size_t k) const {
@@ -296,11 +318,16 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 
 void TStochastic::estimateInitial(const TData &Data) {
 	_estimateInitialParameters(Data);
-	_prior.estimateInitialGamma(Data, *this);
+	_prior.estimateInitialGamma();
 
 	// todo: how to initialize phi? probably to values of deterministic model
 	for (size_t i = 0; i < _phi->totalSize(); ++i) { _phi->setInitial(i, 1.0); }
 	_sigma->setInitial(1.0);
+}
+
+void TStochastic::initializeTempVariables(const TData &Data) {
+	_prior.initializeTempVariables(Data, *this);
+	_initializeLL(Data);
 }
 
 void TStochastic::_updatePhi(size_t j, size_t k, const TData &Data) {

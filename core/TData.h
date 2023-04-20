@@ -88,8 +88,6 @@ public:
 	// setters
 	void add(const TTimepoints &pt);
 
-	void checkEffortBiggerThanZero();
-
 	void sorttimes(const std::vector<size_t> &index);
 
 	// getters
@@ -188,7 +186,6 @@ public:
 
 	// finalize data filling
 	void sorttimes(const std::vector<size_t> &index);
-	void checkEffortBiggerThanZero();
 	void standardizeCovariatesAndAddIntercept();
 	void fillIDVectors(size_t totalSizeOfUniqueContainer);
 	void initializeEffort();

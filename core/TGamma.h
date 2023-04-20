@@ -44,7 +44,8 @@ public:
 	~TGamma() = default;
 
 	void initialize(const TUniqueContainer<size_t> &Timepoints);
-	void estimateInitialGamma(const TData &Data, const TModelBase &Model);
+	void estimateInitialGamma();
+	void initializeJP(const TData &Data, const TModelBase &Model);
 
 	std::vector<size_t> getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const;
 
@@ -76,7 +77,7 @@ protected:
 
 	// rho
 	coretools::TMatrix<size_t> _stochasticRho;
-    std::vector<size_t> _deltaTimeVec;
+	std::vector<size_t> _deltaTimeVec;
 
 	// store log transition probabilities: per location and timepoint
 	std::vector<std::vector<coretools::Positive<double>>> _tryLogTransitionProbs;
@@ -85,7 +86,7 @@ protected:
 	// fill rho
 	void _fillStochasticRho(const TUniqueContainer<size_t> &Timepoints);
 	coretools::StrictlyPositive<double> _calculateDelta(size_t k) const;
-	coretools::StrictlyPositive<double> _calculateDeltaTime(size_t k) const;
+	size_t _calculateDeltaTime(size_t k) const;
 
 	// transition probabilities
 	coretools::Positive<double> _calculateLogTransitionProbability(size_t j, size_t k) const;
@@ -97,7 +98,8 @@ public:
 	~TStochasticPrior() = default;
 
 	void initialize(const TUniqueContainer<size_t> &Timepoints);
-	void estimateInitialGamma(const TData &Data, const TModelBase &Model);
+	void estimateInitialGamma();
+	void initializeTempVariables(const TData &Data, const TModelBase &Model);
 
 	// update gamma
 	void updateGamma(const TData &Data, const TModelBase &Model);

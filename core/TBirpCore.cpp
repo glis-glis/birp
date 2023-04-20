@@ -179,7 +179,6 @@ void TBirpCore::_sortTimepoints() {
 	std::vector<size_t> sortingIndex = coretools::rankSort(_timepoints);
 	_timepoints                      = coretools::sortContainerByRank(_timepoints, sortingIndex);
 	for (auto &method : _data) {
-		method.checkEffortBiggerThanZero();
 		method.sorttimes(sortingIndex);
 	}
 }
@@ -216,7 +215,7 @@ std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &met
 
 void TBirpCore::_writeFile() {
 	// make second file that stores names of all methodFiles generated during the simulation
-	coretools::TOutputFile fileList("allFilesGenerated"); // todo how to safe it to different path?
+	coretools::TOutputFile fileList(_outname + "_allFilesGenerated");
 	// write file line by line
 	for (auto &method : _data) {
 		// get filename here.

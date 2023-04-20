@@ -98,7 +98,7 @@ TBirpNegBinomAddOn::TBirpNegBinomAddOn(TData &Data, const std::string &Filename,
 //------------------------------------------
 
 TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
-    // todo Madleina: make TStochasticPrior inheriting from stattools
+    // TODO: change to improper prior!
     : phi("phi", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypePhi, 2>>(),
           {Filename}),
       sigma("sigma", std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigma, 1>>(),

@@ -166,8 +166,6 @@ void TLocations::add(const TTimepoints &pt) {
 	for (size_t i = 0; i < pt.numSpecies(); i++) { _nu[i] += (uint32_t)pt.counts_per_species(i); }
 }
 
-void TLocations::checkEffortBiggerThanZero() {}
-
 void TLocations::sorttimes(const std::vector<size_t> &index) {
 	std::vector<size_t> positionOfTimepointIds;
 	for (auto &timepoint : _timepoints) {
@@ -265,6 +263,7 @@ void TMethods::add(const TTimepoints &pt, size_t location_id) {
 }
 
 std::pair<TypeCovariate, TypeCovariate> TMethods::_getMinMaxCovariates() const {
+	// todo: implement new covariates scheme
 	TypeCovariate overallMin = TypeCovariate::max(); // initialize to largest possible value
 	TypeCovariate overallMax = TypeCovariate::min(); // initialize to possible possible value
 	for (const auto &loc : _locations) {
@@ -298,10 +297,6 @@ void TMethods::fillIDVectors(size_t totalSizeOfUniqueContainer) {
 		_hasDataForSpeciesID[_speciesIDsinUniqueContainer[c]] = true;
 		_indexInCounts[_speciesIDsinUniqueContainer[c]]       = c;
 	}
-}
-
-void TMethods::checkEffortBiggerThanZero() { // todo: check if used somewhere, else use it :-)
-	for (auto &loc : _locations) { loc.checkEffortBiggerThanZero(); }
 }
 
 void TMethods::sorttimes(const std::vector<size_t> &sortingIndex) {
