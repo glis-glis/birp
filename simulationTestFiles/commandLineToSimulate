@@ -1,6 +1,3 @@
---effort --> core dumped. check that
-####################################
-
 # simulate two epochs under the poisson model (default) with times of change = 3
 ./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3
 

@@ -161,16 +161,17 @@ void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBa
 void TStochasticPrior::_fillStochasticRho(const TUniqueContainer<size_t> &Timepoints) {
 	std::vector<size_t> epochStarts = _gamma.getEpochStarts(Timepoints);
 	_stochasticRho.zeros((int)Timepoints.size(), (int)_gamma.numEpochs());
+    _stochasticRho.set(50);
 
 	for (size_t t = 1; t < Timepoints.size(); ++t) {
 		for (size_t e = 1; e < epochStarts.size(); ++e) {
 			// this is equation 6 in MS (stochastic rho)
-			if (Timepoints[t] > epochStarts[e] && Timepoints[t - 1] < epochStarts[e - 1]) {
+			if (Timepoints[t] >= epochStarts[e] && Timepoints[t - 1] <= epochStarts[e - 1]) {
 				_stochasticRho(t, e - 1) = epochStarts[e] - epochStarts[e - 1];
 			} else if (epochStarts[e - 1] < Timepoints[t] && Timepoints[t] < epochStarts[e] &&
-			           Timepoints[t - 1] < epochStarts[e - 1]) {
+			           Timepoints[t - 1] <= epochStarts[e - 1]) {
 				_stochasticRho(t, e - 1) = Timepoints[t] - epochStarts[e - 1];
-			} else if (Timepoints[t] > epochStarts[e] && epochStarts[e - 1] < Timepoints[t - 1] &&
+			} else if (Timepoints[t] >= epochStarts[e] && epochStarts[e - 1] < Timepoints[t - 1] &&
 			           Timepoints[t - 1] < epochStarts[e]) {
 				_stochasticRho(t, e - 1) = epochStarts[e] - Timepoints[t - 1];
 			} else if (epochStarts[e - 1] < Timepoints[t] && Timepoints[t] < epochStarts[e] &&
