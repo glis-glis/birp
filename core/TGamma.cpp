@@ -209,6 +209,23 @@ void TStochasticPrior::_initializeTransitionProbabilities() {
 	_tryLogTransitionProbs = _curLogTransitionProbs;
 }
 
+double TStochasticPrior::_calculateLogTransitionProbability2(size_t j, size_t k) const {
+    // define previous phi and deltaTime
+    const auto phi_j_previous_k = _phi->value(_phi->getIndex({j, k - 1}));
+    const auto deltaTime = (double)_deltaTimeVec[k];
+    // calculate sum over all epochs
+    double sum = 0.0;
+    for(size_t m=0; m<_gamma.numEpochs(); m++){
+        sum += _stochasticRho(k,m);
+    }
+    // calc mean and sd of normal distribution
+    double mean = log(phi_j_previous_k) + sum - (_sigma->value()*_sigma->value()/2*deltaTime);
+    double sd = (_sigma->value()*_sigma->value() * deltaTime);
+    return coretools::instances::randomGenerator().getNormalRandom(mean, sd);
+}
+
+
+
 double TStochasticPrior::_calculateLogTransitionProbability(size_t j, size_t k) const {
 	assert(k > 0);
 

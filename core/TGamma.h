@@ -94,6 +94,7 @@ protected:
 	void _initializeTransitionProbabilities();
 
 	// transition probabilities
+    double TStochasticPrior::_calculateLogTransitionProbability2(size_t j, size_t k) const;
 	double _calculateLogTransitionProbability(size_t j, size_t k) const;
 
 public:
