@@ -126,11 +126,11 @@ std::vector<double> TGamma::phi() const {
 // TStochasticPrior
 //------------------------------------------
 
-TStochasticPrior::TStochasticPrior(stattools::TParameterTyped<TypePhi, 2> *Phi,
+TStochasticPrior::TStochasticPrior(stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
                                    stattools::TParameterTyped<TypeSigma, 1> *Sigma,
                                    stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                                    stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
-    : _phi(Phi), _sigma(Sigma), _gamma(Gamma, TimesOfChange) {}
+    : _logPhi(LogPhi), _sigma(Sigma), _gamma(Gamma, TimesOfChange) {}
 
 void TStochasticPrior::initialize(const TUniqueContainer<size_t> &Timepoints) {
 	// initialize gamma and times of change
@@ -144,16 +144,16 @@ void TStochasticPrior::initialize(const TUniqueContainer<size_t> &Timepoints) {
 	_fillStochasticRho(Timepoints);
 
 	// resize delta's
-	_newDelta.resize(_gamma.numTimepoints(), 0.0);
-	_oldDelta.resize(_gamma.numTimepoints(), 0.0);
+	_newSumRhoGamma.resize(_gamma.numTimepoints(), 0.0);
+	_oldSumRhoGamma.resize(_gamma.numTimepoints(), 0.0);
 }
 
 void TStochasticPrior::estimateInitialGamma() { _gamma.estimateInitialGamma(); }
 
 void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBase &Model) {
 	_gamma.initializeJP(Data, Model);
-	_initializeDelta();
-	_oldDelta = _newDelta;
+	_initializeSumRhoGamma();
+	_oldSumRhoGamma = _newSumRhoGamma;
 
 	_initializeTransitionProbabilities();
 }
@@ -161,7 +161,6 @@ void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBa
 void TStochasticPrior::_fillStochasticRho(const TUniqueContainer<size_t> &Timepoints) {
 	std::vector<size_t> epochStarts = _gamma.getEpochStarts(Timepoints);
 	_stochasticRho.zeros((int)Timepoints.size(), (int)_gamma.numEpochs());
-    _stochasticRho.set(50);
 
 	for (size_t t = 1; t < Timepoints.size(); ++t) {
 		for (size_t e = 1; e < epochStarts.size(); ++e) {
@@ -184,19 +183,18 @@ void TStochasticPrior::_fillStochasticRho(const TUniqueContainer<size_t> &Timepo
 	}
 }
 
-void TStochasticPrior::_initializeDelta() {
-	std::fill(_newDelta.begin(), _newDelta.end(), 0.0);
+void TStochasticPrior::_initializeSumRhoGamma() {
+	std::fill(_newSumRhoGamma.begin(), _newSumRhoGamma.end(), 0.0);
 	for (size_t k = 1; k < _gamma.numTimepoints(); ++k) {
 		for (size_t e = 0; e < _gamma.numEpochs(); e++) {
-			_newDelta[k] += (double)_stochasticRho(k, e) * (double)_gamma.gamma(e);
+			_newSumRhoGamma[k] += (double)_stochasticRho(k, e) * (double)_gamma.gamma(e);
 		}
-		_newDelta[k] = exp(_newDelta[k]);
 	}
 }
 
 void TStochasticPrior::_initializeTransitionProbabilities() {
-	const size_t numLoc        = _phi->dimensions()[0];
-	const size_t numTimePoints = _phi->dimensions()[1];
+	const size_t numLoc        = _logPhi->dimensions()[0];
+	const size_t numTimePoints = _logPhi->dimensions()[1];
 
 	_tryLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints));
 	_curLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints));
@@ -209,45 +207,30 @@ void TStochasticPrior::_initializeTransitionProbabilities() {
 	_tryLogTransitionProbs = _curLogTransitionProbs;
 }
 
-double TStochasticPrior::_calculateLogTransitionProbability2(size_t j, size_t k) const {
-    // define previous phi and deltaTime
-    const auto phi_j_previous_k = _phi->value(_phi->getIndex({j, k - 1}));
-    const auto deltaTime = (double)_deltaTimeVec[k];
-    // calculate sum over all epochs
-    double sum = 0.0;
-    for(size_t m=0; m<_gamma.numEpochs(); m++){
-        sum += _stochasticRho(k,m);
-    }
-    // calc mean and sd of normal distribution
-    double mean = log(phi_j_previous_k) + sum - (_sigma->value()*_sigma->value()/2*deltaTime);
-    double sd = (_sigma->value()*_sigma->value() * deltaTime);
-    return coretools::instances::randomGenerator().getNormalRandom(mean, sd);
-}
-
-
-
 double TStochasticPrior::_calculateLogTransitionProbability(size_t j, size_t k) const {
 	assert(k > 0);
 
+	const auto deltaTime = (double)_deltaTimeVec[k];
+
 	// calculate mean of normal distribution
-	const auto delta            = _newDelta[k];
-	const auto phi_j_previous_k = _phi->value(_phi->getIndex({j, k - 1}));
-	const auto mean             = phi_j_previous_k * delta;
+	const auto sigma2               = _sigma->value() * _sigma->value();
+	const auto sumRhoGamma          = _newSumRhoGamma[k];
+	const auto log_phi_j_previous_k = _logPhi->value(_logPhi->getIndex({j, k - 1}));
+	const auto mean                 = log_phi_j_previous_k + sumRhoGamma - (sigma2 / 2.0 * deltaTime);
 
 	// calculate sd of normal distribution
-	const auto deltaTime = (double)_deltaTimeVec[k];
-	const auto sd        = _sigma->value() * deltaTime;
+	const double sd = sqrt(sigma2 * deltaTime);
 
-	const double phi_j_k = _phi->value(_phi->getIndex({j, k}));
 	coretools::probdist::TNormalDistr distr(mean, sd);
-	return distr.logDensity(phi_j_k) + distr.logDensity(-phi_j_k);
+	const double log_phi_j_k = _logPhi->value(_logPhi->getIndex({j, k}));
+	return distr.logDensity(log_phi_j_k);
 }
 
 double TStochasticPrior::calculateLLRatioForUpdateGamma() {
 	// likelihood: just go through Markov chain and sum up log transition probabilities
 	double LL = 0.0;
-	for (size_t j = 0; j < _phi->dimensions()[0]; ++j) {     // loop over locations
-		for (size_t k = 1; k < _phi->dimensions()[1]; ++k) { // loop over timepoints
+	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
+		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
 			_tryLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k);
 			LL += _tryLogTransitionProbs[j][k] - _curLogTransitionProbs[j][k];
 		}
@@ -258,8 +241,8 @@ double TStochasticPrior::calculateLLRatioForUpdateGamma() {
 double TStochasticPrior::calculateLL() const {
 	// likelihood: just go through Markov chain and sum up log transition probabilities
 	double LL = 0.0;
-	for (size_t j = 0; j < _phi->dimensions()[0]; ++j) {     // loop over locations
-		for (size_t k = 1; k < _phi->dimensions()[1]; ++k) { // loop over timepoints
+	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
+		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
 			LL += _calculateLogTransitionProbability(j, k);
 		}
 	}
@@ -270,8 +253,8 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 	for (size_t m = 0; m < _gamma.numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma.updateSpecificIndex(m)) {
 			// remember current delta
-			_oldDelta = _newDelta;
-			_initializeDelta();
+			_oldSumRhoGamma = _newSumRhoGamma;
+			_initializeSumRhoGamma();
 			const double LLRatio       = calculateLLRatioForUpdateGamma();
 			const double logPriorRatio = _gamma.getLogPriorRatio(Data, Model); // Jeffrey prior
 
@@ -281,7 +264,7 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 				swapTryCur(); // -> _oldLL = newLL;
 			} else {
 				// rejected
-				_newDelta = _oldDelta;
+				_newSumRhoGamma = _oldSumRhoGamma;
 			}
 		}
 	}
@@ -289,8 +272,9 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 
 double TStochasticPrior::calculateLogPriorRatio(size_t j, size_t k) {
 	if (k == _gamma.numTimepoints()) { return 0.0; } // last timepoint: no data on the right
+
 	_tryLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k);
-	return _tryLogTransitionProbs[j][k] + _tryLogTransitionProbs[j][k];
+	return _tryLogTransitionProbs[j][k];
 }
 
 void TStochasticPrior::swapTryCur() {

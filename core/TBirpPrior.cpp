@@ -23,13 +23,13 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 	for (auto &b : CommonModel.beta) { addPriorParameter(b.get()); }
 	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
 	if (NegBinomAddOn) { addPriorParameter({&NegBinomAddOn->mu, &NegBinomAddOn->logA}); }
-	if (StochasticAddOn) { addPriorParameter({&StochasticAddOn->phi, &StochasticAddOn->sigma}); }
+	if (StochasticAddOn) { addPriorParameter({&StochasticAddOn->logPhi, &StochasticAddOn->sigma}); }
 
 	// create models
 	size_t speciesID = 0;
 	if (StochasticAddOn) {
 		_models.emplace_back(std::make_unique<TStochastic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
-		                                                   &CommonModel.timesOfChange, &StochasticAddOn->phi,
+		                                                   &CommonModel.timesOfChange, &StochasticAddOn->logPhi,
 		                                                   &StochasticAddOn->sigma));
 	} else {
 		_models.emplace_back(std::make_unique<TDeterministic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,

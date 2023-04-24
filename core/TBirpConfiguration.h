@@ -53,7 +53,7 @@ public:
 class TBirpStochasticAddOn {
 public:
 	// only relevant for stochastic model
-	stattools::TParameterTyped<TypePhi, 2> phi;
+	stattools::TParameterTyped<TypeLogPhi, 2> logPhi;
 	stattools::TParameterTyped<TypeSigma, 1> sigma;
 
 	TBirpStochasticAddOn(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);

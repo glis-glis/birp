@@ -70,8 +70,8 @@ public:
 class TStochasticPrior {
 	// yellow box
 protected:
-	stattools::TParameterTyped<TypePhi, 2> *_phi     = nullptr;
-	stattools::TParameterTyped<TypeSigma, 1> *_sigma = nullptr;
+	stattools::TParameterTyped<TypeLogPhi, 2> *_logPhi = nullptr;
+	stattools::TParameterTyped<TypeSigma, 1> *_sigma   = nullptr;
 
 	// TGamma
 	TGamma _gamma;
@@ -80,9 +80,9 @@ protected:
 	coretools::TMatrix<size_t> _stochasticRho;
 	std::vector<size_t> _deltaTimeVec;
 
-	// temporary variable: delta
-	std::vector<double> _oldDelta;
-	std::vector<double> _newDelta;
+	// temporary variable: sum of rho * gamma
+	std::vector<double> _newSumRhoGamma;
+	std::vector<double> _oldSumRhoGamma;
 
 	// store log transition probabilities: per location and timepoint
 	std::vector<std::vector<double>> _tryLogTransitionProbs;
@@ -90,15 +90,14 @@ protected:
 
 	// fill rho and delta
 	void _fillStochasticRho(const TUniqueContainer<size_t> &Timepoints);
-	void _initializeDelta();
+	void _initializeSumRhoGamma();
 	void _initializeTransitionProbabilities();
 
 	// transition probabilities
-    double TStochasticPrior::_calculateLogTransitionProbability2(size_t j, size_t k) const;
 	double _calculateLogTransitionProbability(size_t j, size_t k) const;
 
 public:
-	TStochasticPrior(stattools::TParameterTyped<TypePhi, 2> *Phi, stattools::TParameterTyped<TypeSigma, 1> *Sigma,
+	TStochasticPrior(stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi, stattools::TParameterTyped<TypeSigma, 1> *Sigma,
 	                 stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	                 stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 	~TStochasticPrior() = default;

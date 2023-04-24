@@ -135,20 +135,22 @@ protected:
 	TStochasticPrior _prior;
 
 	// parameters: non-owning
-	stattools::TParameterTyped<TypePhi, 2> *_phi     = nullptr;
-	stattools::TParameterTyped<TypeSigma, 1> *_sigma = nullptr;
+	stattools::TParameterTyped<TypeLogPhi, 2> *_logPhi = nullptr;
+	stattools::TParameterTyped<TypeSigma, 1> *_sigma   = nullptr;
+
+	std::vector<double> _sumLogPhi;
 
 	// update functions
-	void _updatePhi(size_t j, size_t k, const TData &Data);
+	void _updateLogPhi(size_t j, size_t k, const TData &Data);
 	void _updateSigma();
-	void _updatePhi(const TData &Data);
+	void _updateLogPhi(const TData &Data);
 	void _setPhiFromDeterministic();
 
 public:
 	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data,
 	            const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
 	            stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-	            stattools::TParameterTyped<TypePhi, 2> *Phi, stattools::TParameterTyped<TypeSigma, 1> *Sigma);
+	            stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi, stattools::TParameterTyped<TypeSigma, 1> *Sigma);
 	~TStochastic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,

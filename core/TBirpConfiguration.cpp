@@ -98,14 +98,13 @@ TBirpNegBinomAddOn::TBirpNegBinomAddOn(TData &Data, const std::string &Filename,
 //------------------------------------------
 
 TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
-    // TODO: change to improper prior!
-    : phi("phi", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypePhi, 2>>(),
-          {Filename}),
+    : logPhi("logPhi", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogPhi, 2>>(),
+             {Filename}),
       sigma("sigma", std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigma, 1>>(),
-            {Filename, "1"}) {
+            {Filename, "10"}) {
 
 	// add to DAG
-	DAGBuilder.addToDAG({&phi, &sigma});
+	DAGBuilder.addToDAG({&logPhi, &sigma});
 }
 
 //------------------------------------------
