@@ -112,8 +112,20 @@
 
 ### overall does not look too bad. Now get simulations on cluster to work
 
+#############################################################################################
+## on cluster acceptance rate of gamma is very low (0.0009), check if this happens here as well using the same parameters. In contrast to the simulations above, here there is only one gamma (only one epoch)
 
+./birp simulate --gamma 0.5 --timepoints 1,2,3,4,5,6,7,8,9,10 --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/cluster --numMethods 1 --numLocations 3 --fixedSeed 1682424794549
+./birp infer --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/cluster --data /home/liam/ownCloud/institution/project_birp/simulations/poisson/cluster_allFilesGenerated --fixedSeed 1682434795579
 
+omg, when not on the cluster and using the command above, the acceptance rate of gamma is 0.246!
+
+# try executing it manually on the cluster to see if it is simply a bug in the script:
+./birp simulate --gamma 0.5 --timepoints 1,2,3,4,5,6,7,8,9,10 --out /data/projects/p387_biodiversity_unifr/birp/dataForSims/manualTest/ --numMethods 1 --numLocations 3 --fixedSeed 1682424794549
+./birp infer --out /data/projects/p387_biodiversity_unifr/birp/dataForSims/manualTest/ --data /data/projects/p387_biodiversity_unifr/birp/dataForSims/manualTest/_allFilesGenerated --fixedSeed 1682434795579
+# -> infers gamma correctly with normal acceptance rate -> need to find bug in script on cluster
+
+# I think I know what the issue is; if I say "--timepoints 10" (which I do on the cluster), then it will only be one timepoint which is 10. What I want though are 10 timepoints from 1-10, so first implement that and then check again if it still does not work.
 
 
 

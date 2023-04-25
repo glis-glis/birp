@@ -230,10 +230,24 @@ void TBirpCore::_writeFile() {
 	}
 }
 
+// todo lol Madi lueg ds ah
 void TBirpCore::_fillTimepointsFromCommandLine() {
 	std::vector<size_t> timepoints;
-	std::vector<size_t> timepointsDefault = {1, 2, 3};
-	parameters().fillParameterIntoContainerWithDefault("timepoints", timepoints, ',', timepointsDefault);
+    std::vector<size_t> timepointsDefault = {1, 2, 3};
+    if (parameters().parameterExists("timepoints")){
+        auto timepointName = parameters().getParameter<std::string>("timepoints");
+        if (coretools::str::stringIsProbablyANumber(timepointName)) {
+            size_t timepointNumber = coretools::str::fromString<size_t>(timepointName);
+            for(size_t i = 1; i <= timepointNumber; i++){
+                timepoints.push_back(i);
+            }
+        } else {
+            parameters().fillParameterIntoContainer("timepoints", timepoints, ',');
+        }
+    } else {
+        parameters().fillParameterIntoContainerWithDefault("timepoints", timepoints, ',', timepointsDefault);
+    }
+
 
 	// fill into unique container
 	for (const auto &timepoint : timepoints) { _timepoints.add(timepoint); }
