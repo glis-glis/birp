@@ -207,21 +207,26 @@ void TStochasticPrior::_initializeTransitionProbabilities() {
 	_tryLogTransitionProbs = _curLogTransitionProbs;
 }
 
+coretools::probdist::TNormalDistr TStochasticPrior::_getMeanSdTransitionProbability(size_t j, size_t k) const{
+    const auto deltaTime = (double)_deltaTimeVec[k];
+
+    // calculate mean of normal distribution
+    const auto sigma2               = _sigma->value() * _sigma->value();
+    const auto sumRhoGamma          = _newSumRhoGamma[k];
+    const auto log_phi_j_previous_k = _logPhi->value(_logPhi->getIndex({j, k - 1}));
+    const auto mean                 = log_phi_j_previous_k + sumRhoGamma - (sigma2 / 2.0 * deltaTime);
+
+    // calculate sd of normal distribution
+    const double sd = sqrt(sigma2 * deltaTime);
+
+    coretools::probdist::TNormalDistr distr(mean, sd);
+    return distr;
+}
+
 double TStochasticPrior::_calculateLogTransitionProbability(size_t j, size_t k) const {
 	assert(k > 0);
 
-	const auto deltaTime = (double)_deltaTimeVec[k];
-
-	// calculate mean of normal distribution
-	const auto sigma2               = _sigma->value() * _sigma->value();
-	const auto sumRhoGamma          = _newSumRhoGamma[k];
-	const auto log_phi_j_previous_k = _logPhi->value(_logPhi->getIndex({j, k - 1}));
-	const auto mean                 = log_phi_j_previous_k + sumRhoGamma - (sigma2 / 2.0 * deltaTime);
-
-	// calculate sd of normal distribution
-	const double sd = sqrt(sigma2 * deltaTime);
-
-	coretools::probdist::TNormalDistr distr(mean, sd);
+	coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k);
 	const double log_phi_j_k = _logPhi->value(_logPhi->getIndex({j, k}));
 	return distr.logDensity(log_phi_j_k);
 }
@@ -285,6 +290,11 @@ void TStochasticPrior::swapTryCur() {
 void TStochasticPrior::swapTryCur(size_t j, size_t k) {
 	// used when a phi is updated
 	std::swap(_tryLogTransitionProbs[j][k], _curLogTransitionProbs[j][k]);
+}
+
+double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) const {
+    coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k);
+	return distr.sample();
 }
 
 void TStochasticPrior::setSimulatedGammaToZero() { _gamma.setSimulatedGammaToZero(); }
