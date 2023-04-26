@@ -241,14 +241,18 @@ void TBirpCore::_fillTimepointsFromCommandLine() {
             for(size_t i = 1; i <= timepointNumber; i++){
                 timepoints.push_back(i);
             }
+            if (timepoints.size() == 1){
+                UERROR("Please provide more than one timepoint");
+            }
         } else {
             parameters().fillParameterIntoContainer("timepoints", timepoints, ',');
+            if (timepoints.size() == 1){
+                UERROR("Please provide more than one timepoint");
+            }
         }
     } else {
         parameters().fillParameterIntoContainerWithDefault("timepoints", timepoints, ',', timepointsDefault);
     }
-
-
 	// fill into unique container
 	for (const auto &timepoint : timepoints) { _timepoints.add(timepoint); }
 }
