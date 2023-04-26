@@ -416,7 +416,7 @@ void TStochastic::simulate(
 		size_t ix = _logPhi->getIndex({j, 0});
 		_logPhi->setInitial(ix, 0.0); // set first phi = 1 -> logPhi = 0
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
-			ix = _logPhi->getIndex({j, 0});
+			ix = _logPhi->getIndex({j, k});
 			_logPhi->setInitial(ix, _prior.sampleFromTransitionProbability(j, k));
 		}
 	}
