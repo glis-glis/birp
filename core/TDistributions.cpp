@@ -157,7 +157,7 @@ void TNegBinDistribution::_estimateInitialMu(const TData &Data) {
 	std::vector<double> nus(Data.numMethLoc(_speciesIDinUniqueContainer));
 	for (size_t c = 0; c < Data.numMethLoc(_speciesIDinUniqueContainer); ++c) {
 		auto [m_id, l_id] = Data.linear_to_i_j(_speciesIDinUniqueContainer, c);
-		nus[c]            = std::max(coretools::UnsignedInt<uint32_t>(1),
+		nus[c]            = std::max(coretools::UnsignedInt<uint64_t>(1),
 		                             Data[m_id][l_id].nu(Data[m_id].getIndexInCounts(
                               _speciesIDinUniqueContainer))); // do not allow 0: problem for Dirichlet
 	}

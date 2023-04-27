@@ -128,7 +128,7 @@ void TTimepoints::simulateNB(double phi, double a, double mu_ij) {
 	double alpha           = a * mu_ij * phi * _effort;
 	double beta            = a;
 	double lambda          = coretools::instances::randomGenerator().getGammaRand(alpha, beta);
-	_counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom(lambda);
+    _counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom(lambda);
 }
 
 //-------------------------------------------
