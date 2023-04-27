@@ -67,6 +67,8 @@ TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::stri
 		beta[i] = std::make_shared<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
 	}
 
+	gamma.getDefinition().setJumpSizeForAll(false);
+
 	// add to DAG
 	DAGBuilder.addToDAG({&gamma, &timesOfChange});
 	for (auto &b : beta) { DAGBuilder.addToDAG(b.get()); }

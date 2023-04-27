@@ -163,7 +163,7 @@ void TLocations::add(const TTimepoints &pt) {
 	_timepoints.push_back(pt);
 	// now add nu, first check if nu exists, otherwise create it
 	if (_nu.empty()) { _nu.resize(pt.numSpecies(), 0); }
-	for (size_t i = 0; i < pt.numSpecies(); i++) { _nu[i] += (uint32_t)pt.counts_per_species(i); }
+	for (size_t i = 0; i < pt.numSpecies(); i++) { _nu[i] += (uint64_t)pt.counts_per_species(i); }
 }
 
 void TLocations::sorttimes(const std::vector<size_t> &index) {

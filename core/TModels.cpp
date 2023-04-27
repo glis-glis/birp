@@ -159,7 +159,7 @@ double TModelBase::calculateLLRatio_perMethod(size_t i, const TData &Data) {
 
 	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
 		return coretools::containerSum(_curLL);
-	} // chame gd hei ga
+	}                                            // chame gd hei ga
 
 	for (size_t j = 0; j < method.size(); ++j) { // loop over locations
 		const auto &loc        = method[j];
@@ -250,6 +250,7 @@ void TDeterministic::update(const TData &Data) {
 
 	for (size_t m = 0; m < _gamma.numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma.updateSpecificIndex(m)) {
+			_oldPhi = _newPhi;
 			_fillPhi();
 			const auto LLRatio         = calculateLLRatio(Data);
 			const double logPriorRatio = _gamma.getLogPriorRatio(Data, *this); // Jeffrey prior
@@ -327,7 +328,7 @@ void TStochastic::estimateInitial(const TData &Data) {
 	_sigma->setInitial(0.1);
 
 	// initialize _sumLogPhi: sum of logPhi per location across all timepoints
-	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over locations
+	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
 		_sumLogPhi[j] = 0.0;
 		for (size_t k = 0; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
 			const auto index = _logPhi->getIndex({j, k});       // get linear index
@@ -414,7 +415,7 @@ void TStochastic::simulate(
 	// simulate phi from transition probabilities
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		size_t ix = _logPhi->getIndex({j, 0});
-		_logPhi->setInitial(ix, 0.0); // set first phi = 1 -> logPhi = 0
+		_logPhi->setInitial(ix, 0.0);                       // set first phi = 1 -> logPhi = 0
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
 			ix = _logPhi->getIndex({j, k});
 			_logPhi->setInitial(ix, _prior.sampleFromTransitionProbability(j, k));
