@@ -101,7 +101,7 @@ protected:
 	std::vector<double> _newPhi;
 	std::vector<double> _oldPhi;
 
-	void _fillPhi();
+	template<bool Standardize> void _fillPhi() { _newPhi = _gamma.phi<Standardize>(); }
 
 public:
 	TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,

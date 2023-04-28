@@ -111,17 +111,6 @@ TypeGamma TGamma::gamma(size_t m) const { return _gamma->value(m); }
 
 size_t TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 
-std::vector<double> TGamma::phi() const {
-	std::vector<double> phi(numTimepoints(), 0.0);
-	for (size_t k = 0; k < numTimepoints(); ++k) {
-		for (size_t m = 0; m < _numEpochs; m++) { phi[k] += (double)_rho(k, m) * gamma(m); }
-	}
-
-	coretools::standardizeZeroMean(phi);
-	for (auto &p : phi) { p = exp(p); } // make logPhi to phi
-	return phi;
-}
-
 //------------------------------------------
 // TStochasticPrior
 //------------------------------------------
@@ -298,5 +287,3 @@ double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) con
 }
 
 void TStochasticPrior::setSimulatedGammaToZero() { _gamma.setSimulatedGammaToZero(); }
-
-std::vector<double> TStochasticPrior::phi() const { return _gamma.phi(); }

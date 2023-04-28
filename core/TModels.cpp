@@ -159,7 +159,7 @@ double TModelBase::calculateLLRatio_perMethod(size_t i, const TData &Data) {
 
 	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
 		return coretools::containerSum(_curLL);
-	}                                            // chame gd hei ga
+	} // chame gd hei ga
 
 	for (size_t j = 0; j < method.size(); ++j) { // loop over locations
 		const auto &loc        = method[j];
@@ -231,7 +231,7 @@ void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::s
 void TDeterministic::estimateInitial(const TData &Data) {
 	_estimateInitialParameters(Data);
 	_gamma.estimateInitialGamma();
-	_fillPhi();
+	_fillPhi<true>();
 	_oldPhi = _newPhi;
 }
 
@@ -239,8 +239,6 @@ void TDeterministic::initializeTempVariables(const TData &Data) {
 	_gamma.initializeJP(Data, *this);
 	_initializeLL(Data);
 }
-
-void TDeterministic::_fillPhi() { _newPhi = _gamma.phi(); }
 
 TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id) const { return _newPhi[timepoint_id]; }
 
@@ -251,7 +249,7 @@ void TDeterministic::update(const TData &Data) {
 	for (size_t m = 0; m < _gamma.numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma.updateSpecificIndex(m)) {
 			_oldPhi = _newPhi;
-			_fillPhi();
+			_fillPhi<true>();
 			const auto LLRatio         = calculateLLRatio(Data);
 			const double logPriorRatio = _gamma.getLogPriorRatio(Data, *this); // Jeffrey prior
 
@@ -273,7 +271,7 @@ void TDeterministic::simulate(
     const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
 
 	_gamma.setSimulatedGammaToZero();
-	_fillPhi();
+	_fillPhi<false>();
 	_simulateDistributionParameters(Data, N0, detectionProbs, locations, SimulateCovariates);
 };
 
@@ -304,11 +302,11 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 	_logPhi->initStorage({Locations.size(), TimePoints.size()}, {locNames, timeNames});
 	_sigma->initStorage();
 
-	_sumLogPhi.resize(Locations.size());
+	_sumLogPhi.resize(Locations.size(), 0.0);
 }
 
 void TStochastic::_setPhiFromDeterministic() {
-	auto deterministicPhi = _prior.phi();
+	auto deterministicPhi = _prior.deterministicPhi<true>();
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
 		for (size_t k = 0; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
 			const auto index = _logPhi->getIndex({j, k});       // get linear index
@@ -328,7 +326,7 @@ void TStochastic::estimateInitial(const TData &Data) {
 	_sigma->setInitial(0.1);
 
 	// initialize _sumLogPhi: sum of logPhi per location across all timepoints
-	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
+	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over locations
 		_sumLogPhi[j] = 0.0;
 		for (size_t k = 0; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
 			const auto index = _logPhi->getIndex({j, k});       // get linear index
@@ -415,12 +413,15 @@ void TStochastic::simulate(
 	// simulate phi from transition probabilities
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		size_t ix = _logPhi->getIndex({j, 0});
-		_logPhi->setInitial(ix, 0.0);                       // set first phi = 1 -> logPhi = 0
+		_logPhi->setInitial(ix, 0.0); // set first phi = 1 -> logPhi = 0
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
 			ix = _logPhi->getIndex({j, k});
 			_logPhi->setInitial(ix, _prior.sampleFromTransitionProbability(j, k));
 		}
 	}
+	// Fill _sumLogPhi with zeros -> when standardizing in phi() function, we don't subtract anything -> this is what we
+	// want for simulating
+	std::fill(_sumLogPhi.begin(), _sumLogPhi.end(), 0.0);
 
 	_simulateDistributionParameters(Data, N0, detectionProbs, locations, SimulateCovariates);
 };
