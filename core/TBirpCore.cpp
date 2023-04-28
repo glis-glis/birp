@@ -178,9 +178,7 @@ void TBirpCore::_sortTimepoints() {
 
 	std::vector<size_t> sortingIndex = coretools::rankSort(_timepoints);
 	_timepoints                      = coretools::sortContainerByRank(_timepoints, sortingIndex);
-	for (auto &method : _data) {
-		method.sorttimes(sortingIndex);
-	}
+	for (auto &method : _data) { method.sorttimes(sortingIndex); }
 }
 
 void TBirpCore::infer() {
@@ -223,36 +221,30 @@ void TBirpCore::_writeFile() {
 		// get header here
 		std::vector<std::string> header = _getMethodspecificHeader(method);
 		// append to fileList
-		fileList << _outname + "_" + method.name() + "_simulatedCounts.txt"  << coretools::endl;
+		fileList << _outname + "_" + method.name() + "_simulatedCounts.txt" << coretools::endl;
 		// now create actual file with data and write
 		coretools::TOutputFile outfile(Filename, header);
 		method.write(outfile, _locations, _timepoints);
 	}
 }
 
-// todo lol Madi lueg ds ah
+// todo Liam mach no ds me der abstand cha aagäh
 void TBirpCore::_fillTimepointsFromCommandLine() {
 	std::vector<size_t> timepoints;
-    std::vector<size_t> timepointsDefault = {1, 2, 3};
-    if (parameters().parameterExists("timepoints")){
-        auto timepointName = parameters().getParameter<std::string>("timepoints");
-        if (coretools::str::stringIsProbablyANumber(timepointName)) {
-            size_t timepointNumber = coretools::str::fromString<size_t>(timepointName);
-            for(size_t i = 1; i <= timepointNumber; i++){
-                timepoints.push_back(i);
-            }
-            if (timepoints.size() == 1){
-                UERROR("Please provide more than one timepoint");
-            }
-        } else {
-            parameters().fillParameterIntoContainer("timepoints", timepoints, ',');
-            if (timepoints.size() == 1){
-                UERROR("Please provide more than one timepoint");
-            }
-        }
-    } else {
-        parameters().fillParameterIntoContainerWithDefault("timepoints", timepoints, ',', timepointsDefault);
-    }
+	std::vector<size_t> timepointsDefault = {1, 2, 3};
+	if (parameters().parameterExists("timepoints")) {
+		auto timepointName = parameters().getParameter<std::string>("timepoints");
+		if (coretools::str::stringIsProbablyANumber(timepointName)) {
+			size_t timepointNumber = coretools::str::fromString<size_t>(timepointName);
+			for (size_t i = 1; i <= timepointNumber; i++) { timepoints.push_back(i); }
+			if (timepoints.size() == 1) { UERROR("Please provide more than one timepoint"); }
+		} else {
+			parameters().fillParameterIntoContainer("timepoints", timepoints, ',');
+			if (timepoints.size() == 1) { UERROR("Please provide more than one timepoint"); }
+		}
+	} else {
+		timepoints = timepointsDefault;
+	}
 	// fill into unique container
 	for (const auto &timepoint : timepoints) { _timepoints.add(timepoint); }
 }

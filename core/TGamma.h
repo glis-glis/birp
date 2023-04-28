@@ -60,17 +60,7 @@ public:
 	size_t numTimepoints() const;
 	TypeGamma gamma(size_t m) const;
 	size_t rho(size_t row, size_t col) const;
-
-	template<bool Standardize> [[nodiscard]] std::vector<double> phi() const {
-		std::vector<double> phi(numTimepoints(), 0.0);
-		for (size_t k = 0; k < numTimepoints(); ++k) {
-			for (size_t m = 0; m < _numEpochs; m++) { phi[k] += (double)_rho(k, m) * gamma(m); }
-		}
-
-		if constexpr (Standardize) { coretools::standardizeZeroMean(phi); }
-		for (auto &p : phi) { p = exp(p); } // make logPhi to phi
-		return phi;
-	}
+	std::vector<double> phi() const;
 };
 
 //------------------------------------------
@@ -131,9 +121,7 @@ public:
 	double sampleFromTransitionProbability(size_t j, size_t k) const;
 
 	// getters
-	template<bool Standardize> [[nodiscard]] std::vector<double> deterministicPhi() const {
-		return _gamma.phi<Standardize>();
-	}
+	std::vector<double> deterministicPhi() const;
 };
 
 #endif // BIRP_TGAMMA_H
