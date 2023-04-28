@@ -264,6 +264,7 @@ void TMethods::add(const TTimepoints &pt, size_t location_id) {
 
 std::pair<TypeCovariate, TypeCovariate> TMethods::_getMinMaxCovariates() const {
 	// todo: implement new covariates scheme
+    // todo: make sure single covariate (all efforts are the same; i.e. tasmanian devil data) also works
 	TypeCovariate overallMin = TypeCovariate::max(); // initialize to largest possible value
 	TypeCovariate overallMax = TypeCovariate::min(); // initialize to possible possible value
 	for (const auto &loc : _locations) {

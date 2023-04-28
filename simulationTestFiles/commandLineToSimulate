@@ -43,8 +43,8 @@
 # here works well again, estimates -0.2 & 0.2
 
 # just to make sure, try with gamma 0.2 and 1.5 like above
-./birp --task simulate --negativeBinomial --numLocations 10 --numMethods 2 --out /home/liam/ownCloud/institution/project_birp/simulations/nb/L --gamma 0.2,1.5 --timepoints 20 --timesOfChange 10
-./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulations/nb/L --timesOfChange 10 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/L_allFilesGenerated --iterations 100000
+./birp --task simulate --negativeBinomial --numLocations 10 --numMethods 2 --out /home/liam/ownCloud/institution/project_birp/simulations/nb/L --gamma 0.2,1.5 --timepoints 20 --timesOfChange 10 --fixed.seed 1682582573981
+./birp --task infer --negativeBinomial --out /home/liam/ownCloud/institution/project_birp/simulations/nb/L --timesOfChange 10 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/L_allFilesGenerated --iterations 100000 --fixed.seed 1682582574080
 # error
 # aha! -0.2 & 0.2 works well, but with 0.2 & 1.5, it infers 0.08 & 0.25
 
