@@ -69,18 +69,25 @@ void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts
 	}
 }
 
+std::string TBirpCore::_getDelim(const std::string &Filename) {
+	std::string delim       = "\t";
+	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
+	if (ending == "csv") { delim = ","; }
+	return delim;
+}
+
 void TBirpCore::_readForInference(bool hasCounts) {
 	std::string input = parameters().getParameterFilename("data");
 	bool dataIsFile =
 	    std::filesystem::exists(input); // if multiple files are supplied separated by commas, then this will be false
 	std::vector<std::string> filenames;
 	if (dataIsFile) {
-		coretools::TInputFile tryFile(input, coretools::TFile_Filetype::header);
+		coretools::TInputFile tryFile(input, coretools::TFile_Filetype::header, _getDelim(input));
 		// first check if maybe the file is the actual counts file and not a list of files
 		if (tryFile.numCols() != 1) {
 			filenames.push_back(input);
 		} else { // if not, then its a list of files (methods), so we fill them in
-			coretools::TInputFile infile(input, coretools::TFile_Filetype::fixed); // fixed: no header
+			coretools::TInputFile infile(input, coretools::TFile_Filetype::fixed, _getDelim(input)); // fixed: no header
 			std::vector<std::string> row;
 			while (infile.read(row)) { filenames.push_back(row[0]); }
 		}
@@ -111,10 +118,7 @@ std::vector<std::string> TBirpCore::_getSpeciesOrCovariateNames(const coretools:
 }
 
 void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
-	std::string delim       = "\t";
-	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
-	if (ending == "csv") { delim = ","; }
-	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
+	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, _getDelim(Filename));
 
 	// get position of columns that contain counts: might be an empty vector in case the file has no counts
 	std::vector<size_t> countIndices = getColumnIndex(infile, "counts");
