@@ -80,13 +80,15 @@ double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const 
 	double term2   = 0.0;
 	TypeNu n       = loc.nu(index_in_counts);
 	const double a = exp(_logA->value());
-	for (size_t k = 0; k < loc.size(); k++) {  // loop over timepoints
-		double alpha_k = a * _mu->value(ix_linNumMethLoc) * sigma[k];
-		sum_a += alpha_k;                      // summing up alphas
-		term2 += coretools::gammaLog((double)loc[k].counts_per_species(index_in_counts) + alpha_k) -
-		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
+	for (size_t k = 0; k < loc.size(); k++) { // loop over timepoints
+		const double alpha_k = a * _mu->value(ix_linNumMethLoc) * sigma[k];
+		const double n_k     = (double)loc[k].counts_per_species(index_in_counts);
+		sum_a += alpha_k;                                // summing up alphas
+		term2 += -coretools::diffGammaLog(alpha_k, n_k); // x_k + 1 drops out in hastings ratio
 	}
-	return coretools::gammaLog(sum_a) - coretools::gammaLog((double)n + sum_a) + term2; // (n+1) drops out
+	const double term1  = coretools::diffGammaLog(sum_a, (double)n);
+	const double result = term1 + term2;
+	return result;
 }
 
 void TNegBinDistribution::_updateMu(const TData &Data, TModelBase &Model) {

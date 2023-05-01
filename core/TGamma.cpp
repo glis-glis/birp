@@ -86,7 +86,11 @@ void TGamma::setSimulatedGammaToZero() {
 
 // functions to update gamma
 
-bool TGamma::updateSpecificIndex(size_t m) { return _gamma->updateSpecificIndex(m); }
+bool TGamma::updateSpecificIndex(size_t m) {
+	_gamma->updateSpecificIndex(m);
+	std::cout << _gamma->oldValue(m) << " -> " << _gamma->value(m) << std::endl;
+	return true;
+}
 
 double TGamma::getLogPriorRatio(const TData &Data, const TModelBase &Model) {
 	// -> prior on gamma: Jeffrey prior
