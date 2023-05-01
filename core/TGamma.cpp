@@ -88,7 +88,6 @@ void TGamma::setSimulatedGammaToZero() {
 
 bool TGamma::updateSpecificIndex(size_t m) {
 	_gamma->updateSpecificIndex(m);
-	std::cout << _gamma->oldValue(m) << " -> " << _gamma->value(m) << std::endl;
 	return true;
 }
 
