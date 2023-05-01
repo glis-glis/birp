@@ -76,19 +76,17 @@ void TNegBinDistribution::initialize(const TData &Data, const TUniqueContainer<s
 double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const TLocations &loc,
                                         const std::vector<double> & /*p*/, size_t index_in_counts,
                                         size_t ix_linNumMethLoc) const {
-	double sum_a   = 0.0;
+	double alpha_0 = 0.0;
 	double term2   = 0.0;
-	TypeNu n       = loc.nu(index_in_counts);
 	const double a = exp(_logA->value());
 	for (size_t k = 0; k < loc.size(); k++) { // loop over timepoints
-		const double alpha_k = a * _mu->value(ix_linNumMethLoc) * sigma[k];
-		const double n_k     = (double)loc[k].counts_per_species(index_in_counts);
-		sum_a += alpha_k;                                // summing up alphas
-		term2 += -coretools::diffGammaLog(alpha_k, n_k); // x_k + 1 drops out in hastings ratio
+		double alpha_k = a * _mu->value(ix_linNumMethLoc) * sigma[k];
+		alpha_0 += alpha_k;
+		const double x_k = (double)loc[k].counts_per_species(index_in_counts);
+		term2 += coretools::diffGammaLog(alpha_k, x_k);
 	}
-	const double term1  = coretools::diffGammaLog(sum_a, (double)n);
-	const double result = term1 + term2;
-	return result;
+	const double nu = (double)loc.nu(index_in_counts);
+	return coretools::diffGammaLog(alpha_0, nu) - term2;
 }
 
 void TNegBinDistribution::_updateMu(const TData &Data, TModelBase &Model) {
