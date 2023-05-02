@@ -4,11 +4,14 @@
 # now infer Poisson
 ./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/poisson/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/poisson/gamma05_Method_1_simulatedCounts.txt
 
-##############################################################################################################################################################################################
+
 # simulate and infer under NB
 ./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/nb/gamma05 --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial
 
 ./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/gamma05_Method_1_simulatedCounts.txt --negativeBinomial --iterations 100000
+
+##############################################################################################################################################################################################
+# from here on, just call them A,B,C, ..
 
 # the signal is not well detected, try again
 ./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/nb/A_gamma05_10Locs --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial --numLocations 10
