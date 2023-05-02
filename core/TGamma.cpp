@@ -86,10 +86,7 @@ void TGamma::setSimulatedGammaToZero() {
 
 // functions to update gamma
 
-bool TGamma::updateSpecificIndex(size_t m) {
-	_gamma->updateSpecificIndex(m);
-	return true;
-}
+bool TGamma::updateSpecificIndex(size_t m) { return _gamma->updateSpecificIndex(m); }
 
 double TGamma::getLogPriorRatio(const TData &Data, const TModelBase &Model) {
 	// -> prior on gamma: Jeffrey prior
@@ -115,12 +112,12 @@ TypeGamma TGamma::gamma(size_t m) const { return _gamma->value(m); }
 size_t TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 
 [[nodiscard]] std::vector<double> TGamma::phi() const {
-    std::vector<double> phi(numTimepoints(), 0.0);
-    for (size_t k = 0; k < numTimepoints(); ++k) {
-        for (size_t m = 0; m < _numEpochs; m++) { phi[k] += (double)_rho(k, m) * gamma(m); }
-        phi[k] = exp(phi[k]); // make logPhi to phi
-    }
-    return phi;
+	std::vector<double> phi(numTimepoints(), 0.0);
+	for (size_t k = 0; k < numTimepoints(); ++k) {
+		for (size_t m = 0; m < _numEpochs; m++) { phi[k] += (double)_rho(k, m) * gamma(m); }
+		phi[k] = exp(phi[k]); // make logPhi to phi
+	}
+	return phi;
 }
 
 //------------------------------------------
@@ -197,8 +194,8 @@ void TStochasticPrior::_initializeTransitionProbabilities() {
 	const size_t numLoc        = _logPhi->dimensions()[0];
 	const size_t numTimePoints = _logPhi->dimensions()[1];
 
-	_tryLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints));
-	_curLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints));
+	_tryLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints, 0.0));
+	_curLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints, 0.0));
 
 	for (size_t j = 0; j < numLoc; ++j) {            // loop over locations
 		for (size_t k = 1; k < numTimePoints; ++k) { // loop over timepoints
@@ -290,7 +287,9 @@ void TStochasticPrior::swapTryCur() {
 
 void TStochasticPrior::swapTryCur(size_t j, size_t k) {
 	// used when a phi is updated
-	std::swap(_tryLogTransitionProbs[j][k], _curLogTransitionProbs[j][k]);
+	if (k < _gamma.numTimepoints()) { // last timepoint: no data on the right
+		std::swap(_tryLogTransitionProbs[j][k], _curLogTransitionProbs[j][k]);
+	}
 }
 
 double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) const {
