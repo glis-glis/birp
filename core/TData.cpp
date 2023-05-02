@@ -128,7 +128,7 @@ void TTimepoints::simulateNB(double phi, double a, double mu_ij) {
 	double alpha           = a * mu_ij * phi * _effort;
 	double beta            = a;
 	double lambda          = coretools::instances::randomGenerator().getGammaRand(alpha, beta);
-	_counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom(lambda);
+    _counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom(lambda);
 }
 
 //-------------------------------------------
@@ -163,7 +163,7 @@ void TLocations::add(const TTimepoints &pt) {
 	_timepoints.push_back(pt);
 	// now add nu, first check if nu exists, otherwise create it
 	if (_nu.empty()) { _nu.resize(pt.numSpecies(), 0); }
-	for (size_t i = 0; i < pt.numSpecies(); i++) { _nu[i] += (uint32_t)pt.counts_per_species(i); }
+	for (size_t i = 0; i < pt.numSpecies(); i++) { _nu[i] += (uint64_t)pt.counts_per_species(i); }
 }
 
 void TLocations::sorttimes(const std::vector<size_t> &index) {
@@ -264,6 +264,7 @@ void TMethods::add(const TTimepoints &pt, size_t location_id) {
 
 std::pair<TypeCovariate, TypeCovariate> TMethods::_getMinMaxCovariates() const {
 	// todo: implement new covariates scheme
+    // todo: make sure single covariate (all efforts are the same; i.e. tasmanian devil data) also works
 	TypeCovariate overallMin = TypeCovariate::max(); // initialize to largest possible value
 	TypeCovariate overallMax = TypeCovariate::min(); // initialize to possible possible value
 	for (const auto &loc : _locations) {

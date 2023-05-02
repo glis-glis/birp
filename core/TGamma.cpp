@@ -86,7 +86,10 @@ void TGamma::setSimulatedGammaToZero() {
 
 // functions to update gamma
 
-bool TGamma::updateSpecificIndex(size_t m) { return _gamma->updateSpecificIndex(m); }
+bool TGamma::updateSpecificIndex(size_t m) {
+	_gamma->updateSpecificIndex(m);
+	return true;
+}
 
 double TGamma::getLogPriorRatio(const TData &Data, const TModelBase &Model) {
 	// -> prior on gamma: Jeffrey prior
@@ -111,15 +114,13 @@ TypeGamma TGamma::gamma(size_t m) const { return _gamma->value(m); }
 
 size_t TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 
-std::vector<double> TGamma::phi() const {
-	std::vector<double> phi(numTimepoints(), 0.0);
-	for (size_t k = 0; k < numTimepoints(); ++k) {
-		for (size_t m = 0; m < _numEpochs; m++) { phi[k] += (double)_rho(k, m) * gamma(m); }
-	}
-
-	coretools::standardizeZeroMean(phi);
-	for (auto &p : phi) { p = exp(p); } // make logPhi to phi
-	return phi;
+[[nodiscard]] std::vector<double> TGamma::phi() const {
+    std::vector<double> phi(numTimepoints(), 0.0);
+    for (size_t k = 0; k < numTimepoints(); ++k) {
+        for (size_t m = 0; m < _numEpochs; m++) { phi[k] += (double)_rho(k, m) * gamma(m); }
+        phi[k] = exp(phi[k]); // make logPhi to phi
+    }
+    return phi;
 }
 
 //------------------------------------------
@@ -207,9 +208,7 @@ void TStochasticPrior::_initializeTransitionProbabilities() {
 	_tryLogTransitionProbs = _curLogTransitionProbs;
 }
 
-double TStochasticPrior::_calculateLogTransitionProbability(size_t j, size_t k) const {
-	assert(k > 0);
-
+coretools::probdist::TNormalDistr TStochasticPrior::_getMeanSdTransitionProbability(size_t j, size_t k) const {
 	const auto deltaTime = (double)_deltaTimeVec[k];
 
 	// calculate mean of normal distribution
@@ -222,7 +221,14 @@ double TStochasticPrior::_calculateLogTransitionProbability(size_t j, size_t k) 
 	const double sd = sqrt(sigma2 * deltaTime);
 
 	coretools::probdist::TNormalDistr distr(mean, sd);
-	const double log_phi_j_k = _logPhi->value(_logPhi->getIndex({j, k}));
+	return distr;
+}
+
+double TStochasticPrior::_calculateLogTransitionProbability(size_t j, size_t k) const {
+	assert(k > 0);
+
+	coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k);
+	const double log_phi_j_k                = _logPhi->value(_logPhi->getIndex({j, k}));
 	return distr.logDensity(log_phi_j_k);
 }
 
@@ -287,6 +293,11 @@ void TStochasticPrior::swapTryCur(size_t j, size_t k) {
 	std::swap(_tryLogTransitionProbs[j][k], _curLogTransitionProbs[j][k]);
 }
 
+double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) const {
+	coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k);
+	return distr.sample();
+}
+
 void TStochasticPrior::setSimulatedGammaToZero() { _gamma.setSimulatedGammaToZero(); }
 
-std::vector<double> TStochasticPrior::phi() const { return _gamma.phi(); }
+std::vector<double> TStochasticPrior::deterministicPhi() const { return _gamma.phi(); }

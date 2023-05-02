@@ -69,18 +69,25 @@ void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts
 	}
 }
 
+std::string TBirpCore::_getDelim(const std::string &Filename) {
+	std::string delim       = "\t";
+	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
+	if (ending == "csv") { delim = ","; }
+	return delim;
+}
+
 void TBirpCore::_readForInference(bool hasCounts) {
 	std::string input = parameters().getParameterFilename("data");
 	bool dataIsFile =
 	    std::filesystem::exists(input); // if multiple files are supplied separated by commas, then this will be false
 	std::vector<std::string> filenames;
 	if (dataIsFile) {
-		coretools::TInputFile tryFile(input, coretools::TFile_Filetype::header);
+		coretools::TInputFile tryFile(input, coretools::TFile_Filetype::header, _getDelim(input));
 		// first check if maybe the file is the actual counts file and not a list of files
 		if (tryFile.numCols() != 1) {
 			filenames.push_back(input);
 		} else { // if not, then its a list of files (methods), so we fill them in
-			coretools::TInputFile infile(input, coretools::TFile_Filetype::fixed); // fixed: no header
+			coretools::TInputFile infile(input, coretools::TFile_Filetype::fixed, _getDelim(input)); // fixed: no header
 			std::vector<std::string> row;
 			while (infile.read(row)) { filenames.push_back(row[0]); }
 		}
@@ -111,10 +118,7 @@ std::vector<std::string> TBirpCore::_getSpeciesOrCovariateNames(const coretools:
 }
 
 void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
-	std::string delim       = "\t";
-	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
-	if (ending == "csv") { delim = ","; }
-	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, delim);
+	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, _getDelim(Filename));
 
 	// get position of columns that contain counts: might be an empty vector in case the file has no counts
 	std::vector<size_t> countIndices = getColumnIndex(infile, "counts");
@@ -178,9 +182,7 @@ void TBirpCore::_sortTimepoints() {
 
 	std::vector<size_t> sortingIndex = coretools::rankSort(_timepoints);
 	_timepoints                      = coretools::sortContainerByRank(_timepoints, sortingIndex);
-	for (auto &method : _data) {
-		method.sorttimes(sortingIndex);
-	}
+	for (auto &method : _data) { method.sorttimes(sortingIndex); }
 }
 
 void TBirpCore::infer() {
@@ -223,18 +225,30 @@ void TBirpCore::_writeFile() {
 		// get header here
 		std::vector<std::string> header = _getMethodspecificHeader(method);
 		// append to fileList
-		fileList << _outname + "_" + method.name() + "_simulatedCounts.txt"  << coretools::endl;
+		fileList << _outname + "_" + method.name() + "_simulatedCounts.txt" << coretools::endl;
 		// now create actual file with data and write
 		coretools::TOutputFile outfile(Filename, header);
 		method.write(outfile, _locations, _timepoints);
 	}
 }
 
+// todo Liam mach no ds me der abstand cha aagäh
 void TBirpCore::_fillTimepointsFromCommandLine() {
 	std::vector<size_t> timepoints;
 	std::vector<size_t> timepointsDefault = {1, 2, 3};
-	parameters().fillParameterIntoContainerWithDefault("timepoints", timepoints, ',', timepointsDefault);
-
+	if (parameters().parameterExists("timepoints")) {
+		auto timepointName = parameters().getParameter<std::string>("timepoints");
+		if (coretools::str::stringIsProbablyANumber(timepointName)) {
+			size_t timepointNumber = coretools::str::fromString<size_t>(timepointName);
+			for (size_t i = 1; i <= timepointNumber; i++) { timepoints.push_back(i); }
+			if (timepoints.size() == 1) { UERROR("Please provide more than one timepoint"); }
+		} else {
+			parameters().fillParameterIntoContainer("timepoints", timepoints, ',');
+			if (timepoints.size() == 1) { UERROR("Please provide more than one timepoint"); }
+		}
+	} else {
+		timepoints = timepointsDefault;
+	}
 	// fill into unique container
 	for (const auto &timepoint : timepoints) { _timepoints.add(timepoint); }
 }

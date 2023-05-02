@@ -79,7 +79,7 @@ double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 
 std::vector<size_t> TBirpPrior::_readN0FromCommandLine() const {
 	std::vector<size_t> N0;
-	std::vector<size_t> N0default = {1000};
+	std::vector<size_t> N0default = {10};
 	parameters().fillParameterIntoContainerWithDefault("N0", N0, ',', N0default);
 	if (N0.size() != _numSpecies) {
 		UERROR("Size of N0 (", N0.size(), ") does not match the number of species (", _numSpecies, ")!");

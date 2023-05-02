@@ -38,7 +38,7 @@ private:
 
 	// Fisher information
 	static arma::mat _calcFisherInfo(const TGamma &Gamma, const std::vector<double> &p,
-	                                 const std::vector<double> &sigma, TypeNu nu);
+									 const std::vector<double> &sigma, TypeNu nu, const TLocations &loc);
 
 protected:
 	void _initializeDistribution(const TData &Data, const TUniqueContainer<std::string> &Locations);
@@ -137,8 +137,6 @@ protected:
 	// parameters: non-owning
 	stattools::TParameterTyped<TypeLogPhi, 2> *_logPhi = nullptr;
 	stattools::TParameterTyped<TypeSigma, 1> *_sigma   = nullptr;
-
-	std::vector<double> _sumLogPhi;
 
 	// update functions
 	void _updateLogPhi(size_t j, size_t k, const TData &Data);

@@ -76,17 +76,17 @@ void TNegBinDistribution::initialize(const TData &Data, const TUniqueContainer<s
 double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const TLocations &loc,
                                         const std::vector<double> & /*p*/, size_t index_in_counts,
                                         size_t ix_linNumMethLoc) const {
-	double sum_a   = 0.0;
+	double alpha_0 = 0.0;
 	double term2   = 0.0;
-	TypeNu n       = loc.nu(index_in_counts);
 	const double a = exp(_logA->value());
-	for (size_t k = 0; k < loc.size(); k++) {  // loop over timepoints
+	for (size_t k = 0; k < loc.size(); k++) { // loop over timepoints
 		double alpha_k = a * _mu->value(ix_linNumMethLoc) * sigma[k];
-		sum_a += alpha_k;                      // summing up alphas
-		term2 += coretools::gammaLog((double)loc[k].counts_per_species(index_in_counts) + alpha_k) -
-		         coretools::gammaLog(alpha_k); // x_k + 1 drops out in hastings ratio
+		alpha_0 += alpha_k;
+		const double x_k = (double)loc[k].counts_per_species(index_in_counts);
+		term2 += coretools::diffGammaLog(alpha_k, x_k);
 	}
-	return coretools::gammaLog(sum_a) - coretools::gammaLog((double)n + sum_a) + term2; // (n+1) drops out
+	const double nu = (double)loc.nu(index_in_counts);
+	return coretools::diffGammaLog(alpha_0, nu) - term2;
 }
 
 void TNegBinDistribution::_updateMu(const TData &Data, TModelBase &Model) {
@@ -157,7 +157,7 @@ void TNegBinDistribution::_estimateInitialMu(const TData &Data) {
 	std::vector<double> nus(Data.numMethLoc(_speciesIDinUniqueContainer));
 	for (size_t c = 0; c < Data.numMethLoc(_speciesIDinUniqueContainer); ++c) {
 		auto [m_id, l_id] = Data.linear_to_i_j(_speciesIDinUniqueContainer, c);
-		nus[c]            = std::max(coretools::UnsignedInt<uint32_t>(1),
+		nus[c]            = std::max(coretools::UnsignedInt<uint64_t>(1),
 		                             Data[m_id][l_id].nu(Data[m_id].getIndexInCounts(
                               _speciesIDinUniqueContainer))); // do not allow 0: problem for Dirichlet
 	}

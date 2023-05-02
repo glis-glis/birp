@@ -36,13 +36,12 @@ protected:
 
 	// read input files
 	[[nodiscard]] std::vector<std::string> _getHeader() const;
-
 	[[nodiscard]] bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index,
 	                                         const std::string &Title) const;
 
 	void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
 	                  const std::vector<size_t> &effortIndices);
-
+	std::string _getDelim(const std::string &Filename);
 	std::vector<size_t> getColumnIndex(const coretools::TInputFile &infile, const std::string &string);
 	std::vector<std::string> _getSpeciesOrCovariateNames(const coretools::TInputFile &infile,
 	                                                     const std::vector<size_t> &Indices);

@@ -95,6 +95,7 @@ protected:
 
 	// transition probabilities
 	double _calculateLogTransitionProbability(size_t j, size_t k) const;
+	coretools::probdist::TNormalDistr _getMeanSdTransitionProbability(size_t j, size_t k) const;
 
 public:
 	TStochasticPrior(stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi, stattools::TParameterTyped<TypeSigma, 1> *Sigma,
@@ -115,10 +116,12 @@ public:
 
 	double calculateLogPriorRatio(size_t j, size_t k);
 
+	// simulations
 	void setSimulatedGammaToZero();
+	double sampleFromTransitionProbability(size_t j, size_t k) const;
 
 	// getters
-	std::vector<double> phi() const;
+	std::vector<double> deterministicPhi() const;
 };
 
 #endif // BIRP_TGAMMA_H

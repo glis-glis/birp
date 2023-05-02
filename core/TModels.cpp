@@ -51,7 +51,8 @@ std::vector<double> TModelBase::calculateSigma(const TLocations &loc) const {
 }
 
 arma::mat TModelBase::_calcFisherInfo(const TGamma &Gamma, const std::vector<double> &p,
-                                      const std::vector<double> &sigma, TypeNu nu) {
+                                      const std::vector<double> &sigma, TypeNu nu, const TLocations &loc) {
+	// size of p and sigma = number of timepoints of current location
 	arma::mat R(p.size(), Gamma.numEpochs());
 	arma::mat RtP(Gamma.numEpochs(), p.size());
 	for (size_t k = 0; k < p.size(); k++) {
@@ -60,7 +61,9 @@ arma::mat TModelBase::_calcFisherInfo(const TGamma &Gamma, const std::vector<dou
 			double rhoSumSigma = 0.0;
 			for (size_t l = 0; l < p.size(); l++) {
 				denom += sigma[l];
-				rhoSumSigma += ((double)Gamma.rho(k, m) - (double)Gamma.rho(l, m)) * sigma[l];
+				const auto diffRho =
+				    (double)Gamma.rho(loc[k].timepoint_id(), m) - (double)Gamma.rho(loc[l].timepoint_id(), m);
+				rhoSumSigma += diffRho * sigma[l];
 			}
 			denom     = denom * denom;
 			R(k, m)   = sigma[k] * rhoSumSigma / denom;
@@ -69,7 +72,7 @@ arma::mat TModelBase::_calcFisherInfo(const TGamma &Gamma, const std::vector<dou
 	}
 	// real actual matrix multiplication
 	auto tmp = RtP * R;
-	return nu * tmp;
+	return (double)nu * tmp;
 }
 
 double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma) const {
@@ -86,7 +89,7 @@ double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma)
 				// now normalize by row sum!
 				coretools::normalize(p);
 				// add to JP
-				fisherInfo += _calcFisherInfo(Gamma, p, sigma, method[l].nu(index_in_counts));
+				fisherInfo += _calcFisherInfo(Gamma, p, sigma, method[l].nu(index_in_counts), method[l]);
 			}
 		}
 	}
@@ -159,7 +162,7 @@ double TModelBase::calculateLLRatio_perMethod(size_t i, const TData &Data) {
 
 	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
 		return coretools::containerSum(_curLL);
-	}                                            // chame gd hei ga
+	} // chame gd hei ga
 
 	for (size_t j = 0; j < method.size(); ++j) { // loop over locations
 		const auto &loc        = method[j];
@@ -250,6 +253,7 @@ void TDeterministic::update(const TData &Data) {
 
 	for (size_t m = 0; m < _gamma.numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
 		if (_gamma.updateSpecificIndex(m)) {
+			_oldPhi = _newPhi;
 			_fillPhi();
 			const auto LLRatio         = calculateLLRatio(Data);
 			const double logPriorRatio = _gamma.getLogPriorRatio(Data, *this); // Jeffrey prior
@@ -302,12 +306,10 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 
 	_logPhi->initStorage({Locations.size(), TimePoints.size()}, {locNames, timeNames});
 	_sigma->initStorage();
-
-	_sumLogPhi.resize(Locations.size());
 }
 
 void TStochastic::_setPhiFromDeterministic() {
-	auto deterministicPhi = _prior.phi();
+	auto deterministicPhi = _prior.deterministicPhi();
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
 		for (size_t k = 0; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
 			const auto index = _logPhi->getIndex({j, k});       // get linear index
@@ -325,15 +327,6 @@ void TStochastic::estimateInitial(const TData &Data) {
 
 	// set smallish sigma
 	_sigma->setInitial(0.1);
-
-	// initialize _sumLogPhi: sum of logPhi per location across all timepoints
-	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
-		_sumLogPhi[j] = 0.0;
-		for (size_t k = 0; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
-			const auto index = _logPhi->getIndex({j, k});       // get linear index
-			_sumLogPhi[j] += _logPhi->value(index);
-		}
-	}
 }
 
 void TStochastic::initializeTempVariables(const TData &Data) {
@@ -346,10 +339,6 @@ void TStochastic::_updateLogPhi(size_t j, size_t k, const TData &Data) {
 	const size_t ix = _logPhi->getIndex({j, k});
 	_logPhi->updateSpecificIndex(ix);
 
-	// update sum logPhi
-	double oldSumLogPhi_j = _sumLogPhi[j];
-	_sumLogPhi[j] += _logPhi->value(ix) - _logPhi->oldValue(ix);
-
 	const auto logPriorRatio = _prior.calculateLogPriorRatio(j, k) + _prior.calculateLogPriorRatio(j, k + 1);
 	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
 	// and k)
@@ -359,8 +348,6 @@ void TStochastic::_updateLogPhi(size_t j, size_t k, const TData &Data) {
 		_prior.swapTryCur(j, k);
 		_prior.swapTryCur(j, k + 1);
 		swapTryCur_perLocation(j, Data);
-	} else {
-		_sumLogPhi[j] = oldSumLogPhi_j;
 	}
 }
 
@@ -409,12 +396,21 @@ void TStochastic::simulate(
 	// simulate gamma
 	_prior.setSimulatedGammaToZero();
 
-	_setPhiFromDeterministic();
+	_prior.initializeTempVariables(Data, *this);
+
+	// simulate phi from transition probabilities
+	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
+		size_t ix = _logPhi->getIndex({j, 0});
+		_logPhi->setInitial(ix, 0.0); // set first phi = 1 -> logPhi = 0
+		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
+			ix = _logPhi->getIndex({j, k});
+			_logPhi->setInitial(ix, _prior.sampleFromTransitionProbability(j, k));
+		}
+	}
 
 	_simulateDistributionParameters(Data, N0, detectionProbs, locations, SimulateCovariates);
 };
 
 coretools::StrictlyPositive<double> TStochastic::phi(size_t j, size_t k) const {
-	const double mean = _sumLogPhi[j] / (double)_logPhi->dimensions()[1]; // divide by the number of timepoints
-	return exp(_logPhi->value(_logPhi->getIndex({j, k})) - mean);
+	return exp(_logPhi->value(_logPhi->getIndex({j, k})));
 }
