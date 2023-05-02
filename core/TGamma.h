@@ -105,7 +105,7 @@ public:
 
 	void initialize(const TUniqueContainer<size_t> &Timepoints);
 	void estimateInitialGamma();
-	void initializeTempVariables(const TData &Data, const TModelBase &Model);
+	void initializeTempVariables(const TData &Data, const TModelBase &Model, bool CalculateJP);
 
 	// update gamma
 	void updateGamma(const TData &Data, const TModelBase &Model);

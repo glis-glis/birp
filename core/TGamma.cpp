@@ -148,8 +148,8 @@ void TStochasticPrior::initialize(const TUniqueContainer<size_t> &Timepoints) {
 
 void TStochasticPrior::estimateInitialGamma() { _gamma.estimateInitialGamma(); }
 
-void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBase &Model) {
-	_gamma.initializeJP(Data, Model);
+void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBase &Model, bool CalculateJP) {
+	if (CalculateJP) { _gamma.initializeJP(Data, Model); }
 	_initializeSumRhoGamma();
 	_oldSumRhoGamma = _newSumRhoGamma;
 
@@ -212,7 +212,7 @@ coretools::probdist::TNormalDistr TStochasticPrior::_getMeanSdTransitionProbabil
 	const auto sigma2               = _sigma->value() * _sigma->value();
 	const auto sumRhoGamma          = _newSumRhoGamma[k];
 	const auto log_phi_j_previous_k = _logPhi->value(_logPhi->getIndex({j, k - 1}));
-	const auto mean                 = log_phi_j_previous_k + sumRhoGamma - (sigma2 / 2.0 * deltaTime);
+	const auto mean                 = log_phi_j_previous_k + sumRhoGamma - sigma2 / 2.0 * deltaTime;
 
 	// calculate sd of normal distribution
 	const double sd = sqrt(sigma2 * deltaTime);
@@ -277,7 +277,7 @@ double TStochasticPrior::calculateLogPriorRatio(size_t j, size_t k) {
 	if (k == _gamma.numTimepoints()) { return 0.0; } // last timepoint: no data on the right
 
 	_tryLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k);
-	return _tryLogTransitionProbs[j][k];
+	return _tryLogTransitionProbs[j][k] - _curLogTransitionProbs[j][k];
 }
 
 void TStochasticPrior::swapTryCur() {
