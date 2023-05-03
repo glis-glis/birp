@@ -9,6 +9,7 @@
 
 ./birp --task infer --out /home/liam/ownCloud/institution/project_birp/simulations/nb/inferGamma05 --timesOfChange 3 --data /home/liam/ownCloud/institution/project_birp/simulations/nb/gamma05_Method_1_simulatedCounts.txt --negativeBinomial --iterations 100000
 
+##############################################################################################################################################################################################
 #works well with commit 37c6bf8...
 # try additional things. 
 ./birp --task simulate --out /home/liam/ownCloud/institution/project_birp/simulations/nb/A_gamma05_10Locs --gamma -0.5,0.5 --timepoints 1,2,3,4,5,6 --timesOfChange 3 --negativeBinomial --numLocations 10

@@ -86,10 +86,7 @@ void TGamma::setSimulatedGammaToZero() {
 
 // functions to update gamma
 
-bool TGamma::updateSpecificIndex(size_t m) {
-	_gamma->updateSpecificIndex(m);
-	return true;
-}
+bool TGamma::updateSpecificIndex(size_t m) { return _gamma->updateSpecificIndex(m); }
 
 double TGamma::getLogPriorRatio(const TData &Data, const TModelBase &Model) {
 	// -> prior on gamma: Jeffrey prior
@@ -115,12 +112,12 @@ TypeGamma TGamma::gamma(size_t m) const { return _gamma->value(m); }
 size_t TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 
 [[nodiscard]] std::vector<double> TGamma::phi() const {
-    std::vector<double> phi(numTimepoints(), 0.0);
-    for (size_t k = 0; k < numTimepoints(); ++k) {
-        for (size_t m = 0; m < _numEpochs; m++) { phi[k] += (double)_rho(k, m) * gamma(m); }
-        phi[k] = exp(phi[k]); // make logPhi to phi
-    }
-    return phi;
+	std::vector<double> phi(numTimepoints(), 0.0);
+	for (size_t k = 0; k < numTimepoints(); ++k) {
+		for (size_t m = 0; m < _numEpochs; m++) { phi[k] += (double)_rho(k, m) * gamma(m); }
+		phi[k] = exp(phi[k]); // make logPhi to phi
+	}
+	return phi;
 }
 
 //------------------------------------------
@@ -151,8 +148,8 @@ void TStochasticPrior::initialize(const TUniqueContainer<size_t> &Timepoints) {
 
 void TStochasticPrior::estimateInitialGamma() { _gamma.estimateInitialGamma(); }
 
-void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBase &Model) {
-	_gamma.initializeJP(Data, Model);
+void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBase &Model, bool CalculateJP) {
+	if (CalculateJP) { _gamma.initializeJP(Data, Model); }
 	_initializeSumRhoGamma();
 	_oldSumRhoGamma = _newSumRhoGamma;
 
@@ -215,7 +212,7 @@ coretools::probdist::TNormalDistr TStochasticPrior::_getMeanSdTransitionProbabil
 	const auto sigma2               = _sigma->value() * _sigma->value();
 	const auto sumRhoGamma          = _newSumRhoGamma[k];
 	const auto log_phi_j_previous_k = _logPhi->value(_logPhi->getIndex({j, k - 1}));
-	const auto mean                 = log_phi_j_previous_k + sumRhoGamma - (sigma2 / 2.0 * deltaTime);
+	const auto mean                 = log_phi_j_previous_k + sumRhoGamma - sigma2 / 2.0 * deltaTime;
 
 	// calculate sd of normal distribution
 	const double sd = sqrt(sigma2 * deltaTime);
@@ -280,7 +277,7 @@ double TStochasticPrior::calculateLogPriorRatio(size_t j, size_t k) {
 	if (k == _gamma.numTimepoints()) { return 0.0; } // last timepoint: no data on the right
 
 	_tryLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k);
-	return _tryLogTransitionProbs[j][k];
+	return _tryLogTransitionProbs[j][k] - _curLogTransitionProbs[j][k];
 }
 
 void TStochasticPrior::swapTryCur() {
@@ -290,7 +287,9 @@ void TStochasticPrior::swapTryCur() {
 
 void TStochasticPrior::swapTryCur(size_t j, size_t k) {
 	// used when a phi is updated
-	std::swap(_tryLogTransitionProbs[j][k], _curLogTransitionProbs[j][k]);
+	if (k < _gamma.numTimepoints()) { // last timepoint: no data on the right
+		std::swap(_tryLogTransitionProbs[j][k], _curLogTransitionProbs[j][k]);
+	}
 }
 // todo check if all locations have same timepoints
 

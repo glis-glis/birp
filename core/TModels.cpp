@@ -331,7 +331,7 @@ void TStochastic::estimateInitial(const TData &Data) {
 }
 
 void TStochastic::initializeTempVariables(const TData &Data) {
-	_prior.initializeTempVariables(Data, *this);
+	_prior.initializeTempVariables(Data, *this, true);
 	_initializeLL(Data);
 }
 
@@ -397,7 +397,7 @@ void TStochastic::simulate(
 	// simulate gamma
 	_prior.setSimulatedGammaToZero();
 
-	_prior.initializeTempVariables(Data, *this);
+	_prior.initializeTempVariables(Data, *this, false);
 
 	// simulate phi from transition probabilities
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
