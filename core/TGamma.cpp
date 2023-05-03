@@ -197,8 +197,8 @@ void TStochasticPrior::_initializeTransitionProbabilities() {
 	const size_t numLoc        = _logPhi->dimensions()[0];
 	const size_t numTimePoints = _logPhi->dimensions()[1];
 
-	_tryLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints));
-	_curLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints));
+	_tryLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints, 0.0));
+	_curLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints, 0.0));
 
 	for (size_t j = 0; j < numLoc; ++j) {            // loop over locations
 		for (size_t k = 1; k < numTimePoints; ++k) { // loop over timepoints
@@ -292,6 +292,7 @@ void TStochasticPrior::swapTryCur(size_t j, size_t k) {
 	// used when a phi is updated
 	std::swap(_tryLogTransitionProbs[j][k], _curLogTransitionProbs[j][k]);
 }
+// todo check if all locations have same timepoints
 
 double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) const {
 	coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k);

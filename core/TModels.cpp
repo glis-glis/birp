@@ -72,6 +72,7 @@ arma::mat TModelBase::_calcFisherInfo(const TGamma &Gamma, const std::vector<dou
 	}
 	// real actual matrix multiplication
 	auto tmp = RtP * R;
+    tmp.print();
 	return (double)nu * tmp;
 }
 
