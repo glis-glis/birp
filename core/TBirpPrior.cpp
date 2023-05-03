@@ -53,7 +53,7 @@ void TBirpPrior::initializeInferred() {
 void TBirpPrior::estimateInitialPriorParameters() {
 	// set initial values of parameters
 	for (auto &_method : _data) { _method.estimateInitialBeta(); }
-	for (size_t s = 0; s < _numSpecies; ++s) { _models[s]->estimateInitial(_data); }
+	for (size_t s = 0; s < _numSpecies; ++s) { _models[s]->estimateInitial(_data, _timepoints); }
 
 	// now initialize temporary variables (LL, JP etc)
 	for (size_t s = 0; s < _numSpecies; ++s) { _models[s]->initializeTempVariables(_data); }

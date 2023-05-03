@@ -231,9 +231,9 @@ void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::s
 	_oldPhi = _newPhi;
 }
 
-void TDeterministic::estimateInitial(const TData &Data) {
+void TDeterministic::estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints) {
 	_estimateInitialParameters(Data);
-	_gamma.estimateInitialGamma();
+	_gamma.estimateInitialGamma(Data, Timepoints, _speciesIDinUniqueContainer);
 	_fillPhi();
 	_oldPhi = _newPhi;
 }
@@ -318,9 +318,9 @@ void TStochastic::_setPhiFromDeterministic() {
 	}
 }
 
-void TStochastic::estimateInitial(const TData &Data) {
+void TStochastic::estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints) {
 	_estimateInitialParameters(Data);
-	_prior.estimateInitialGamma();
+	_prior.estimateInitialGamma(Data, Timepoints, _speciesIDinUniqueContainer);
 
 	// initialize phi based on deterministic phi
 	_setPhiFromDeterministic();
