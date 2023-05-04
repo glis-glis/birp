@@ -119,7 +119,7 @@ void TOLSGamma::_augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<
 	// -> use this new l to augment dataSeriesIndex
 	if (!found) {
 		l_to_ij[otherEpoch].emplace_back(i, j);
-		const size_t l_other = l_to_ij.size() - 1;
+		const size_t l_other = l_to_ij[otherEpoch].size() - 1;
 		dataSeriesIndex[otherEpoch].push_back(l_other);
 	}
 }
@@ -259,32 +259,26 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 
 		// 2) we need at least one data series (method-location combination) with at least 2 timepoints
 		const size_t L = l_to_ij[curEpoch].size();
-		if (!_epochIsIdentifiable(L, t[curEpoch], dataSeriesIndex[curEpoch])) {
+		if (_epochIsIdentifiable(L, t[curEpoch], dataSeriesIndex[curEpoch])) {
+			// 3) estimate intercept and gamma with OLS
+			auto beta        = _doOLS(y[curEpoch], t[curEpoch], dataSeriesIndex[curEpoch], L);
+			_gamma[curEpoch] = beta(L);
+
+			// 4) calculate y_start and y_end and add it to existing data
+			_augmentYWithOLSEstimatesStart(curEpoch, beta, y, t, dataSeriesIndex, l_to_ij);
+			_augmentYWithOLSEstimatesEnd(curEpoch, beta, y, t, dataSeriesIndex, l_to_ij);
+		} else {
+			// check if epoch would be identifiable but isn't because we excluded counts = 0 for OLS
 			if (_epochIsNotIdentifiableBecauseOfZeroCounts(L, t[curEpoch], dataSeriesIndex[curEpoch],
 			                                               numDataPointsWithZeroCounts[curEpoch])) {
-				// todo: how to do this?
-				// merge this epoch with epoch to the left
-				// -> delete epochStart of current epoch
-				/*auto mergedEpochStarts = _epochStarts;
-				mergedEpochStarts.erase(mergedEpochStarts.begin() + curEpoch);
-				TOLSGamma mergedOLS(_numEpochs - 1, mergedEpochStarts);
-				auto [mergedGammas, epochs] = mergedOLS.estimateInitialGamma(Data, Timepoints, SpeciesID);
-				_gamma[curEpoch]            = mergedGammas[]*/
-				UERROR("Need at least one method-location combination with two or more timepoints for epoch [",
-				       _epochStarts[curEpoch], ", ", _epochStarts[curEpoch + 1], "]!");
+				// set gamma to zero: identifiable for MCMC, but not for OLS
+				// don't augment y_start and y_end: not a reliable estimate of gamma
+				_gamma[curEpoch] = 0.0;
 			} else {
 				UERROR("Need at least one method-location combination with two or more timepoints for epoch [",
 				       _epochStarts[curEpoch], ", ", _epochStarts[curEpoch + 1], "]!");
 			}
 		}
-
-		// 3) estimate intercept and gamma with OLS
-		auto beta        = _doOLS(y[curEpoch], t[curEpoch], dataSeriesIndex[curEpoch], L);
-		_gamma[curEpoch] = beta(L);
-
-		// 4) calculate y_start and y_end and add it to existing data
-		_augmentYWithOLSEstimatesStart(curEpoch, beta, y, t, dataSeriesIndex, l_to_ij);
-		_augmentYWithOLSEstimatesEnd(curEpoch, beta, y, t, dataSeriesIndex, l_to_ij);
 
 		epochInitialized[curEpoch] = true;
 		logfile().flush(" initial gamma = ", _gamma[curEpoch], "!");
