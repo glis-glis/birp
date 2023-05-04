@@ -17,31 +17,23 @@ class TModelBase;
 class TData;
 
 //------------------------------------------
-// TGamma
+// TOLSGamma
 //------------------------------------------
 
-class TGamma {
-	// wraps parameters gamma and timesOfChange
-protected:
-	// stattools parameters
-	stattools::TParameterTyped<TypeGamma, 1> *_gamma        = nullptr;
-	stattools::TParameterTyped<TypeTime, 1> *_timesOfChange = nullptr;
+class TOLSGamma {
+	// class used to initialize gamma with OLS estimate
+private:
+	// values of gamma
+	std::vector<double> _gamma;
 
 	// number of epochs
 	size_t _numEpochs = 0;
 	std::vector<size_t> _epochStarts;
 
-	// rho
-	coretools::TMatrix<size_t> _rho;
-
-	// Jeffrey's prior
-	double _tryJP = 0.0;
-	double _curJP = 0.0;
-
-	// initialization
-	void _initializeEpochStarts(const TUniqueContainer<size_t> &Timepoints);
-	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 	bool _timePointIsWithinEpoch(const TUniqueContainer<size_t> &Timepoints, size_t t, size_t m) const;
+	size_t _getNextEpochInitialGamma(const std::vector<bool> &EpochInitialized,
+	                                 const std::vector<std::vector<double>> &y,
+	                                 const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
 	auto _get_Y_m(const TData &Data, const TUniqueContainer<size_t> &Timepoints, size_t m, size_t SpeciesID) const;
 	arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
 	                 const std::vector<size_t> &DataSeriesIndex, size_t L) const;
@@ -62,6 +54,39 @@ protected:
 	                            size_t otherEpoch, TypeTime EpochBorder) const;
 	bool _epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
 	                          const std::vector<size_t> &dataSeriesIndex) const;
+	bool _epochIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
+	                                                const std::vector<size_t> &dataSeriesIndex,
+	                                                const std::vector<size_t> &numDataPointsWithZeroCounts) const;
+
+public:
+	TOLSGamma(size_t NumEpochs, const std::vector<size_t> &EpochStarts);
+	std::vector<double> estimateInitialGamma(const TData &Data, const TUniqueContainer<size_t> &Timepoints,
+	                                         size_t SpeciesID);
+};
+
+//------------------------------------------
+// TGamma
+//------------------------------------------
+
+class TGamma {
+	// wraps parameters gamma and timesOfChange
+protected:
+	// stattools parameters
+	stattools::TParameterTyped<TypeGamma, 1> *_gamma        = nullptr;
+	stattools::TParameterTyped<TypeTime, 1> *_timesOfChange = nullptr;
+
+	// number of epochs
+	size_t _numEpochs = 0;
+
+	// rho
+	coretools::TMatrix<size_t> _rho;
+
+	// Jeffrey's prior
+	double _tryJP = 0.0;
+	double _curJP = 0.0;
+
+	// initialization
+	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 
 public:
 	TGamma(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
@@ -71,7 +96,7 @@ public:
 	void estimateInitialGamma(const TData &Data, const TUniqueContainer<size_t> &Timepoints, size_t SpeciesID);
 	void initializeJP(const TData &Data, const TModelBase &Model);
 
-	std::vector<size_t> getEpochStarts() const;
+	std::vector<size_t> getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const;
 
 	double getLogPriorRatio(const TData &Data, const TModelBase &Model);
 
