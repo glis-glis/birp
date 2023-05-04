@@ -15,7 +15,8 @@
 //-------------------------------
 
 // types of parameters/observations
-typedef coretools::WeakType<double> TypeCovariate;
+typedef coretools::Positive<double> TypeCovariateEffort;
+typedef coretools::WeakType<double> TypeCovariateDetection;
 typedef coretools::UnsignedInt<uint64_t> TypeCounts;
 typedef coretools::UnsignedInt<uint64_t> TypeNu;
 typedef coretools::UnsignedInt<uint16_t> TypeIndex;
@@ -25,7 +26,8 @@ typedef coretools::UnsignedInt<uint16_t> TypeTime;
 typedef coretools::StrictlyPositiveWithMax<double> TypeMu;
 typedef coretools::StrictlyPositive<double> TypeSigmaMu;
 typedef coretools::MinMaxVariable<double> TypeLogA;
-typedef coretools::StrictlyPositiveWithMax<double> TypeBeta;
+typedef coretools::StrictlyPositiveWithMax<double> TypeAlpha;
+typedef coretools::WeakType<double> TypeBeta;
 typedef coretools::StrictlyPositive<double> TypeSigmaBeta;
 typedef coretools::WeakTypeWithExp<double> TypeLogPhi;
 typedef coretools::StrictlyPositive<double> TypePhi;
