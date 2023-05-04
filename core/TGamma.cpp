@@ -33,12 +33,225 @@ void TGamma::initialize(const TUniqueContainer<size_t> &Timepoints) {
 	_timesOfChange->initStorage({_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
 	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
 
+	_initializeEpochStarts(Timepoints);
 	_fillRho(Timepoints);
 }
 
-void TGamma::estimateInitialGamma() {
-	// TODO: something more sophisticated?
-	for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->setInitial(g, 0.0); }
+bool TGamma::_timePointIsWithinEpoch(const TUniqueContainer<size_t> &Timepoints, size_t t, size_t m) const {
+	// returns true if a timepoint is withing an epoch (borders included)
+	return Timepoints[t] >= _epochStarts[m] && Timepoints[t] <= _epochStarts[m + 1];
+}
+
+auto TGamma::_get_Y_m(const TData &Data, const TUniqueContainer<size_t> &Timepoints, size_t m, size_t SpeciesID) const {
+	// calculates response variable y_m for each epoch as well as other variables needed for OLS
+	std::vector<double> y_m;             // response variable
+	std::vector<TypeTime> t_m;           // timepoints, same size as y_m
+	std::vector<size_t> dataSeriesIndex; // index indicating which method-location-combi was used, same size as y_m
+	std::vector<std::pair<size_t, size_t>> l_to_ij; // map that indiciates i-j for each linear l
+	size_t L = 0;
+	for (size_t i = 0; i < Data.size(); ++i) {        // loop over methods
+		for (size_t j = 0; j < Data[i].size(); ++j) { // loop over locations
+			bool dataSeries_has_Timepoint_within_epoch = false;
+			for (size_t k = 0; k < Data[i][j].size(); ++k) { // loop over timepoints
+				const auto &timepoint = Data[i][j][k];
+				if (_timePointIsWithinEpoch(Timepoints, timepoint.timepoint_id(), m)) {
+					// ignore datapoints with effort zero
+					if (timepoint.effort() == 0.0) { continue; }
+					// prevent issues with zero counts: log(0) = inf
+					double counts = (double)timepoint.counts_per_species(SpeciesID);
+					if (counts == 0) { counts = 1e-10; }
+
+					// calculate y
+					const double y = log(counts / (double)timepoint.effort());
+
+					// add to containers
+					y_m.push_back(y);
+					t_m.emplace_back(Timepoints[timepoint.timepoint_id()]);
+					dataSeriesIndex.emplace_back(L);
+					dataSeries_has_Timepoint_within_epoch = true;
+				}
+			}
+			// check if method-location combination l had any data that falls within epoch
+			// -> if yes: add entry to map l_to_ij that indicates i-j for a specific l
+			if (dataSeries_has_Timepoint_within_epoch) {
+				++L;
+				l_to_ij.emplace_back(i, j);
+			}
+		}
+	}
+	return std::make_tuple(y_m, t_m, dataSeriesIndex, l_to_ij);
+}
+
+arma::vec TGamma::_doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
+                         const std::vector<size_t> &DataSeriesIndex, size_t L) const {
+	// fill matrix X
+	arma::mat X(Y_m.size(), L + 1, arma::fill::zeros);
+	for (size_t row = 0; row < X.n_rows; ++row) {
+		const size_t l       = DataSeriesIndex[row];
+		X(row, l)            = 1;
+		X(row, X.n_cols - 1) = T_m[row]; // last column contains timepoints
+	}
+
+	// do OLS
+	const arma::vec arma_y(Y_m);
+	const arma::mat Xt = X.t();
+	arma::mat XtXiXt   = (Xt * X).i() * Xt;
+
+	auto beta = XtXiXt * arma_y;
+	return beta.as_col(); // matrix -> vector
+}
+
+void TGamma::_augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+                                                     size_t l, std::vector<std::vector<size_t>> &dataSeriesIndex,
+                                                     size_t curEpoch, size_t otherEpoch) const {
+	// get method (i) and location (j) index of data series (l) of current epoch
+	const size_t i                  = l_to_ij[curEpoch][l].first;
+	const size_t j                  = l_to_ij[curEpoch][l].second;
+	// check if other epoch (can be previous or next) already contains this specific combination of i and j
+	const auto &l_to_ij_other_epoch = l_to_ij[otherEpoch];
+	bool found                      = false;
+	for (size_t l_other = 0; l_other < l_to_ij_other_epoch.size(); ++l_other) {
+		if (l_to_ij_other_epoch[l_other].first == i && l_to_ij_other_epoch[l_other].second == j) {
+			// method and location exists in previous epoch as well
+			// -> use that index l to augment dataSeriesIndex
+			// -> no need to augment l_to_ij since this ij already exists
+			dataSeriesIndex[otherEpoch].push_back(l_other);
+			found = true;
+			break;
+		}
+	}
+	// other epoch does not yet contain this specific combination of i and j
+	// -> add a new entry {i, j} to l_to_ij
+	// -> use this new l to augment dataSeriesIndex
+	if (!found) {
+		l_to_ij[otherEpoch].push_back({i, j});
+		const size_t l_other = l_to_ij.size() - 1;
+		dataSeriesIndex[otherEpoch].push_back(l_other);
+	}
+}
+
+bool TGamma::_dontAugmentDataSeries(const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+                                    const std::vector<std::vector<size_t>> &dataSeriesIndex,
+                                    const std::vector<std::vector<TypeTime>> &t, size_t l, size_t curEpoch,
+                                    size_t otherEpoch, TypeTime EpochBorder) const {
+	// check if other epoch already has data at method i and location j and epoch border (start or end)
+	// get method (i) and location (j) index of data series (l) of current epoch
+	const size_t i = l_to_ij[curEpoch][l].first;
+	const size_t j = l_to_ij[curEpoch][l].second;
+	// loop over all timepoints of other epoch
+	for (size_t r = 0; r < t[otherEpoch].size(); ++r) {
+		// check if other epoch contains this method (i) and location (j) and the timepoint corresponding to EpochBorder
+		const size_t other_l = dataSeriesIndex[otherEpoch][r];
+		const size_t other_i = l_to_ij[otherEpoch][other_l].first;
+		const size_t other_j = l_to_ij[otherEpoch][other_l].second;
+		const size_t other_t = t[otherEpoch][r];
+		if (other_i == i && other_j == j && other_t == EpochBorder) { return true; }
+	}
+	return false;
+}
+
+void TGamma::_augmentYWithOLSEstimatesStart(size_t curEpoch, const arma::vec &Beta, std::vector<std::vector<double>> &y,
+                                            std::vector<std::vector<TypeTime>> &t,
+                                            std::vector<std::vector<size_t>> &dataSeriesIndex,
+                                            std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const {
+	// start
+	const size_t epochStart = _epochStarts[curEpoch];
+	if (curEpoch == 0) {
+		// first epoch: no need to augment previous epoch since there is none
+		return;
+	}
+	for (size_t l = 0; l < l_to_ij[curEpoch].size() - 1; ++l) { // loop over all dataseries
+		if (_dontAugmentDataSeries(l_to_ij, dataSeriesIndex, t, l, curEpoch, curEpoch - 1, epochStart)) { continue; }
+		const auto alpha_l = Beta(l);
+		const auto y_start = alpha_l + (double)epochStart * _gamma->value(curEpoch);
+		// epoch start does not correspond to an existing timepoint -> augment data with y_start
+		y[curEpoch - 1].push_back(y_start);
+		t[curEpoch - 1].push_back(epochStart);
+		_augmentDataSeriesIndexWithOLSEstimates(l_to_ij, l, dataSeriesIndex, curEpoch, curEpoch - 1);
+	}
+}
+
+void TGamma::_augmentYWithOLSEstimatesEnd(size_t curEpoch, const arma::vec &Beta, std::vector<std::vector<double>> &y,
+                                          std::vector<std::vector<TypeTime>> &t,
+                                          std::vector<std::vector<size_t>> &dataSeriesIndex,
+                                          std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const {
+	// end
+	const size_t epochEnd = _epochStarts[curEpoch + 1];
+	if (curEpoch == _numEpochs - 1) {
+		// last epoch: no need to augment next epoch since there is none
+		return;
+	}
+	for (size_t l = 0; l < l_to_ij[curEpoch].size() - 1; ++l) { // loop over all dataseries
+		if (_dontAugmentDataSeries(l_to_ij, dataSeriesIndex, t, l, curEpoch, curEpoch + 1, epochEnd)) { continue; }
+		const auto alpha_l = Beta(l);
+		const auto y_end   = alpha_l + (double)epochEnd * _gamma->value(curEpoch);
+		// epoch start does not correspond to an existing timepoint -> augment data with y_start
+		y[curEpoch + 1].push_back(y_end);
+		t[curEpoch + 1].push_back(epochEnd);
+		_augmentDataSeriesIndexWithOLSEstimates(l_to_ij, l, dataSeriesIndex, curEpoch, curEpoch + 1);
+	}
+}
+
+bool TGamma::_epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
+                                  const std::vector<size_t> &dataSeriesIndex) const {
+	for (size_t l = 0; l < L; ++l) { // loop over all possible data series
+		// count the number of occurrences of that particular data series (method/location combination) in the current
+		// epoch
+		size_t counter_l = 0;
+		for (size_t r = 0; r < t.size(); ++r) { // loop over all data of current epoch
+			if (dataSeriesIndex[r] == l) { ++counter_l; }
+		}
+		assert(counter_l > 0); // should never happen: otherwise l should not exist at all
+		if (counter_l >= 2) { return true; }
+	}
+	return false;
+}
+
+void TGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<size_t> &Timepoints, size_t SpeciesID) {
+	logfile().startIndent("Estimating initial gamma with OLS:");
+	// fill response variable y
+	std::vector<std::vector<double>> y(_numEpochs);
+	std::vector<std::vector<TypeTime>> t(_numEpochs);
+	std::vector<std::vector<size_t>> dataSeriesIndex(_numEpochs);
+	std::vector<std::vector<std::pair<size_t, size_t>>> l_to_ij(_numEpochs);
+	for (size_t m = 0; m < _numEpochs; ++m) {
+		std::tie(y[m], t[m], dataSeriesIndex[m], l_to_ij[m]) = _get_Y_m(Data, Timepoints, m, SpeciesID);
+	}
+
+	std::vector<bool> epochInitialized(_numEpochs, false);
+	while (std::accumulate(epochInitialized.begin(), epochInitialized.end(), 0U) < _numEpochs) {
+		// 1) find epoch that contains the most timepoints
+		size_t curEpoch = 0;
+		size_t maxL     = 0;
+		for (size_t m = 0; m < _numEpochs; ++m) {
+			if (!epochInitialized[m] && l_to_ij[m].size() > maxL) {
+				curEpoch = m;
+				maxL     = l_to_ij[m].size();
+			}
+		}
+		logfile().listFlush("Epoch ", curEpoch + 1, " [", _epochStarts[curEpoch], ", ", _epochStarts[curEpoch + 1],
+		                    "]:");
+
+		// 2) we need at least one data series (method-location combination) with at least 2 timepoints
+		const size_t L = l_to_ij[curEpoch].size();
+		if (!_epochIsIdentifiable(L, t[curEpoch], dataSeriesIndex[curEpoch])) {
+			UERROR("Need at least one method-location combination with two or more timepoints for epoch [",
+			       _epochStarts[curEpoch], ", ", _epochStarts[curEpoch + 1], "]!");
+		}
+
+		// 3) estimate intercept and gamma with OLS
+		auto beta = _doOLS(y[curEpoch], t[curEpoch], dataSeriesIndex[curEpoch], L);
+		_gamma->setInitial(curEpoch, beta(L));
+
+		// 4) calculate y_start and y_end and add it to existing data
+		_augmentYWithOLSEstimatesStart(curEpoch, beta, y, t, dataSeriesIndex, l_to_ij);
+		_augmentYWithOLSEstimatesEnd(curEpoch, beta, y, t, dataSeriesIndex, l_to_ij);
+
+		epochInitialized[curEpoch] = true;
+		logfile().flush(" initial gamma = ", _gamma->value(curEpoch), "!");
+		logfile().newLine();
+	}
+	logfile().endIndent();
 }
 
 void TGamma::initializeJP(const TData &Data, const TModelBase &Model) {
@@ -47,34 +260,34 @@ void TGamma::initializeJP(const TData &Data, const TModelBase &Model) {
 	_tryJP = _curJP;
 }
 
-std::vector<size_t> TGamma::getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const {
+void TGamma::_initializeEpochStarts(const TUniqueContainer<size_t> &Timepoints) {
 	// return start of each epoch, including for a hypothetical epoch after the last epoch
 	assert(!Timepoints.empty());
 
-	std::vector<size_t> epochStarts = {0};
+	_epochStarts.push_back(0);
 	if (_timesOfChange->totalSize() != 0) {
 		size_t maxTimeOfChange = _timesOfChange->max_value();
 		size_t maxTime         = std::max(Timepoints.back(), maxTimeOfChange + 1);
-		for (size_t i = 0; i < _timesOfChange->totalSize(); i++) { epochStarts.push_back(_timesOfChange->value(i)); }
-		epochStarts.push_back(maxTime);
+		for (size_t i = 0; i < _timesOfChange->totalSize(); i++) { _epochStarts.push_back(_timesOfChange->value(i)); }
+		_epochStarts.push_back(maxTime);
 	} else {
-		epochStarts.push_back(*max_element(Timepoints.cbegin(), Timepoints.cend()));
+		_epochStarts.push_back(*max_element(Timepoints.cbegin(), Timepoints.cend()));
 	}
-	return epochStarts;
 }
 
+std::vector<size_t> TGamma::getEpochStarts() const { return _epochStarts; }
+
 void TGamma::_fillRho(const TUniqueContainer<size_t> &Timepoints) {
-	std::vector<size_t> epochStarts = getEpochStarts(Timepoints);
 	_rho.zeros((int)Timepoints.size(), (int)_numEpochs);
 
 	for (size_t t = 0; t < Timepoints.size(); ++t) {
-		for (size_t e = 1; e < epochStarts.size(); ++e) {
-			if (Timepoints[t] <= epochStarts[e - 1]) {
+		for (size_t e = 1; e < _epochStarts.size(); ++e) {
+			if (Timepoints[t] <= _epochStarts[e - 1]) {
 				_rho(t, e - 1) = 0;
-			} else if (epochStarts[e - 1] < Timepoints[t] && Timepoints[t] < epochStarts[e]) {
-				_rho(t, e - 1) = Timepoints[t] - epochStarts[e - 1];
+			} else if (_epochStarts[e - 1] < Timepoints[t] && Timepoints[t] < _epochStarts[e]) {
+				_rho(t, e - 1) = Timepoints[t] - _epochStarts[e - 1];
 			} else {
-				_rho(t, e - 1) = epochStarts[e] - epochStarts[e - 1];
+				_rho(t, e - 1) = _epochStarts[e] - _epochStarts[e - 1];
 			}
 		}
 	}
@@ -146,7 +359,10 @@ void TStochasticPrior::initialize(const TUniqueContainer<size_t> &Timepoints) {
 	_oldSumRhoGamma.resize(_gamma.numTimepoints(), 0.0);
 }
 
-void TStochasticPrior::estimateInitialGamma() { _gamma.estimateInitialGamma(); }
+void TStochasticPrior::estimateInitialGamma(const TData &Data, const TUniqueContainer<size_t> &Timepoints,
+                                            size_t SpeciesID) {
+	_gamma.estimateInitialGamma(Data, Timepoints, SpeciesID);
+}
 
 void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBase &Model, bool CalculateJP) {
 	if (CalculateJP) { _gamma.initializeJP(Data, Model); }
@@ -157,7 +373,7 @@ void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBa
 }
 
 void TStochasticPrior::_fillStochasticRho(const TUniqueContainer<size_t> &Timepoints) {
-	std::vector<size_t> epochStarts = _gamma.getEpochStarts(Timepoints);
+	std::vector<size_t> epochStarts = _gamma.getEpochStarts();
 	_stochasticRho.zeros((int)Timepoints.size(), (int)_gamma.numEpochs());
 
 	for (size_t t = 1; t < Timepoints.size(); ++t) {

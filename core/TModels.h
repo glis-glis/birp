@@ -25,10 +25,7 @@ class TGamma;
 
 class TModelBase {
 public:
-	// the flower
 private:
-	size_t _speciesIDinUniqueContainer = 0;
-
 	// temporary values of likelihood
 	std::vector<double> _tryLL;
 	std::vector<double> _curLL;
@@ -38,9 +35,11 @@ private:
 
 	// Fisher information
 	static arma::mat _calcFisherInfo(const TGamma &Gamma, const std::vector<double> &p,
-									 const std::vector<double> &sigma, TypeNu nu, const TLocations &loc);
+	                                 const std::vector<double> &sigma, TypeNu nu, const TLocations &loc);
 
 protected:
+	size_t _speciesIDinUniqueContainer = 0;
+
 	void _initializeDistribution(const TData &Data, const TUniqueContainer<std::string> &Locations);
 	void _estimateInitialParameters(const TData &Data);
 	void _updateDistributionParameters(const TData &Data);
@@ -57,7 +56,7 @@ public:
 
 	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
 	                        const TUniqueContainer<std::size_t> &TimePoints)                       = 0;
-	virtual void estimateInitial(const TData &Data)                                                = 0;
+	virtual void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints)    = 0;
 	virtual void initializeTempVariables(const TData &Data)                                        = 0;
 	virtual void update(const TData &Data)                                                         = 0;
 	virtual void simulate(TData &Data, size_t N0,
@@ -92,7 +91,6 @@ public:
 //------------------------------------------
 
 class TDeterministic : public TModelBase {
-	// red box
 protected:
 	// gamma and times of change
 	TGamma _gamma;
@@ -112,7 +110,7 @@ public:
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
 	                const TUniqueContainer<std::size_t> &TimePoints) override;
-	void estimateInitial(const TData &Data) override;
+	void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints) override;
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
@@ -129,7 +127,6 @@ public:
 //------------------------------------------
 
 class TStochastic : public TModelBase {
-	// green box
 protected:
 	// ptr to prior above
 	TStochasticPrior _prior;
@@ -153,7 +150,7 @@ public:
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
 	                const TUniqueContainer<std::size_t> &TimePoints) override;
-	void estimateInitial(const TData &Data) override;
+	void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints) override;
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 

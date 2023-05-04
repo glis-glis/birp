@@ -156,7 +156,7 @@ const TTimepoints &TLocations::operator[](const size_t index) const { return _ti
 void TLocations::add(const TTimepoints &pt) {
 	for (auto &t : _timepoints) {
 		if (t.timepoint_id() == pt.timepoint_id()) {
-			UERROR("Make sure your ipnut file does not contain multiple rows with identical location and timepoints");
+			UERROR("Make sure your input file does not contain multiple rows with identical location and timepoints");
 		}
 	}
 	// when we are here: timpoint is unique -> push it back
