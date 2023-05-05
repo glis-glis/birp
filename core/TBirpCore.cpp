@@ -44,7 +44,7 @@ bool TBirpCore::_checkHeaderPlacement(const coretools::TInputFile &Infile, size_
 std::vector<std::string> TBirpCore::_getHeader() const { return {"location", "timepoint"}; }
 
 void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts,
-                             const std::vector<size_t> &countIndices, const std::vector<size_t> &effortIndices) {
+                             const std::vector<size_t> &countIndices, const std::vector<size_t> &CovEffortIndices) {
 	std::vector<std::string> headerVec = _getHeader();
 	// check whether first two columns are correct
 	for (size_t i = 0; i < headerVec.size(); i++) {
@@ -55,16 +55,17 @@ void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts
 	}
 	// check if number of columns is at least 4 (with counts) or 3 (without counts)
 	if (hasCounts) {
-		if (2 + countIndices.size() + effortIndices.size() < 4) {
+		if (headerVec.size() + countIndices.size() + CovEffortIndices.size() < 4) {
 			UERROR("Header of file", Infile.name(),
 			       " , should contain at least 4 columns: 'location', 'timepoint' and at least two more columns "
-			       "starting with 'counts_' and 'cov_', respectively.");
+			       "starting with 'counts_' and 'covEffort_', respectively.");
 		}
 	} else {
-		if (2 + countIndices.size() + effortIndices.size() < 3) {
-			UERROR("Header of file", Infile.name(),
-			       " , should contain at least 3 columns: 'method', 'location' and at least one column starting with "
-			       "'cov'.");
+		if (headerVec.size() + countIndices.size() + CovEffortIndices.size() < 3) {
+			UERROR(
+			    "Header of file", Infile.name(),
+			    " , should contain at least 3 columns: 'location', 'timepoint' and at least one column starting with "
+			    "'covEffort_'.");
 		}
 	}
 }
@@ -107,14 +108,33 @@ std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infil
 	return countIndices;
 }
 
-std::vector<std::string> TBirpCore::_getSpeciesOrCovariateNames(const coretools::TInputFile &infile,
-                                                                const std::vector<size_t> &Indices) {
+std::vector<std::string> getSpeciesOrCovariateNames(const coretools::TInputFile &infile,
+                                                    const std::vector<size_t> &Indices) {
 	std::vector<std::string> names(Indices.size());
 	std::string test = infile.headerAt(2);
 	for (size_t s = 0; s < Indices.size(); s++) {
 		names[s] = coretools::str::readAfter(infile.headerAt(Indices[s]), '_');
 	}
 	return names;
+}
+
+std::vector<size_t> fillCovNames(coretools::TInputFile &infile, const std::vector<size_t> &Indices,
+                                 TUniqueContainer<std::string> &UniqueContainer) {
+	std::vector<std::string> covNames = getSpeciesOrCovariateNames(infile, Indices);
+	std::vector<size_t> cov_ids(covNames.size());
+	for (size_t c = 0; c < covNames.size(); ++c) { cov_ids[c] = UniqueContainer.add(covNames[c]); }
+	return cov_ids;
+}
+
+std::string getMethodName(const std::string &Filename) {
+	std::string_view methodNameFull = Filename;
+	if (coretools::str::stringContains(Filename, '/')) {
+		methodNameFull = coretools::str::readAfterLast(Filename, '/');
+	}
+	std::string_view methodNameCropped = coretools::str::readAfter(methodNameFull, '_');
+	std::string methodName             = (std::string)coretools::str::readBeforeLast(methodNameCropped, '.');
+	coretools::str::eraseAllOccurences(methodName, "_simulatedCounts");
+	return methodName;
 }
 
 void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
@@ -124,32 +144,26 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	std::vector<size_t> countIndices = getColumnIndex(infile, "counts");
 
 	// get position of columns that contain covariates (efforts)
-	std::vector<size_t> effortIndices = getColumnIndex(infile, "cov");
+	std::vector<size_t> covEffortIndices    = getColumnIndex(infile, "covEffort");
+	std::vector<size_t> covDetectionIndices = getColumnIndex(infile, "covDetection");
 
-	_checkHeader(infile, hasCounts, countIndices, effortIndices);
+	_checkHeader(infile, hasCounts, countIndices, covEffortIndices);
 
 	std::vector<size_t> species_ids = {};
 	if (hasCounts) {
-		std::vector<std::string> speciesNames = _getSpeciesOrCovariateNames(infile, countIndices);
+		std::vector<std::string> speciesNames = getSpeciesOrCovariateNames(infile, countIndices);
 		for (const auto &name : speciesNames) { species_ids.push_back(_speciesNames.add(name)); }
 	} else {
 		species_ids = _simulateSpeciesNames();
 	}
 
-	std::vector<std::string> covariateNames = _getSpeciesOrCovariateNames(infile, effortIndices);
-	covariateNames.insert(covariateNames.begin(), "intercept"); // add extra intercept covariate
-	std::vector<size_t> covariate_ids(covariateNames.size());
-	for (size_t c = 0; c < covariateNames.size(); ++c) { covariate_ids[c] = _covariateNames.add(covariateNames[c]); }
+	// get covariate effort names and store in unique container
+	std::vector<size_t> covariateEffort_ids    = fillCovNames(infile, covEffortIndices, _covariateEffortNames);
+	std::vector<size_t> covariateDetection_ids = fillCovNames(infile, covDetectionIndices, _covariateDetectionNames);
 
 	// add new method: name is derived from filename
-	std::string_view methodNameFull = Filename;
-	if (coretools::str::stringContains(Filename, '/')) {
-		methodNameFull = coretools::str::readAfterLast(Filename, '/');
-	}
-	std::string_view methodNameCropped = coretools::str::readAfter(methodNameFull, '_');
-	std::string methodName             = (std::string)coretools::str::readBeforeLast(methodNameCropped, '.');
-	coretools::str::eraseAllOccurences(methodName, "_simulatedCounts");
-	TMethods method(methodName, _data.size(), species_ids, covariate_ids);
+	auto methodName = getMethodName(Filename);
+	TMethods method(methodName, _data.size(), species_ids, covariateEffort_ids, covariateDetection_ids);
 	_data.addMethod(method); // the index of the method is the current size of the _methods vector
 
 	std::vector<std::string> row;
@@ -159,19 +173,25 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
 		// boot one vector together (stiflä) of all species counts, and one of all covariates
 		std::vector<TypeCounts> countVec(species_ids.size(), 0);
-		std::vector<TypeCovariate> covVec(effortIndices.size());
+		std::vector<TypeCovariateEffort> covEffortVec(covEffortIndices.size());
+		std::vector<TypeCovariateDetection> covDetectionVec(covDetectionIndices.size());
 		if (hasCounts) {
 			for (size_t c = 0; c < countVec.size(); c++) { countVec[c] = (TypeCounts)row[countIndices[c]]; }
 		}
-		for (size_t c = 0; c < covVec.size(); c++) { covVec[c] = (TypeCovariate)row[effortIndices[c]]; }
+		for (size_t c = 0; c < covEffortVec.size(); c++) {
+			covEffortVec[c] = (TypeCovariateEffort)row[covEffortIndices[c]];
+		}
+		for (size_t c = 0; c < covDetectionVec.size(); c++) {
+			covDetectionVec[c] = (TypeCovariateDetection)row[covDetectionIndices[c]];
+		}
 		// create timepoint
-		TTimepoints pt(countVec, covVec, timepoint_id);
+		TTimepoints pt(countVec, covEffortVec, covDetectionVec, timepoint_id);
 		// add timepoint to data, either in existing object or create new one
 		_data.back().add(pt, location_id); // back: goes to last element
 	}
 
 	// standardize covariates
-	_data.back().standardizeCovariatesAndAddIntercept();
+	_data.back().standardizeCovariates();
 
 	_data.back().fillIDVectors(_speciesNames.size());
 }
@@ -191,7 +211,8 @@ void TBirpCore::infer() {
 
 	// create model
 	stattools::TDAGBuilder dagBuilder;
-	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateNames, _outname, dagBuilder);
+	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
+	                 _outname, dagBuilder);
 
 	// run MCMC
 	stattools::TMCMC mcmc;
@@ -207,10 +228,13 @@ std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &met
 	for (const auto &speciesID : method.speciesIDsinUniqueContainer()) {
 		header.push_back("counts_" + _speciesNames[speciesID]);
 	}
-	// add covariate name to base header vector
-	for (const auto &covID : method.covariateIDsinUniqueContainer()) {
-		if (_covariateNames[covID] == "intercept") { continue; } // do not write intercept to file
-		header.push_back("cov_" + _covariateNames[covID]);
+	// add covariate effort name to base header vector
+	for (const auto &covID : method.covariateEffortIDsinUniqueContainer()) {
+		header.push_back("covEffort_" + _covariateEffortNames[covID]);
+	}
+	// add covariate detection name to base header vector
+	for (const auto &covID : method.covariateDetectionIDsinUniqueContainer()) {
+		header.push_back("covDetection_" + _covariateDetectionNames[covID]);
 	}
 	return header;
 }
@@ -267,13 +291,24 @@ std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
 	return species_ids;
 }
 
-std::vector<size_t> TBirpCore::_simulateCovNames() {
-	size_t numCovs = parameters().getParameterWithDefault("numCovariates", 1);
-	if (numCovs == 0) { UERROR("Argument 'numCovariates' must be at least 1!"); }
-	// fill names and ids and add intercept
-	std::vector<size_t> covariates_ids(numCovs + 1);
-	covariates_ids[0] = _covariateNames.add("intercept");
-	for (size_t n = 1; n < numCovs + 1; n++) { covariates_ids[n] = _covariateNames.add(coretools::str::toString(n)); }
+std::vector<size_t> TBirpCore::_simulateCovEffortNames() {
+	size_t numCovs = parameters().getParameterWithDefault("numCovariatesEffort", 1);
+	if (numCovs == 0) { UERROR("Argument 'numCovariatesEffort' must be at least 1!"); }
+	// fill names and ids
+	std::vector<size_t> covariates_ids(numCovs);
+	for (size_t n = 0; n < numCovs; n++) {
+		covariates_ids[n] = _covariateEffortNames.add(coretools::str::toString(n + 1));
+	}
+	return covariates_ids;
+}
+
+std::vector<size_t> TBirpCore::_simulateCovDetectionNames() {
+	size_t numCovs = parameters().getParameterWithDefault("numCovariatesDetection", 0);
+	// fill names and ids
+	std::vector<size_t> covariates_ids(numCovs);
+	for (size_t n = 0; n < numCovs; n++) {
+		covariates_ids[n] = _covariateDetectionNames.add(coretools::str::toString(n + 1));
+	}
 	return covariates_ids;
 }
 
@@ -286,15 +321,16 @@ void TBirpCore::simulate() {
 		// else read main dimensions from command line
 		_fillTimepointsFromCommandLine();
 		_fillLocationsFromCommandLine();
-		size_t numMethods  = parameters().getParameterWithDefault("numMethods", 1);
+		size_t numMethods           = parameters().getParameterWithDefault("numMethods", 1);
 		// create vector of speciesnames species_1, species_2 ... as many as there are. currently only supports one
 		// species
-		auto species_ids   = _simulateSpeciesNames();
-		auto covariate_ids = _simulateCovNames();
+		auto species_ids            = _simulateSpeciesNames();
+		auto covariateEffort_ids    = _simulateCovEffortNames();
+		auto covariateDetection_ids = _simulateCovDetectionNames();
 
 		for (size_t m = 0; m < numMethods; ++m) {
 			TMethods method("Method_" + coretools::str::toString(m + 1), _locations.size(), _timepoints.size(), m,
-			                species_ids, covariate_ids);
+			                species_ids, covariateEffort_ids, covariateDetection_ids);
 			_data.addMethod(method);
 		}
 		for (auto &m : _data) { m.fillIDVectors(_speciesNames.size()); }
@@ -303,7 +339,8 @@ void TBirpCore::simulate() {
 
 	// create model
 	stattools::TDAGBuilder dagBuilder;
-	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateNames, _outname, dagBuilder);
+	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
+	                 _outname, dagBuilder);
 
 	// run simulator
 	stattools::TSimulator simulator;

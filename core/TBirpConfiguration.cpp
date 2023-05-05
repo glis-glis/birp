@@ -4,13 +4,13 @@
 
 #include "TBirpConfiguration.h"
 
-#include "TBirpCore.h"
 #include "TBirpPrior.h"
 #include "TData.h"
 #include "coretools/Types/strongTypes.h"
 #include "stattools/MCMC/TMCMC.h"
 #include "stattools/Priors/TPriorDirichlet.h"
 #include "stattools/Priors/TPriorExponential.h"
+#include "stattools/Priors/TPriorNormal.h"
 
 using namespace coretools::instances;
 using namespace stattools;
@@ -36,7 +36,43 @@ std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretool
 // TBirpCommonModel
 //------------------------------------------
 
-TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::string> &CovariateNames,
+void TBirpCommonModel::_createSigmaAlpha(size_t i, TData &Data, const std::string &Filename) {
+	// create sigma alpha (variance of Dirichlet prior on alpha_i)
+	auto name  = "sigma_alpha_" + Data[i].name();
+	auto prior = std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigmaAlpha, 1>>();
+	TParameterDefinition def({Filename, "1"});
+	if (!Data[i].inferAlpha()) { def.update(false); }
+	sigmaAlpha[i] = std::make_shared<stattools::TParameterTyped<TypeSigmaAlpha, 1>>(name, prior, def);
+}
+
+void TBirpCommonModel::_createAlpha(size_t i, TData &Data, const TUniqueContainer<std::string> &CovariateEffortNames,
+                                    const std::string &Filename) {
+	// create alpha
+	auto name  = "alpha_" + Data[i].name();
+	auto prior = std::make_shared<
+	    stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeAlpha, 1, TypeSigmaAlpha>>(
+	    sigmaAlpha[i].get());
+	TParameterDefinition def(Filename, readAlphaDirichlet("dirichlet_alpha", CovariateEffortNames.size(), 1.0));
+	alpha[i] = std::make_shared<stattools::TParameterTyped<TypeAlpha, 1>>(name, prior, def);
+}
+
+void TBirpCommonModel::_createBeta0(size_t i, TData &Data, const std::string &Filename) {
+	// create beta
+	auto name  = "beta0_" + Data[i].name();
+	auto prior = std::make_shared<stattools::prior::TNormalFixed<stattools::TParameterBase, TypeBeta, 1>>();
+	TParameterDefinition def(Filename, "0,1");
+	beta0[i] = std::make_shared<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
+}
+
+void TBirpCommonModel::_createBeta(size_t i, TData &Data, const std::string &Filename) {
+	// create beta
+	auto name  = "beta_" + Data[i].name();
+	auto prior = std::make_shared<stattools::prior::TNormalFixed<stattools::TParameterBase, TypeBeta, 1>>();
+	TParameterDefinition def(Filename, "0,1");
+	beta[i] = std::make_shared<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
+}
+
+TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::string> &CovariateEffortNames,
                                    const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
     // TODO: change to improper prior!
     : gamma("gamma", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeGamma, 1>>(),
@@ -45,34 +81,27 @@ TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::stri
                     std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeTime, 1>>(),
                     {Filename}) {
 
-	// create beta
-	sigmaBeta.resize(Data.size());
-	beta.resize(Data.size());
-	for (size_t i = 0; i < Data.size(); ++i) {
-		// create sigma beta (variance of Dirichlet prior on beta_i)
-		auto name_sigma_beta = "sigma_beta_" + Data[i].name();
-		auto prior_sigma_beta =
-		    std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigmaBeta, 1>>();
-		TParameterDefinition def_sigma_beta({Filename, "1"});
-		if (!Data[i].inferEffort()) { def_sigma_beta.update(false); }
-		sigmaBeta[i] = std::make_shared<stattools::TParameterTyped<TypeSigmaBeta, 1>>(name_sigma_beta, prior_sigma_beta,
-		                                                                              def_sigma_beta);
-
-		// create beta
-		auto name  = "beta_" + Data[i].name();
-		auto prior = std::make_shared<
-		    stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeBeta, 1, TypeSigmaBeta>>(
-		    sigmaBeta[i].get());
-		TParameterDefinition def(Filename, readAlphaDirichlet("alpha_beta", CovariateNames.size(), 1.0));
-		beta[i] = std::make_shared<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
+	// create alpha and beta
+	const size_t numMethods = Data.size();
+	sigmaAlpha.resize(numMethods);
+	alpha.resize(numMethods);
+	beta.resize(numMethods);
+	beta0.resize(numMethods);
+	for (size_t i = 0; i < numMethods; ++i) {
+		_createSigmaAlpha(i, Data, Filename);
+		_createAlpha(i, Data, CovariateEffortNames, Filename);
+		_createBeta0(i, Data, Filename);
+		_createBeta(i, Data, Filename);
 	}
 
 	gamma.getDefinition().setJumpSizeForAll(false);
 
 	// add to DAG
 	DAGBuilder.addToDAG({&gamma, &timesOfChange});
+	for (auto &s : sigmaAlpha) { DAGBuilder.addToDAG(s.get()); }
+	for (auto &a : alpha) { DAGBuilder.addToDAG(a.get()); }
+	for (auto &b : beta0) { DAGBuilder.addToDAG(b.get()); }
 	for (auto &b : beta) { DAGBuilder.addToDAG(b.get()); }
-	for (auto &s : sigmaBeta) { DAGBuilder.addToDAG(s.get()); }
 }
 
 //------------------------------------------
@@ -116,9 +145,10 @@ TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename, stattool
 TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,
                        const TUniqueContainer<std::size_t> &TimePoints,
                        const TUniqueContainer<std::string> &SpeciesNames,
-                       const TUniqueContainer<std::string> &CovariateNames, const std::string &Filename,
+                       const TUniqueContainer<std::string> &CovariateEffortNames,
+                       const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
                        stattools::TDAGBuilder &DAGBuilder)
-    : _commonModel(Data, CovariateNames, Filename, DAGBuilder) {
+    : _commonModel(Data, CovariateEffortNames, Filename, DAGBuilder) {
 
 	if (parameters().parameterExists("negativeBinomial") && parameters().parameterExists("stochastic")) {
 		_negBinomAddOn   = std::make_unique<TBirpNegBinomAddOn>(Data, Filename, DAGBuilder);
@@ -131,12 +161,12 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 
 	// create birp prior (Poisson or Negative Binomial)
 	std::shared_ptr<TBirpPrior> birp =
-	    std::make_shared<TBirpPrior>(Data, Locations, TimePoints, CovariateNames, SpeciesNames.size(), _commonModel,
-	                                 _negBinomAddOn, _stochasticAddOn, Filename);
+	    std::make_shared<TBirpPrior>(Data, Locations, TimePoints, CovariateEffortNames, CovariateDetectionNames,
+	                                 SpeciesNames.size(), _commonModel, _negBinomAddOn, _stochasticAddOn, Filename);
 
 	// create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
 	coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;
-	_data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>("fakeData", birp, fakeData,
+	_data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>("likelihood", birp, fakeData,
 	                                                                      stattools::TObservationDefinition(Filename));
 
 	// add to DAG

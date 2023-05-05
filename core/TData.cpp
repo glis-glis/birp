@@ -64,8 +64,6 @@ TypeCounts TTimepoints::counts_per_species(size_t species_id) const { return _co
 
 TypeEffort TTimepoints::effort() const { return _effort; }
 
-TypeEffort TTimepoints::effort_old() const { return _effort_old; }
-
 size_t TTimepoints::timepoint_id() const { return _timepoint_id; }
 
 void TTimepoints::setTimepoint(size_t timepointToAdd) { _timepoint_id = timepointToAdd; }
@@ -183,22 +181,15 @@ void TTimepoints::write(coretools::TOutputFile &File, std::string location,
                         const TUniqueContainer<size_t> &Timepoints) const {
 	File << location << Timepoints[_timepoint_id] << _counts_per_species;
 
-	// write effort covariate(s)
+	// write covariate(s)
 	for (const auto &it : _covariatesEffort) { File << it; }
-
-	// write detection covariate(s)
-	if (_covariatesDetection.size() == 1) {
-		File << _covariatesDetection[0];
-	} else if (_covariatesDetection.size() > 1) {
-		// also contains an intercept, but this one should not be written!
-		for (auto it = _covariatesDetection.begin() + 1; it != _covariatesDetection.end(); ++it) { File << *it; }
-	}
+	for (const auto &it : _covariatesDetection) { File << it; }
 
 	File << coretools::endl;
 }
 
-void TTimepoints::simulatePoisson(size_t N0, double phi, double detectionProbs) {
-	coretools::Positive<double> lambda = (double)N0 * phi * detectionProbs;
+void TTimepoints::simulatePoisson(size_t N0, double phi) {
+	coretools::Positive<double> lambda = (double)N0 * phi;
 
 	lambda *= _effort;
 	if (lambda == 0.0) {
@@ -311,9 +302,9 @@ void TLocations::resetBetaEffort() {
 	for (auto &timepoint : _timepoints) { timepoint.resetBetaEffort(); }
 }
 
-void TLocations::simulatePoisson(size_t N0, const TModelBase &Model, double detectionProbs) {
+void TLocations::simulatePoisson(size_t N0, const TModelBase &Model) {
 	for (auto &timepoint : _timepoints) {
-		timepoint.simulatePoisson(N0, Model.phi(location_id(), timepoint.timepoint_id()), detectionProbs);
+		timepoint.simulatePoisson(N0, Model.phi(location_id(), timepoint.timepoint_id()));
 	}
 }
 
@@ -378,11 +369,15 @@ void TMethods::initialize(const TUniqueContainer<std::string> &CovariateEffortNa
 	_alpha->initStorage({numCovariatesEffort()}, {covNamesAlpha});
 
 	// initialize beta0: single element
-	_beta0->initStorage();
+	if (CovariateDetectionNames.empty()) {
+		_beta0->initStorage({0}, {});
+	} else {
+		_beta0->initStorage({1});
+	}
 
 	// initialize beta: get names from detection covariates
 	auto covNamesBeta = getCovNames(CovariateDetectionNames, _covariateDetectionIDsinUniqueContainer);
-	_beta->initStorage({numCovariatesEffort()}, {covNamesBeta});
+	_beta->initStorage({numCovariatesDetection()}, {covNamesBeta});
 }
 
 void TMethods::add(const TTimepoints &pt, size_t location_id) {
@@ -484,7 +479,7 @@ std::vector<TLocations>::const_iterator TMethods::cend() const { return _locatio
 
 std::vector<TLocations>::iterator TMethods::end() { return _locations.end(); }
 
-std::vector<std::string> TMethods::_splitVecWithDistributions(const std::string &Input) {
+std::vector<std::string> splitVecWithDistributions(const std::string &Input) {
 	std::vector<std::string> output;
 
 	std::regex regex(",(?![^()]*\\))"); // matches comma not inside brackets
@@ -494,6 +489,8 @@ std::vector<std::string> TMethods::_splitVecWithDistributions(const std::string 
 
 	return output;
 }
+
+bool hasCommasOutsideBracket(const std::string &Input) { return splitVecWithDistributions(Input).size() > 1; }
 
 std::pair<std::string, std::string> TMethods::_getParamsAndDistr(const std::string &Cov) {
 	coretools::str::TSplitter sp(Cov, '(');
@@ -529,13 +526,13 @@ void TMethods::_simulateOneCovariateEffort(size_t c, const std::string &Cov) {
 
 void TMethods::_simulateCovariatesEffort() {
 	using namespace coretools;
-	std::string effortString = instances::parameters().getParameterWithDefault("covariatesEffort", "Poisson(1000)");
+	std::string effortString = instances::parameters().getParameterWithDefault("covariatesEffort", "Poisson(10)");
 	if (str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
 		for (size_t c = 0; c < numCovariatesEffort(); ++c) { _simulateOneCovariateEffort(c, effortString); }
-	} else if (str::stringContains(effortString, ',')) {
+	} else if (hasCommasOutsideBracket(effortString)) {
 		// cases 2 and 4: comma-separated string of numbers (case 2) or distributions (case 4) or both
-		std::vector<std::string> vec = _splitVecWithDistributions(effortString);
+		std::vector<std::string> vec = splitVecWithDistributions(effortString);
 		if (vec.size() != numCovariatesEffort()) {
 			UERROR("The size of covariates provided with argument 'covariatesEffort' (", vec.size(),
 			       ") does not match the number of covariates (", numCovariatesEffort(), ").");
@@ -574,9 +571,9 @@ void TMethods::_simulateCovariatesDetection() {
 	if (str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
 		for (size_t c = 0; c < numCovariatesDetection(); ++c) { _simulateOneCovariateDetection(c, effortString); }
-	} else if (str::stringContains(effortString, ',')) {
+	} else if (hasCommasOutsideBracket(effortString)) {
 		// cases 2 and 4: comma-separated string of numbers (case 2) or distributions (case 4) or both
-		std::vector<std::string> vec = _splitVecWithDistributions(effortString);
+		std::vector<std::string> vec = splitVecWithDistributions(effortString);
 		if (vec.size() != numCovariatesDetection()) {
 			UERROR("The size of covariates provided with argument 'covariatesDetection' (", vec.size(),
 			       ") does not match the number of covariates (", numCovariatesDetection(), ").");
@@ -605,16 +602,15 @@ void TMethods::_setValuesForSingleCovariate() {
 		_alpha->setIsUpdated(false);
 	}
 	if (!inferBeta()) {
-		_beta0->set(0.0); // set beta0 to zero
+		if (_beta0->totalSize() > 0) { _beta0->set(0.0); } // set beta0 to zero
 		_beta0->setIsUpdated(false);
 
-		for (size_t c = 0; c < _beta->totalSize(); ++c) { _beta->set(c, 0.0); }
+		for (size_t c = 0; c < _beta->totalSize(); ++c) { _beta->set(c, 1.0); }
 		_beta->setIsUpdated(false);
 	}
 }
 
-void TMethods::simulatePoisson(size_t N0, const TModelBase &Model, const TUniqueContainer<std::string> &locations,
-                               bool SimulateCovariates) {
+void TMethods::simulatePoisson(size_t N0, const TModelBase &Model, bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalizeToSum1AfterUpdate();
 	_setValuesForSingleCovariate();
@@ -626,9 +622,7 @@ void TMethods::simulatePoisson(size_t N0, const TModelBase &Model, const TUnique
 	}
 }
 
-std::vector<double> TMethods::simulateNB(size_t N0, const TModelBase &Model,
-                                         const TUniqueContainer<std::string> &locations, double A,
-                                         bool SimulateCovariates) {
+std::vector<double> TMethods::simulateNB(size_t N0, const TModelBase &Model, double A, bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalizeToSum1AfterUpdate();
 	_setValuesForSingleCovariate();
@@ -648,56 +642,94 @@ void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::s
 	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
 }
 
-void TMethods::estimateInitialBeta() {
+void TMethods::estimateInitialAlphaBeta() {
 	// TODO: How to initialize alpha and beta?
 	// set initial value of all alpha's and beta's to one
 	for (size_t c = 0; c < _alpha->totalSize(); ++c) { _alpha->setInitial(c, 1.0); }
 	for (size_t c = 0; c < _beta->totalSize(); ++c) { _beta->setInitial(c, 1.0); }
-	_beta0->setInitial(0.0);
+	if (_beta0->totalSize() > 0) { _beta0->setInitial(0.0); }
 
 	_alpha->normalizeToSum1AfterUpdate();
 
-	// set effort based on initial values of beta
+	// set effort based on initial values of alpha and beta
 	initializeEffort();
 	_setValuesForSingleCovariate();
 }
 
-void TMethods::_updateBeta(size_t c1, size_t c2, const TData &Data,
-                           const std::vector<std::unique_ptr<TModelBase>> &Models) {
+void TMethods::_updateAlpha(size_t c1, size_t c2, const TData &Data,
+                            const std::vector<std::unique_ptr<TModelBase>> &Models) {
 	// propose new value
-	_beta->updatePairWiseSumOneVector(c1, c2);
+	_alpha->updatePairWiseSumOneVector(c1, c2);
 
 	// update effort for all locations and timepoints of current method
 	for (auto &location : _locations) {
-		location.updateEffort(_beta->value(c1), _beta->oldValue(c1), _beta->value(c2), _beta->oldValue(c2), c1, c2);
+		location.updateAlphaEffort(_alpha->value(c1), _alpha->oldValue(c1), _alpha->value(c2), _alpha->oldValue(c2), c1,
+		                           c2);
 	}
 	// calculate Hastings ratio
-	double logRatio = _beta->getLogPriorRatio(c1) + _beta->getLogPriorDensity(c2);
-	for (size_t s = 0; s < Models.size(); ++s) { // loop over species
-		logRatio += Models[s]->calculateLLRatio_perMethod(method_id(), Data);
+	double logRatio = _alpha->getLogPriorRatio(c1) + _alpha->getLogPriorDensity(c2);
+	for (const auto &Model : Models) { // loop over species
+		logRatio += Model->calculateLLRatio_perMethod(method_id(), Data);
 	}
 	// decide if accept or reject
 	coretools::TRange range(c1, c2);
-	if (_beta->acceptOrReject(logRatio, range, c1)) {
+	if (_alpha->acceptOrReject(logRatio, range, c1)) {
 		// accepted: set likelihood in all epoch models
-		for (size_t s = 0; s < Models.size(); ++s) { Models[s]->swapTryCur_perMethod(method_id(), Data); }
+		for (const auto &Model : Models) { Model->swapTryCur_perMethod(method_id(), Data); }
 	} else {
 		// rejected: re-set effort to old value before update
-		for (auto &location : _locations) { location.resetEffort(); }
+		for (auto &location : _locations) { location.resetAlphaEffort(); }
 	}
 }
 
-void TMethods::updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models) {
-	if (!_beta->isUpdated()) { return; }
+void TMethods::_updateAlpha(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models) {
+	if (!_alpha->isUpdated()) { return; }
 
-	stattools::TIndexSampler sampler(numCovariates()); // draw random indices from range [0, numCovariates]
+	stattools::TIndexSampler sampler(numCovariatesEffort()); // draw random indices from range [0, numCovariates]
 	sampler.sampleIndices();
 
 	for (size_t c = 0; c < sampler.length(); ++c) {
 		// pick two indices i to update
 		auto [c1, c2] = sampler.getIndexPair(c);
-		_updateBeta(c1, c2, Data, Models);
+		_updateAlpha(c1, c2, Data, Models);
 	}
+}
+
+void TMethods::_updateBeta(size_t d, const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models,
+                           const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
+	// Beta is either beta0 or beta (both need to calculate the same terms)
+	// propose new value
+	if (!Beta->updateSpecificIndex(d)) { return; }
+
+	// update effort for all locations and timepoints of current method
+	for (auto &location : _locations) { location.updateBetaEffort(_beta0, _beta); }
+
+	// calculate Hastings ratio
+	double logRatio = Beta->getLogPriorRatio(d);
+	for (const auto &Model : Models) { // loop over species
+		logRatio += Model->calculateLLRatio_perMethod(method_id(), Data);
+	}
+	// decide if accept or reject
+	if (Beta->acceptOrReject(logRatio, d)) {
+		// accepted: set likelihood in all epoch models
+		for (const auto &Model : Models) { Model->swapTryCur_perMethod(method_id(), Data); }
+	} else {
+		// rejected: re-set effort to old value before update
+		for (auto &location : _locations) { location.resetBetaEffort(); }
+	}
+}
+
+void TMethods::_updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models) {
+	// update beta0
+	if (_beta0->totalSize() > 0) { _updateBeta(0, Data, Models, _beta0); }
+
+	// update beta
+	for (size_t d = 0; d < numCovariatesDetection(); ++d) { _updateBeta(d, Data, Models, _beta); }
+}
+
+void TMethods::updateAlphaBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models) {
+	_updateAlpha(Data, Models);
+	_updateBeta(Data, Models);
 }
 
 //-------------------------------------------

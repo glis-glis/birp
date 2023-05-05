@@ -28,7 +28,7 @@ typedef coretools::StrictlyPositive<double> TypeSigmaMu;
 typedef coretools::MinMaxVariable<double> TypeLogA;
 typedef coretools::StrictlyPositiveWithMax<double> TypeAlpha;
 typedef coretools::WeakType<double> TypeBeta;
-typedef coretools::StrictlyPositive<double> TypeSigmaBeta;
+typedef coretools::StrictlyPositive<double> TypeSigmaAlpha;
 typedef coretools::WeakTypeWithExp<double> TypeLogPhi;
 typedef coretools::StrictlyPositive<double> TypePhi;
 typedef coretools::StrictlyPositive<double> TypeSigma;

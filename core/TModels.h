@@ -43,10 +43,7 @@ protected:
 	void _initializeDistribution(const TData &Data, const TUniqueContainer<std::string> &Locations);
 	void _estimateInitialParameters(const TData &Data);
 	void _updateDistributionParameters(const TData &Data);
-	void _simulateDistributionParameters(TData &Data, size_t N0,
-	                                     std::tuple<std::vector<std::string>, std::vector<std::string>,
-	                                                std::vector<coretools::Probability>> &detectionProbs,
-	                                     const TUniqueContainer<std::string> &locations, bool SimulateCovariates);
+	void _simulateDistributionParameters(TData &Data, size_t N0, bool SimulateCovariates);
 	void _initializeLL(const TData &Data);
 
 public:
@@ -55,14 +52,11 @@ public:
 	virtual ~TModelBase() = default;
 
 	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-	                        const TUniqueContainer<std::size_t> &TimePoints)                       = 0;
-	virtual void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints)    = 0;
-	virtual void initializeTempVariables(const TData &Data)                                        = 0;
-	virtual void update(const TData &Data)                                                         = 0;
-	virtual void simulate(TData &Data, size_t N0,
-	                      std::tuple<std::vector<std::string>, std::vector<std::string>,
-	                                 std::vector<coretools::Probability>> &detectionProbs,
-	                      const TUniqueContainer<std::string> &locations, bool SimulateCovariates) = 0;
+	                        const TUniqueContainer<std::size_t> &TimePoints)                    = 0;
+	virtual void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints) = 0;
+	virtual void initializeTempVariables(const TData &Data)                                     = 0;
+	virtual void update(const TData &Data)                                                      = 0;
+	virtual void simulate(TData &Data, size_t N0, bool SimulateCovariates)                      = 0;
 
 	// calculate sigma
 	std::vector<double> calculateSigma(const TLocations &loc) const;
@@ -114,10 +108,7 @@ public:
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
-	void simulate(TData &Data, size_t N0,
-	              std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>>
-	                  &detectionProbs,
-	              const TUniqueContainer<std::string> &locations, bool SimulateCovariates) override;
+	void simulate(TData &Data, size_t N0, bool SimulateCovariates) override;
 
 	TypePhi phi(size_t location_id, size_t timepoint_id) const override;
 };
@@ -154,10 +145,7 @@ public:
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
-	void simulate(TData &Data, size_t N0,
-	              std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>>
-	                  &detectionProbs,
-	              const TUniqueContainer<std::string> &locations, bool SimulateCovariates) override;
+	void simulate(TData &Data, size_t N0, bool SimulateCovariates) override;
 
 	TypePhi phi(size_t location_id, size_t timepoint_k) const override;
 };

@@ -33,12 +33,8 @@ void TModelBase::_estimateInitialParameters(const TData &Data) { _distr->estimat
 
 void TModelBase::_updateDistributionParameters(const TData &Data) { _distr->update(Data, *this); };
 
-void TModelBase::_simulateDistributionParameters(
-    TData &Data, size_t N0,
-    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
-    const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
-
-	_distr->simulate(Data, *this, N0, detectionProbs, locations, SimulateCovariates);
+void TModelBase::_simulateDistributionParameters(TData &Data, size_t N0, bool SimulateCovariates) {
+	_distr->simulate(Data, *this, N0, SimulateCovariates);
 }
 
 std::vector<double> TModelBase::calculateSigma(const TLocations &loc) const {
@@ -160,9 +156,9 @@ double TModelBase::calculateLLRatio_perMethod(size_t i, const TData &Data) {
 	// loop over all locations and timepoints of a particular method of a single species
 	const auto &method = Data[i];
 
-	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
-		return coretools::containerSum(_curLL);
-	} // chame gd hei ga
+	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { // chame gd hei ga
+		return 0.0;
+	}
 
 	for (size_t j = 0; j < method.size(); ++j) { // loop over locations
 		const auto &loc        = method[j];
@@ -176,7 +172,7 @@ double TModelBase::calculateLLRatio_perMethod(size_t i, const TData &Data) {
 		                                              j); // method_id should always be the same as i!
 		_tryLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[j], p, index_in_counts, ix_linNumMethLoc);
 	}
-	return coretools::containerSum(_tryLL);
+	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
 }
 
 void TModelBase::swapTryCur() {
@@ -270,14 +266,11 @@ void TDeterministic::update(const TData &Data) {
 	}
 }
 
-void TDeterministic::simulate(
-    TData &Data, size_t N0,
-    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
-    const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
+void TDeterministic::simulate(TData &Data, size_t N0, bool SimulateCovariates) {
 
 	_gamma.setSimulatedGammaToZero();
 	_fillPhi();
-	_simulateDistributionParameters(Data, N0, detectionProbs, locations, SimulateCovariates);
+	_simulateDistributionParameters(Data, N0, SimulateCovariates);
 };
 
 //------------------------------------------
@@ -388,10 +381,7 @@ void TStochastic::update(const TData &Data) {
 	if (_sigma->isUpdated()) { _updateSigma(); }
 }
 
-void TStochastic::simulate(
-    TData &Data, size_t N0,
-    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
-    const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
+void TStochastic::simulate(TData &Data, size_t N0, bool SimulateCovariates) {
 
 	// simulate gamma
 	_prior.setSimulatedGammaToZero();
@@ -401,14 +391,14 @@ void TStochastic::simulate(
 	// simulate phi from transition probabilities
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		size_t ix = _logPhi->getIndex({j, 0});
-		_logPhi->setInitial(ix, 0.0); // set first phi = 1 -> logPhi = 0
+		_logPhi->setInitial(ix, 0.0);                       // set first phi = 1 -> logPhi = 0
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
 			ix = _logPhi->getIndex({j, k});
 			_logPhi->setInitial(ix, _prior.sampleFromTransitionProbability(j, k));
 		}
 	}
 
-	_simulateDistributionParameters(Data, N0, detectionProbs, locations, SimulateCovariates);
+	_simulateDistributionParameters(Data, N0, SimulateCovariates);
 };
 
 coretools::StrictlyPositive<double> TStochastic::phi(size_t j, size_t k) const {

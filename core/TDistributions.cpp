@@ -30,14 +30,11 @@ double TPoissonDistribution::calculateLL(const std::vector<double> & /*sigma*/, 
 	return LL;
 }
 
-void TPoissonDistribution::simulate(
-    TData &Data, const TModelBase &Model, size_t N0,
-    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
-    const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
+void TPoissonDistribution::simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) {
 
 	for (auto &method : Data) {
 		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
-		method.simulatePoisson(N0, Model, detectionProbs, locations, SimulateCovariates);
+		method.simulatePoisson(N0, Model, SimulateCovariates);
 	}
 }
 
@@ -181,10 +178,7 @@ double TNegBinDistribution::_setAForSimulation(const TData &Data) {
 	return a;
 }
 
-void TNegBinDistribution::simulate(
-    TData &Data, const TModelBase &Model, size_t N0,
-    std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>> &detectionProbs,
-    const TUniqueContainer<std::string> &locations, bool SimulateCovariates) {
+void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) {
 	// set a
 	double A = _setAForSimulation(Data);
 
@@ -192,7 +186,7 @@ void TNegBinDistribution::simulate(
 		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
 
 		// simulate mus based on detectionProb and a: will return a vector with length = numLocations
-		auto mus = method.simulateNB(N0, Model, detectionProbs, locations, A, SimulateCovariates);
+		auto mus = method.simulateNB(N0, Model, A, SimulateCovariates);
 		coretools::normalize(mus);
 		for (size_t c = 0; c < method.size(); ++c) { _mu->set(c, mus[c]); }
 	}

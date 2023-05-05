@@ -28,16 +28,13 @@ public:
 	virtual ~TDistributionBase() = default;
 
 	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations) = 0;
-	virtual void update(const TData &Data, TModelBase &Model)                            = 0;
-	virtual void estimateInitialParameters(const TData &Data)                            = 0;
+	virtual void update(const TData &Data, TModelBase &Model)                                  = 0;
+	virtual void estimateInitialParameters(const TData &Data)                                  = 0;
 
 	virtual double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                           size_t index_in_counts, size_t ix_linNumMethLoc) const = 0;
 
-	virtual void simulate(TData &Data, const TModelBase &Model, size_t N0,
-	                      std::tuple<std::vector<std::string>, std::vector<std::string>,
-	                                 std::vector<coretools::Probability>> &detectionProbs,
-	                      const TUniqueContainer<std::string> &locations, bool SimulateCovariates) = 0;
+	virtual void simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) = 0;
 };
 
 //---------------------------------------
@@ -56,10 +53,7 @@ public:
 	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;
 
 	// simulation
-	void simulate(TData &Data, const TModelBase &Model, size_t N0,
-	              std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>>
-	                  &detectionProbs,
-	              const TUniqueContainer<std::string> &locations, bool SimulateCovariates) override;
+	void simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) override;
 };
 
 //--------------------------------
@@ -96,10 +90,7 @@ public:
 	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;
 
 	// simulate
-	void simulate(TData &Data, const TModelBase &Model, size_t N0,
-	              std::tuple<std::vector<std::string>, std::vector<std::string>, std::vector<coretools::Probability>>
-	                  &detectionProbs,
-	              const TUniqueContainer<std::string> &locations, bool SimulateCovariates) override;
+	void simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) override;
 };
 
 #endif // BIRP_TDISTRIBUTIONS_H

@@ -31,20 +31,18 @@ protected:
 	TUniqueContainer<std::string> _locations;
 	TData _data;
 	TUniqueContainer<size_t> _timepoints;
-	TUniqueContainer<std::string> _covariateNames;
+	TUniqueContainer<std::string> _covariateEffortNames;
+	TUniqueContainer<std::string> _covariateDetectionNames;
 	TUniqueContainer<std::string> _speciesNames;
 
 	// read input files
 	[[nodiscard]] std::vector<std::string> _getHeader() const;
 	[[nodiscard]] bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index,
 	                                         const std::string &Title) const;
-
 	void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
-	                  const std::vector<size_t> &effortIndices);
+	                  const std::vector<size_t> &CovEffortIndices);
 	std::string _getDelim(const std::string &Filename);
 	std::vector<size_t> getColumnIndex(const coretools::TInputFile &infile, const std::string &string);
-	std::vector<std::string> _getSpeciesOrCovariateNames(const coretools::TInputFile &infile,
-	                                                     const std::vector<size_t> &Indices);
 	void _readFile(const std::string &Filename, bool hasCounts);
 
 	void _sortTimepoints();
@@ -52,14 +50,11 @@ protected:
 	void _readForInference(bool hasCounts);
 
 	// simulate
-	std::vector<size_t> _readN0() const;
-
 	void _fillTimepointsFromCommandLine();
-
 	void _fillLocationsFromCommandLine();
-
 	std::vector<size_t> _simulateSpeciesNames();
-	std::vector<size_t> _simulateCovNames();
+	std::vector<size_t> _simulateCovEffortNames();
+	std::vector<size_t> _simulateCovDetectionNames();
 
 	// write
 	std::vector<std::string> _getMethodspecificHeader(const TMethods &method);

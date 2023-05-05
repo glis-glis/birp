@@ -70,7 +70,6 @@ public:
 	size_t numSpecies() const;
 	TypeCounts counts_per_species(size_t species_id) const;
 	TypeEffort effort() const;
-	TypeEffort effort_old() const;
 	size_t timepoint_id() const;
 	bool inferAlpha() const;
 	bool inferBeta() const;
@@ -97,7 +96,7 @@ public:
 	}
 
 	// functions for simulating under Poisson model
-	void simulatePoisson(size_t N0, double phi, double detectionProbs);
+	void simulatePoisson(size_t N0, double phi);
 
 	// functions for simulating under Negative Binomial model
 	void simulateNB(double phi, double a, double mu_ij);
@@ -163,7 +162,7 @@ public:
 	}
 
 	// functions for simulating under Poisson model
-	void simulatePoisson(size_t N0, const TModelBase &Model, double detectionProbs);
+	void simulatePoisson(size_t N0, const TModelBase &Model);
 
 	// functions for simulating under Negative Binomial model
 	void simulateNB(const TModelBase &Model, double a, double mu_ij);
@@ -193,14 +192,17 @@ private:
 	std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> _beta;
 	std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> _beta0;
 
-	// update functions for beta
-	void _updateBeta(size_t c1, size_t c2, const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
+	// update functions for alpha and beta
+	void _updateAlpha(size_t c1, size_t c2, const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
+	void _updateAlpha(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
+	void _updateBeta(size_t d, const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models,
+	                 const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void _updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 	void _setValuesForSingleCovariate();
 
 	// simulate
 	void _simulateOneCovariateEffort(size_t c, const std::string &Cov);
 	void _simulateOneCovariateDetection(size_t c, const std::string &Cov);
-	std::vector<std::string> _splitVecWithDistributions(const std::string &Input);
 	std::pair<std::string, std::string> _getParamsAndDistr(const std::string &Cov);
 	template<class Distribution, bool SimulateCovEffort>
 	void _simulateCovariateFromDistribution(size_t c, const std::string &Params) {
@@ -268,14 +270,13 @@ public:
 	std::vector<TLocations>::iterator end();
 
 	// update effort
-	void estimateInitialBeta();
-	void updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
-	// functions for simulating
-	void simulatePoisson(size_t N0, const TModelBase &Model, const TUniqueContainer<std::string> &locations,
-	                     bool SimulateCovariates);
+	void estimateInitialAlphaBeta();
+	void updateAlphaBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 
-	std::vector<double> simulateNB(size_t N0, const TModelBase &Model, const TUniqueContainer<std::string> &locations,
-	                               double A, bool SimulateCovariates);
+	// functions for simulating
+	void simulatePoisson(size_t N0, const TModelBase &Model, bool SimulateCovariates);
+
+	std::vector<double> simulateNB(size_t N0, const TModelBase &Model, double A, bool SimulateCovariates);
 
 	// writing
 	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,

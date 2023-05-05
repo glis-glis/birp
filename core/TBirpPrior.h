@@ -29,7 +29,8 @@ protected:
 	// locations, timepoints, covNames: these are references to the objects that are stored in TBirpCore
 	const TUniqueContainer<std::string> &_locations;
 	const TUniqueContainer<size_t> &_timepoints;
-	const TUniqueContainer<std::string> &_covariateNames;
+	const TUniqueContainer<std::string> &_covariateEffortNames;
+	const TUniqueContainer<std::string> &_covariateDetectionNames;
 
 	size_t _numSpecies = 0;
 
@@ -44,8 +45,10 @@ protected:
 public:
 	TBirpPrior() = default;
 	TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<std::size_t> &TimePoints, const TUniqueContainer<std::string> &CovariateNames,
-	           size_t numSpecies, TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
+	           const TUniqueContainer<std::size_t> &TimePoints,
+	           const TUniqueContainer<std::string> &CovariateEffortNames,
+	           const TUniqueContainer<std::string> &CovariateDetectionNames, size_t numSpecies,
+	           TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
 	           std::unique_ptr<TBirpStochasticAddOn> &StochasticAddOn, std::string Prefix);
 	~TBirpPrior() override = default;
 
