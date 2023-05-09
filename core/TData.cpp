@@ -8,32 +8,6 @@
 #include <regex>
 
 //-------------------------------------------
-// TZeroPoisDistr
-//-------------------------------------------
-
-class TZeroPoisDistr {
-private:
-	coretools::Probability _p;
-	coretools::StrictlyPositive<double> _lambda;
-
-public:
-	TZeroPoisDistr(coretools::Probability p, coretools::StrictlyPositive<double> lambda);
-
-	TZeroPoisDistr(std::string_view parameterString) { set(parameterString); }
-
-	void set(coretools::Probability p, coretools::StrictlyPositive<double> Lambda);
-
-	void set(std::string_view parameterString);
-
-	static constexpr std::string_view name = "zeroPoisson";
-
-	size_t sample(coretools::Probability p, coretools::StrictlyPositive<double> lambda) const;
-
-	// functions using member parameters
-	size_t sample() const noexcept;
-};
-
-//-------------------------------------------
 // TTimepoints
 //-------------------------------------------
 
@@ -75,33 +49,34 @@ void TTimepoints::setCovariateDetection(size_t c, TypeCovariateDetection Covaria
 
 bool TTimepoints::inferAlpha() const {
 	// do not infer if single covariate for effort
-	// TODO: confirm with Daniel
 	return _covariatesEffort.size() > 1;
 }
 
 bool TTimepoints::inferBeta() const {
-	// do not infer if single covariate for effort and no covariates for detection
-	// TODO: confirm with Daniel
-	return _covariatesDetection.size() > 1;
+	// do infer if single for detection
+	return !_covariatesDetection.empty();
 }
 
-void TTimepoints::_standardizeCovariatesDetection(double MeanDetectionCovariates, double SdDetectionCovariates) {
-	if (_covariatesDetection.size() < 2) { return; } // zero or one detection covariates: no need to do anything
-
+void TTimepoints::_standardizeCovariatesDetection(const std::vector<coretools::TMeanVar<double>> &MeanVar) {
 	// standardize detection probability covariates with standard score (mean zero, unit variance)
-	for (auto &cov : _covariatesDetection) { cov = (cov - MeanDetectionCovariates) / SdDetectionCovariates; }
+	for (size_t d = 0; d < _covariatesDetection.size(); ++d) {
+		_covariatesDetection[d] = (_covariatesDetection[d] - MeanVar[d].mean()) / MeanVar[d].sd();
+	}
 }
 
-void TTimepoints::_standardizeCovariatesEffort() {
+void TTimepoints::_standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate) {
 	assert(!_covariatesEffort.empty()); // should always have at least one effort covariate
 
 	// standardize effort covariates such that they sum to one
-	coretools::normalize(_covariatesEffort);
+	for (size_t c = 0; c < _covariatesEffort.size(); ++c) {
+		_covariatesEffort[c] = _covariatesEffort[c] / SumsPerCovariate[c];
+	}
 }
 
-void TTimepoints::standardizeCovariates(double MeanDetectionCovariates, double SdDetectionCovariates) {
-	_standardizeCovariatesDetection(MeanDetectionCovariates, SdDetectionCovariates);
-	_standardizeCovariatesEffort();
+void TTimepoints::standardizeCovariates(const std::vector<coretools::TMeanVar<double>> &MeanVar,
+                                        const std::vector<double> &SumsPerCovariate) {
+	_standardizeCovariatesDetection(MeanVar);
+	_standardizeCovariatesEffort(SumsPerCovariate);
 }
 
 double TTimepoints::_calculateEffortTerm(const std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>> &Alpha) {
@@ -117,7 +92,6 @@ double TTimepoints::_calculateEffortTerm(const std::shared_ptr<stattools::TParam
 double TTimepoints::_calculateDetectionTerm(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta0,
                                             const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta) {
 	if (_covariatesDetection.empty()) { return 1.0; }
-	if (!inferBeta()) { return coretools::logistic(_covariatesDetection[0]); }
 
 	// calculate logistic(beta_{i0} + sum_{d=1}^D * beta_{id} y_{ijkd})
 	double detectionTerm = Beta0->value();
@@ -392,33 +366,52 @@ void TMethods::add(const TTimepoints &pt, size_t location_id) {
 	if (!dataPointExists) { _locations.emplace_back(pt, location_id); }
 }
 
-void TMethods::standardizeCovariates() {
+auto TMethods::_getMeanVarDetectionCovariates() {
 	// calculate mean and variance across all detection covariates
 	// but check per detection covariate for unique values (not allowed)
-	coretools::TMeanVar<double> meanVar;
-	// TODO: check for unique covariates per column or across all?
-	std::vector<std::set<double>> uniqueValues_perCovariate(_covariateDetectionIDsinUniqueContainer.size());
-	for (auto &loc : _locations) {
-		for (auto &tp : loc) {
+	const size_t numCovariates = _covariateDetectionIDsinUniqueContainer.size();
+	std::vector<coretools::TMeanVar<double>> meanVar(numCovariates);
+	std::vector<std::set<double>> uniqueValues_perCovariate(numCovariates);
+	for (auto &loc : _locations) { // loop over locations
+		for (auto &tp : loc) {     // loop over timepoints
 			const auto &covariates = tp.covariatesDetection();
 			for (size_t d = 0; d < covariates.size(); ++d) {
-				meanVar.add(covariates[d]);
+				meanVar[d].add(covariates[d]);
 				uniqueValues_perCovariate[d].insert(covariates[d]);
 			}
 		}
 	}
 
-	// check if all covariates of all detection are unique
+	// check if a covariate is the same across all locations and timepoints
 	for (const auto &d : uniqueValues_perCovariate) {
 		if (d.size() == 1) {
 			UERROR("All detection covariates are equal (", *d.begin(),
-			       "). Please exclude this covariate or provide non-equal values");
+			       "). Please exclude this covariate or provide non-equal values.");
 		}
 	}
+	return meanVar;
+}
+
+auto TMethods::_getSumEffortCovariates() {
+	// calculate sum across all locations and timepoints (but per effort covariate)
+	const size_t numCovariates = _covariateEffortIDsinUniqueContainer.size();
+	std::vector<double> sum(numCovariates, 0.0);
+	for (auto &loc : _locations) { // loop over locations
+		for (auto &tp : loc) {     // loop over timepoints
+			const auto &covariates = tp.covariatesEffort();
+			for (size_t c = 0; c < covariates.size(); ++c) { sum[c] += covariates[c]; }
+		}
+	}
+	return sum;
+}
+
+void TMethods::standardizeCovariates() {
+	auto meanVar = _getMeanVarDetectionCovariates();
+	auto sum     = _getSumEffortCovariates();
 
 	// now standardize
 	for (auto &loc : _locations) {
-		for (auto &timepoint : loc) { timepoint.standardizeCovariates(meanVar.mean(), meanVar.sd()); }
+		for (auto &timepoint : loc) { timepoint.standardizeCovariates(meanVar, sum); }
 	}
 }
 
@@ -509,24 +502,22 @@ void TMethods::_simulateOneCovariateEffort(size_t c, const std::string &Cov) {
 			for (auto &t : _location) { t.setCovariateEffort(c, value); }
 		}
 	} else {
-		// case 2: parse distributions. "Poisson(1), uniform(a,b), zero-poisson(p, lambda) -> p: p(not 0),
+		// case 2: parse distribution
 		const auto [distr, params] = _getParamsAndDistr(Cov);
-		if (distr == "Poisson") {
-			_simulateCovariateFromDistribution<coretools::probdist::TPoissonDistr, true>(c, params);
+		if (distr == "gamma") {
+			_simulateCovariateFromDistribution<coretools::probdist::TGammaDistr, true>(c, params);
 		} else if (distr == "uniform") {
 			_simulateCovariateFromDistribution<coretools::probdist::TUniformDistr, true>(c, params);
-		} else if (distr == "zeroPoisson") {
-			_simulateCovariateFromDistribution<TZeroPoisDistr, true>(c, params);
 		} else {
 			UERROR("Unknown distribution '", distr,
-			       "' (argument 'covariatesEffort'). Supported distributions are: Poisson, uniform, zeroPoisson.");
+			       "' (argument 'covariatesEffort'). Supported distributions are: gamma and uniform.");
 		}
 	}
 }
 
 void TMethods::_simulateCovariatesEffort() {
 	using namespace coretools;
-	std::string effortString = instances::parameters().getParameterWithDefault("covariatesEffort", "Poisson(10)");
+	std::string effortString = instances::parameters().getParameterWithDefault("covariatesEffort", "gamma(1, 2)");
 	if (str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
 		for (size_t c = 0; c < numCovariatesEffort(); ++c) { _simulateOneCovariateEffort(c, effortString); }
@@ -585,9 +576,25 @@ void TMethods::_simulateCovariatesDetection() {
 	}
 }
 
+void TMethods::_simulateZeroCovariates(){
+	using namespace coretools;
+	double pi = instances::parameters().getParameterWithDefault("proportionZeroEffort", 0.0);
+	if (pi > 0.0){
+		// go over data again and set to zero, if needed
+		for (auto &_location : _locations) {
+			for (auto &t : _location) {
+				if (instances::randomGenerator().pickOneOfTwo(pi) == 1){
+					t.setCovariateEffort(c, 0.0);
+				}
+			}
+		}
+	}
+}
+
 void TMethods::_simulateCovariates() {
 	_simulateCovariatesEffort();
 	_simulateCovariatesDetection();
+	_simulateZeroCovariates();
 
 	// standarize covariates
 	standardizeCovariates();
@@ -816,31 +823,3 @@ size_t TData::i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t 
 const std::pair<size_t, size_t> &TData::linear_to_i_j(size_t SpeciesIDInUniqueContainer, size_t linear) const {
 	return _linear_to_i_j[SpeciesIDInUniqueContainer][linear];
 }
-
-//-------------------------------------------
-// TZeroPoisDistr
-//-------------------------------------------
-
-TZeroPoisDistr::TZeroPoisDistr(coretools::Probability p, coretools::StrictlyPositive<double> lambda)
-    : _p(p), _lambda(lambda) {}
-
-void TZeroPoisDistr::set(coretools::Probability p, coretools::StrictlyPositive<double> Lambda) {
-	_lambda = Lambda;
-	_p      = p;
-}
-
-void TZeroPoisDistr::set(std::string_view parameterString) {
-	coretools::str::convertString(
-	    parameterString, std::string{"Use "}.append(name) + "(p, lambda) with 0 <= p <= 1, lambda>0.", _p, _lambda);
-}
-
-size_t TZeroPoisDistr::sample(coretools::Probability p, coretools::StrictlyPositive<double> lambda) const {
-	double tmp = coretools::instances::randomGenerator().getRand(0, 1);
-	if (tmp > p) { // p is probability of taking Poisson
-		return 0;
-	} else {
-		return coretools::instances::randomGenerator().getPoissonRandom(lambda);
-	}
-}
-
-size_t TZeroPoisDistr::sample() const noexcept { return TZeroPoisDistr::sample(_p, _lambda); }

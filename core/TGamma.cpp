@@ -88,10 +88,7 @@ arma::vec TOLSGamma::_doOLS(const std::vector<double> &Y_m, const std::vector<Ty
 
 	// do OLS
 	const arma::vec arma_y(Y_m);
-	const arma::mat Xt = X.t();
-	arma::mat XtXiXt   = (Xt * X).i() * Xt;
-
-	auto beta = XtXiXt * arma_y;
+	auto beta = arma::solve(X, arma_y);
 	return beta.as_col(); // matrix -> vector
 }
 

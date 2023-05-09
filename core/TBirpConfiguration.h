@@ -20,7 +20,6 @@
 
 class TBirpCommonModel {
 private:
-	void _createSigmaAlpha(size_t i, TData &Data, const std::string &Filename);
 	void _createAlpha(size_t i, TData &Data, const TUniqueContainer<std::string> &CovariateNames,
 	                  const std::string &Filename);
 	void _createBeta(size_t i, TData &Data, const std::string &Filename);
@@ -32,7 +31,6 @@ public:
 	stattools::TParameterTyped<TypeTime, 1> timesOfChange;
 
 	// covariates: regression coefficients
-	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeSigmaAlpha, 1>>> sigmaAlpha;
 	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>>> alpha;
 	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> beta;
 	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> beta0;

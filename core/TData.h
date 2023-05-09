@@ -40,8 +40,8 @@ private:
 	double _effortTerm_old    = 0.0;
 
 	// covariates
-	void _standardizeCovariatesDetection(double MeanDetectionCovariates, double SdDetectionCovariates);
-	void _standardizeCovariatesEffort();
+	void _standardizeCovariatesDetection(const std::vector<coretools::TMeanVar<double>> &MeanVar);
+	void _standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate);
 	double _calculateEffortTerm(const std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>> &Alpha);
 	double _calculateDetectionTerm(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta0,
 	                               const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
@@ -60,7 +60,8 @@ public:
 
 	void setCovariateEffort(size_t c, TypeCovariateEffort Covariate);
 	void setCovariateDetection(size_t c, TypeCovariateDetection Covariate);
-	void standardizeCovariates(double MeanDetectionCovariates, double SdDetectionCovariates);
+	void standardizeCovariates(const std::vector<coretools::TMeanVar<double>> &MeanVar,
+	                           const std::vector<double> &SumsPerCovariate);
 
 	void write(coretools::TOutputFile &File, std::string location, const TUniqueContainer<size_t> &Timepoints) const;
 
@@ -90,7 +91,6 @@ public:
 		if (SimulateCovEffort) {
 			_covariatesEffort[c] = obj.sample();
 		} else {
-			// TODO: how to simulate covariates of detection?
 			_covariatesDetection[c] = obj.sample();
 		}
 	}
@@ -200,6 +200,10 @@ private:
 	void _updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 	void _setValuesForSingleCovariate();
 
+	// standardize covariates
+	auto _getMeanVarDetectionCovariates();
+	auto _getSumEffortCovariates();
+
 	// simulate
 	void _simulateOneCovariateEffort(size_t c, const std::string &Cov);
 	void _simulateOneCovariateDetection(size_t c, const std::string &Cov);
@@ -213,6 +217,7 @@ private:
 	}
 	void _simulateCovariatesDetection();
 	void _simulateCovariatesEffort();
+	void _simulateZeroCovariates();
 	void _simulateCovariates();
 
 public:

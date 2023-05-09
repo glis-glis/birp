@@ -36,23 +36,13 @@ std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretool
 // TBirpCommonModel
 //------------------------------------------
 
-void TBirpCommonModel::_createSigmaAlpha(size_t i, TData &Data, const std::string &Filename) {
-	// create sigma alpha (variance of Dirichlet prior on alpha_i)
-	auto name  = "sigma_alpha_" + Data[i].name();
-	auto prior = std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigmaAlpha, 1>>();
-	TParameterDefinition def({Filename, "1"});
-	if (!Data[i].inferAlpha()) { def.update(false); }
-	sigmaAlpha[i] = std::make_shared<stattools::TParameterTyped<TypeSigmaAlpha, 1>>(name, prior, def);
-}
-
 void TBirpCommonModel::_createAlpha(size_t i, TData &Data, const TUniqueContainer<std::string> &CovariateEffortNames,
                                     const std::string &Filename) {
 	// create alpha
 	auto name  = "alpha_" + Data[i].name();
-	auto prior = std::make_shared<
-	    stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeAlpha, 1, TypeSigmaAlpha>>(
-	    sigmaAlpha[i].get());
-	TParameterDefinition def(Filename, readAlphaDirichlet("dirichlet_alpha", CovariateEffortNames.size(), 1.0));
+	auto prior = std::make_shared<stattools::prior::TDirichletFixed<stattools::TParameterBase, TypeAlpha, 1>>();
+	TParameterDefinition def(Filename, readAlphaDirichlet("dirichlet_alpha", CovariateEffortNames.size(),
+	                                                      10.0)); // alpha = 10 is quite arbitrary choice
 	alpha[i] = std::make_shared<stattools::TParameterTyped<TypeAlpha, 1>>(name, prior, def);
 }
 
@@ -83,12 +73,10 @@ TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::stri
 
 	// create alpha and beta
 	const size_t numMethods = Data.size();
-	sigmaAlpha.resize(numMethods);
 	alpha.resize(numMethods);
 	beta.resize(numMethods);
 	beta0.resize(numMethods);
 	for (size_t i = 0; i < numMethods; ++i) {
-		_createSigmaAlpha(i, Data, Filename);
 		_createAlpha(i, Data, CovariateEffortNames, Filename);
 		_createBeta0(i, Data, Filename);
 		_createBeta(i, Data, Filename);
@@ -98,7 +86,6 @@ TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::stri
 
 	// add to DAG
 	DAGBuilder.addToDAG({&gamma, &timesOfChange});
-	for (auto &s : sigmaAlpha) { DAGBuilder.addToDAG(s.get()); }
 	for (auto &a : alpha) { DAGBuilder.addToDAG(a.get()); }
 	for (auto &b : beta0) { DAGBuilder.addToDAG(b.get()); }
 	for (auto &b : beta) { DAGBuilder.addToDAG(b.get()); }
