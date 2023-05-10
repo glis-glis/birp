@@ -57,10 +57,15 @@ bool TTimepoints::inferBeta() const {
 	return !_covariatesDetection.empty();
 }
 
-void TTimepoints::_standardizeCovariatesDetection(const std::vector<coretools::TMeanVar<double>> &MeanVar) {
+void TTimepoints::_standardizeCovariatesDetection(const std::vector<coretools::TMeanVar<double>> &MeanVar,
+                                                  bool AssumeTrueDetectionProbability) {
 	// standardize detection probability covariates with standard score (mean zero, unit variance)
 	for (size_t d = 0; d < _covariatesDetection.size(); ++d) {
-		_covariatesDetection[d] = (_covariatesDetection[d] - MeanVar[d].mean()) / MeanVar[d].sd();
+		if (AssumeTrueDetectionProbability) { // do not standardize, but take logit instead
+			_covariatesDetection[d] = coretools::logit((coretools::Probability)_covariatesDetection[d]);
+		} else {
+			_covariatesDetection[d] = (_covariatesDetection[d] - MeanVar[d].mean()) / MeanVar[d].sd();
+		}
 	}
 }
 
@@ -74,8 +79,9 @@ void TTimepoints::_standardizeCovariatesEffort(const std::vector<double> &SumsPe
 }
 
 void TTimepoints::standardizeCovariates(const std::vector<coretools::TMeanVar<double>> &MeanVar,
-                                        const std::vector<double> &SumsPerCovariate) {
-	_standardizeCovariatesDetection(MeanVar);
+                                        const std::vector<double> &SumsPerCovariate,
+                                        bool AssumeTrueDetectionProbability) {
+	_standardizeCovariatesDetection(MeanVar, AssumeTrueDetectionProbability);
 	_standardizeCovariatesEffort(SumsPerCovariate);
 }
 
@@ -411,13 +417,37 @@ auto TMethods::_getSumEffortCovariates() {
 	return sum;
 }
 
+bool assumeTrueDetectionProbability() {
+	return coretools::instances::parameters().parameterExists("assumeTrueDetectionProbability");
+}
+
 void TMethods::standardizeCovariates() {
 	auto meanVar = _getMeanVarDetectionCovariates();
 	auto sum     = _getSumEffortCovariates();
 
+	if (assumeTrueDetectionProbability()) {
+		// user has provided true detection probabilities -> transform to logit and do not standardize!
+		if (_covariateDetectionIDsinUniqueContainer.size() > 1) {
+			UERROR("Argument 'assumeTrueDetectionProbability' can only be used if a single detection probability is "
+			       "provided");
+		}
+		// check if all detection are proper probabilities
+		for (auto &loc : _locations) {
+			for (auto &timepoint : loc) {
+				for (auto detection : timepoint.covariatesDetection()) {
+					if (detection < 0.0 || detection > 1.0) {
+						UERROR("Detection probability must be between [0,1] if argument "
+						       "'assumeTrueDetectionProbability' is used (found ",
+						       detection, ").");
+					}
+				}
+			}
+		}
+	}
+
 	// now standardize
 	for (auto &loc : _locations) {
-		for (auto &timepoint : loc) { timepoint.standardizeCovariates(meanVar, sum); }
+		for (auto &timepoint : loc) { timepoint.standardizeCovariates(meanVar, sum, assumeTrueDetectionProbability()); }
 	}
 }
 
@@ -629,7 +659,7 @@ void TMethods::_setValuesForSingleCovariate() {
 		for (size_t c = 0; c < _alpha->totalSize(); ++c) { _alpha->set(c, 1.0); }
 		_alpha->setIsUpdated(false);
 	}
-	if (!inferBeta()) {
+	if (!inferBeta() || assumeTrueDetectionProbability()) {
 		if (_beta0->totalSize() > 0) { _beta0->set(0.0); } // set beta0 to zero
 		_beta0->setIsUpdated(false);
 

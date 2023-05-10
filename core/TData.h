@@ -40,7 +40,8 @@ private:
 	double _effortTerm_old    = 0.0;
 
 	// covariates
-	void _standardizeCovariatesDetection(const std::vector<coretools::TMeanVar<double>> &MeanVar);
+	void _standardizeCovariatesDetection(const std::vector<coretools::TMeanVar<double>> &MeanVar,
+	                                     bool AssumeTrueDetectionProbability);
 	void _standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate);
 	double _calculateEffortTerm(const std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>> &Alpha);
 	double _calculateDetectionTerm(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta0,
@@ -61,7 +62,7 @@ public:
 	void setCovariateEffort(size_t c, TypeCovariateEffort Covariate);
 	void setCovariateDetection(size_t c, TypeCovariateDetection Covariate);
 	void standardizeCovariates(const std::vector<coretools::TMeanVar<double>> &MeanVar,
-	                           const std::vector<double> &SumsPerCovariate);
+	                           const std::vector<double> &SumsPerCovariate, bool AssumeTrueDetectionProbability);
 
 	void write(coretools::TOutputFile &File, std::string location, const TUniqueContainer<size_t> &Timepoints) const;
 

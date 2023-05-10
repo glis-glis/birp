@@ -573,7 +573,6 @@ void TStochasticPrior::swapTryCur(size_t j, size_t k) {
 		std::swap(_tryLogTransitionProbs[j][k], _curLogTransitionProbs[j][k]);
 	}
 }
-// todo check if all locations have same timepoints
 
 double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) const {
 	coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k);
