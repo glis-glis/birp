@@ -39,10 +39,14 @@ protected:
 	[[nodiscard]] std::vector<std::string> _getHeader() const;
 	[[nodiscard]] bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index,
 	                                         const std::string &Title) const;
+	auto _getIndicesMethodFile(const coretools::TInputFile &Infile, bool hasCounts) const;
 	void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
-	                  const std::vector<size_t> &CovEffortIndices);
-	std::string _getDelim(const std::string &Filename);
-	std::vector<size_t> getColumnIndex(const coretools::TInputFile &infile, const std::string &string);
+	                  const std::vector<size_t> &CovEffortIndices) const;
+	std::string _getDelim(const std::string &Filename) const;
+	std::vector<size_t> getColumnIndex(const coretools::TInputFile &infile, const std::string &string) const;
+	auto _keepLocations(const std::string &Filename, bool hasCounts) const;
+	bool _allEffortsAreZero(const std::vector<std::string> &Row, const std::vector<size_t> &CovEffortIndices,
+							const std::string &Filename) const;
 	void _readFile(const std::string &Filename, bool hasCounts);
 
 	void _sortTimepoints();
@@ -58,7 +62,7 @@ protected:
 
 	// write
 	std::vector<std::string> _getMethodspecificHeader(const TMethods &method);
-	void _writeFile();
+	void _writeFile(const std::string &Name);
 
 public:
 	TBirpCore();

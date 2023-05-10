@@ -44,7 +44,8 @@ bool TBirpCore::_checkHeaderPlacement(const coretools::TInputFile &Infile, size_
 std::vector<std::string> TBirpCore::_getHeader() const { return {"location", "timepoint"}; }
 
 void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts,
-                             const std::vector<size_t> &countIndices, const std::vector<size_t> &CovEffortIndices) {
+                             const std::vector<size_t> &countIndices,
+                             const std::vector<size_t> &CovEffortIndices) const {
 	std::vector<std::string> headerVec = _getHeader();
 	// check whether first two columns are correct
 	for (size_t i = 0; i < headerVec.size(); i++) {
@@ -70,7 +71,7 @@ void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts
 	}
 }
 
-std::string TBirpCore::_getDelim(const std::string &Filename) {
+std::string TBirpCore::_getDelim(const std::string &Filename) const {
 	std::string delim       = "\t";
 	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
 	if (ending == "csv") { delim = ","; }
@@ -98,9 +99,12 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	for (const auto &name : filenames) { _readFile(name, hasCounts); }
 	_sortTimepoints();
 	_data.fillMethLocIndices(_speciesNames.size());
+
+	// write filtered counts
+	_writeFile("filtered");
 }
 
-std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infile, const std::string &string) {
+std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infile, const std::string &string) const {
 	std::vector<size_t> countIndices;
 	for (size_t i = 0; i < infile.numCols(); i++) {
 		if (coretools::str::stringStartsWith(infile.headerAt(i), string)) { countIndices.push_back(i); }
@@ -137,18 +141,93 @@ std::string getMethodName(const std::string &Filename) {
 	return methodName;
 }
 
-void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
-	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, _getDelim(Filename));
-
+auto TBirpCore::_getIndicesMethodFile(const coretools::TInputFile &Infile, bool hasCounts) const {
 	// get position of columns that contain counts: might be an empty vector in case the file has no counts
-	std::vector<size_t> countIndices = getColumnIndex(infile, "counts");
+	std::vector<size_t> countIndices = getColumnIndex(Infile, "counts");
 
 	// get position of columns that contain covariates (efforts)
-	std::vector<size_t> covEffortIndices    = getColumnIndex(infile, "covEffort");
-	std::vector<size_t> covDetectionIndices = getColumnIndex(infile, "covDetection");
+	std::vector<size_t> covEffortIndices    = getColumnIndex(Infile, "covEffort");
+	std::vector<size_t> covDetectionIndices = getColumnIndex(Infile, "covDetection");
 
-	_checkHeader(infile, hasCounts, countIndices, covEffortIndices);
+	_checkHeader(Infile, hasCounts, countIndices, covEffortIndices);
 
+	auto methodName = getMethodName(Infile.name());
+	return std::make_tuple(countIndices, covEffortIndices, covDetectionIndices, methodName);
+}
+
+bool TBirpCore::_allEffortsAreZero(const std::vector<std::string> &Row, const std::vector<size_t> &CovEffortIndices,
+                                   const std::string &Filename) const {
+	std::set<TypeCovariateEffort> covEffort;
+	for (auto c : CovEffortIndices) { covEffort.insert((TypeCovariateEffort)Row[c]); }
+
+	if (covEffort.empty()) {
+		UERROR("Invalid file ", Filename, ": Need at least one column starting with 'covEffort_'.");
+	}
+
+	return covEffort.size() == 1 && *covEffort.begin() == 0.0; // returns true if all covariates of effort are zero
+}
+
+auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) const {
+	// open file and get relevant column indices
+	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, _getDelim(Filename));
+	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = _getIndicesMethodFile(infile, hasCounts);
+
+	// map: per location, how many timepoints with non-zero effort are there?
+	std::map<std::string, size_t> numTimePointsPerLocation;
+	std::vector<std::string> row;
+	while (infile.read(row)) {
+		// read location and timepoint
+		const std::string location  = row[0];
+		const std::string timepoint = row[1];
+
+		// read effort(s)
+		if (_allEffortsAreZero(row, covEffortIndices, Filename)) {
+			// all effort covariates are zero
+			logfile().warning("Method ", methodName, ": Ignoring location ", location, " at timepoint ", timepoint,
+			                  " because of zero effort.");
+			continue;
+		}
+
+		auto it = numTimePointsPerLocation.find(location);
+		if (it == numTimePointsPerLocation.end()) { // new location
+			numTimePointsPerLocation[location] = 1;
+		} else {
+			it->second++; // location already exists
+		}
+	}
+
+	// parsed entire file: now check for each location if there are enough timepoints
+	std::map<std::string, bool> keepLocations;
+	size_t numLocationsToKeep = 0;
+	for (const auto &loc : numTimePointsPerLocation) {
+		if (loc.second == 1) {
+			logfile().warning("Method ", methodName, ": Ignoring location ", loc.first,
+			                  " because it only has a single timepoint with non-zero effort.");
+			keepLocations[loc.first] = false;
+		} else {
+			keepLocations[loc.first] = true;
+			++numLocationsToKeep;
+		}
+	}
+	bool keepMethod = true;
+	if (numLocationsToKeep == 0) {
+		logfile().warning("Ignoring method ", methodName,
+		                  " because it has no location with at least two timepoints with non-zero effort.");
+		keepMethod = false;
+	}
+	return std::pair(keepMethod, keepLocations);
+}
+
+void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
+	// check which locations should be kept
+	auto [keepMethod, keepLocations] = _keepLocations(Filename, hasCounts);
+	if (!keepMethod) { return; } // chasch gd hei gah
+
+	// open file and get relevant column indices
+	coretools::TInputFile infile(Filename, coretools::TFile_Filetype::header, _getDelim(Filename));
+	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = _getIndicesMethodFile(infile, hasCounts);
+
+	// assemble species names and id's
 	std::vector<size_t> species_ids = {};
 	if (hasCounts) {
 		std::vector<std::string> speciesNames = getSpeciesOrCovariateNames(infile, countIndices);
@@ -162,13 +241,16 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	std::vector<size_t> covariateDetection_ids = fillCovNames(infile, covDetectionIndices, _covariateDetectionNames);
 
 	// add new method: name is derived from filename
-	auto methodName = getMethodName(Filename);
 	TMethods method(methodName, _data.size(), species_ids, covariateEffort_ids, covariateDetection_ids);
 	_data.addMethod(method); // the index of the method is the current size of the _methods vector
 
 	std::vector<std::string> row;
 	while (infile.read(row)) {
-		size_t location_id  = _locations.add(row[0]);
+		const std::string location = row[0];
+		if (!keepLocations[location]) { continue; }                            // skip this location
+		if (_allEffortsAreZero(row, covEffortIndices, Filename)) { continue; } // skip this timepoint: effort = 0
+
+		size_t location_id  = _locations.add(location);
 		size_t timepoint_id = _timepoints.add(coretools::str::fromStringCheck<size_t>(row[1]));
 
 		// boot one vector together (stiflä) of all species counts, and one of all covariates
@@ -239,17 +321,17 @@ std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &met
 	return header;
 }
 
-void TBirpCore::_writeFile() {
+void TBirpCore::_writeFile(const std::string &Name) {
 	// make second file that stores names of all methodFiles generated during the simulation
-	coretools::TOutputFile fileList(_outname + "_allFilesGenerated");
+	coretools::TOutputFile fileList(_outname + "_" + Name + "_allFilesGenerated");
 	// write file line by line
 	for (auto &method : _data) {
 		// get filename here.
-		std::string Filename            = _outname + "_" + method.name() + "_simulatedCounts.txt";
+		std::string Filename            = _outname + "_" + method.name() + "_" + Name + "_" + "counts.txt";
 		// get header here
 		std::vector<std::string> header = _getMethodspecificHeader(method);
 		// append to fileList
-		fileList << _outname + "_" + method.name() + "_simulatedCounts.txt" << coretools::endl;
+		fileList << Filename << coretools::endl;
 		// now create actual file with data and write
 		coretools::TOutputFile outfile(Filename, header);
 		method.write(outfile, _locations, _timepoints);
@@ -347,5 +429,5 @@ void TBirpCore::simulate() {
 	simulator.simulate(_outname, &dagBuilder); // goes to ... DAG ... TBirpPrior
 
 	// write Birp file
-	_writeFile();
+	_writeFile("simulated");
 }
