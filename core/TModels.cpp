@@ -33,8 +33,8 @@ void TModelBase::_estimateInitialParameters(const TData &Data) { _distr->estimat
 
 void TModelBase::_updateDistributionParameters(const TData &Data) { _distr->update(Data, *this); };
 
-void TModelBase::_simulateDistributionParameters(TData &Data, size_t N0, bool SimulateCovariates) {
-	_distr->simulate(Data, *this, N0, SimulateCovariates);
+void TModelBase::_simulateDistributionParameters(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
+	_distr->simulate(Data, *this, AvgNumObsPerTimepoint, SimulateCovariates);
 }
 
 std::vector<double> TModelBase::calculateSigma(const TLocations &loc) const {
@@ -206,8 +206,6 @@ double TModelBase::sumCurLL() const { return coretools::containerSum(_curLL); }
 void TModelBase::setCurLL(size_t ij, double Value) { _curLL[ij] = Value; }
 void TModelBase::setCurLL(const std::vector<double> &Values) { _curLL = Values; }
 
-// TODO: issue warning if data sets with less than two time points with effort > 0
-
 //------------------------------------------
 // TDeterministic
 //------------------------------------------
@@ -266,11 +264,11 @@ void TDeterministic::update(const TData &Data) {
 	}
 }
 
-void TDeterministic::simulate(TData &Data, size_t N0, bool SimulateCovariates) {
+void TDeterministic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
 
 	_gamma.setSimulatedGammaToZero();
 	_fillPhi();
-	_simulateDistributionParameters(Data, N0, SimulateCovariates);
+	_simulateDistributionParameters(Data, AvgNumObsPerTimepoint, SimulateCovariates);
 };
 
 //------------------------------------------
@@ -381,7 +379,7 @@ void TStochastic::update(const TData &Data) {
 	if (_sigma->isUpdated()) { _updateSigma(); }
 }
 
-void TStochastic::simulate(TData &Data, size_t N0, bool SimulateCovariates) {
+void TStochastic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
 
 	// simulate gamma
 	_prior.setSimulatedGammaToZero();
@@ -391,14 +389,14 @@ void TStochastic::simulate(TData &Data, size_t N0, bool SimulateCovariates) {
 	// simulate phi from transition probabilities
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		size_t ix = _logPhi->getIndex({j, 0});
-		_logPhi->setInitial(ix, 0.0);                       // set first phi = 1 -> logPhi = 0
+		_logPhi->setInitial(ix, 0.0); // set first phi = 1 -> logPhi = 0
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
 			ix = _logPhi->getIndex({j, k});
 			_logPhi->setInitial(ix, _prior.sampleFromTransitionProbability(j, k));
 		}
 	}
 
-	_simulateDistributionParameters(Data, N0, SimulateCovariates);
+	_simulateDistributionParameters(Data, AvgNumObsPerTimepoint, SimulateCovariates);
 };
 
 coretools::StrictlyPositive<double> TStochastic::phi(size_t j, size_t k) const {

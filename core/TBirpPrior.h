@@ -38,8 +38,7 @@ protected:
 	std::string _out;
 
 	// simulate values
-	std::vector<size_t> _readN0FromCommandLine() const;
-	auto _readDetectionProbFile() const;
+	std::vector<double> _readAvgNumObsPerTimepointFromCommandLine() const;
 	void _simulateUnderPrior(Storage *Data) override;
 
 public:

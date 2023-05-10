@@ -30,11 +30,12 @@ double TPoissonDistribution::calculateLL(const std::vector<double> & /*sigma*/, 
 	return LL;
 }
 
-void TPoissonDistribution::simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) {
+void TPoissonDistribution::simulate(TData &Data, const TModelBase &Model,
+                                    const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
 
-	for (auto &method : Data) {
-		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
-		method.simulatePoisson(N0, Model, SimulateCovariates);
+	for (size_t i = 0; i < Data.size(); ++i) {
+		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
+		Data[i].simulatePoisson(AvgNumObsPerTimepoint[i], Model, SimulateCovariates);
 	}
 }
 
@@ -156,7 +157,7 @@ void TNegBinDistribution::_estimateInitialMu(const TData &Data) {
 		auto [m_id, l_id] = Data.linear_to_i_j(_speciesIDinUniqueContainer, c);
 		nus[c]            = std::max(coretools::UnsignedInt<uint64_t>(1),
 		                             Data[m_id][l_id].nu(Data[m_id].getIndexInCounts(
-                              _speciesIDinUniqueContainer))); // do not allow 0: problem for Dirichlet
+		                                 _speciesIDinUniqueContainer))); // do not allow 0: problem for Dirichlet
 	}
 	coretools::normalize(nus);
 
@@ -178,16 +179,17 @@ double TNegBinDistribution::_setAForSimulation(const TData &Data) {
 	return a;
 }
 
-void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) {
+void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model,
+                                   const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
 	// set a
 	double A = _setAForSimulation(Data);
 
-	for (auto &method : Data) {
-		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
+	for (size_t i = 0; i < Data.size(); ++i) {
+		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
 
 		// simulate mus based on detectionProb and a: will return a vector with length = numLocations
-		auto mus = method.simulateNB(N0, Model, A, SimulateCovariates);
+		auto mus = Data[i].simulateNB(AvgNumObsPerTimepoint[i], Model, A, SimulateCovariates);
 		coretools::normalize(mus);
-		for (size_t c = 0; c < method.size(); ++c) { _mu->set(c, mus[c]); }
+		for (size_t c = 0; c < Data[i].size(); ++c) { _mu->set(c, mus[c]); }
 	}
 }

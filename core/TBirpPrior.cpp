@@ -82,28 +82,31 @@ double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 //------------------------------------
 // Simulations
 
-std::vector<size_t> TBirpPrior::_readN0FromCommandLine() const {
-	std::vector<size_t> N0;
-	std::vector<size_t> N0default = {10};
-	parameters().fillParameterIntoContainerWithDefault("N0", N0, ',', N0default);
-	if (N0.size() != _numSpecies) {
-		UERROR("Size of N0 (", N0.size(), ") does not match the number of species (", _numSpecies, ")!");
+std::vector<double> TBirpPrior::_readAvgNumObsPerTimepointFromCommandLine() const {
+	std::vector<double> avgNumObsPerTimepoint;
+	std::vector<double> avgNumObsPerTimepointDefault = {1000.0};
+	parameters().fillParameterIntoContainerWithDefault("avgNumObsPerTimepoint", avgNumObsPerTimepoint, ',',
+	                                                   avgNumObsPerTimepointDefault);
+	if (avgNumObsPerTimepoint.size() == 1) {
+		avgNumObsPerTimepoint.resize(_data.size(), avgNumObsPerTimepoint[0]); // same for all methods
 	}
-	return N0;
+	if (avgNumObsPerTimepoint.size() != _data.size()) {
+		UERROR("Size of avgNumObsPerTimepoint (", avgNumObsPerTimepoint.size(),
+		       ") does not match the number of methods (", _data.size(), ")!");
+	}
+	return avgNumObsPerTimepoint;
 }
 
 void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called when simulated
 	// first calculate effort
 	for (auto &method : _data) { method.initializeEffort(); }
 
-	auto N0             = _readN0FromCommandLine();
+	auto avgNumObsPerTimepoint = _readAvgNumObsPerTimepointFromCommandLine();
 
 	// do we need to simulate covariates?
 	bool simulateCovariates = !parameters().parameterExists("simulationFile");
 
-	for (size_t s = 0; s < _models.size(); s++) {
-		_models[s]->simulate(_data, N0[s], simulateCovariates);
-	}
+	for (size_t s = 0; s < _models.size(); s++) { _models[s]->simulate(_data, avgNumObsPerTimepoint, simulateCovariates); }
 }
 
 //------------------------------------

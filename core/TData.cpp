@@ -162,10 +162,15 @@ void TTimepoints::write(coretools::TOutputFile &File, std::string location,
 	File << coretools::endl;
 }
 
-void TTimepoints::simulatePoisson(size_t N0, double phi) {
-	coretools::Positive<double> lambda = (double)N0 * phi;
+double TTimepoints::calculateExpectedCounts(double phi) {
+	// TODO: confirm with Daniel that this is also true for NB
+	coretools::Positive<double> lambda = phi * _effort; // note: without N0 or mu
+	return lambda;
+}
 
-	lambda *= _effort;
+void TTimepoints::simulatePoisson(double Scale, double phi) {
+	coretools::Positive<double> lambda = Scale * phi * _effort;
+
 	if (lambda == 0.0) {
 		_counts_per_species[0] = 0;
 	} else {
@@ -173,9 +178,10 @@ void TTimepoints::simulatePoisson(size_t N0, double phi) {
 	}
 }
 
-void TTimepoints::simulateNB(double phi, double a, double mu_ij) {
+void TTimepoints::simulateNB(double phi, double a, double Scale) {
 	// first draw lambda from a Gamma distr and then from there draw counts from Pois
-	double alpha           = a * mu_ij * phi * _effort;
+	// note: Scale corresponds to mu_ij
+	double alpha           = a * Scale * phi * _effort;
 	double beta            = a;
 	double lambda          = coretools::instances::randomGenerator().getGammaRand(alpha, beta);
 	_counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom(lambda);
@@ -276,15 +282,15 @@ void TLocations::resetBetaEffort() {
 	for (auto &timepoint : _timepoints) { timepoint.resetBetaEffort(); }
 }
 
-void TLocations::simulatePoisson(size_t N0, const TModelBase &Model) {
+void TLocations::simulatePoisson(double Scale, const TModelBase &Model) {
 	for (auto &timepoint : _timepoints) {
-		timepoint.simulatePoisson(N0, Model.phi(location_id(), timepoint.timepoint_id()));
+		timepoint.simulatePoisson(Scale, Model.phi(location_id(), timepoint.timepoint_id()));
 	}
 }
 
-void TLocations::simulateNB(const TModelBase &Model, double a, double mu_ij) {
+void TLocations::simulateNB(const TModelBase &Model, double a, double Scale) {
 	for (auto &timepoint : _timepoints) {
-		timepoint.simulateNB(Model.phi(location_id(), timepoint.timepoint_id()), a, mu_ij);
+		timepoint.simulateNB(Model.phi(location_id(), timepoint.timepoint_id()), a, Scale);
 	}
 }
 
@@ -632,28 +638,45 @@ void TMethods::_setValuesForSingleCovariate() {
 	}
 }
 
-void TMethods::simulatePoisson(size_t N0, const TModelBase &Model, bool SimulateCovariates) {
+double TMethods::_calculateScaleSimulationCounts(double AvgNumObsPerTimepoint, const TModelBase &Model) {
+	coretools::TMeanVar<double> m;
+	for (size_t j = 0; j < size(); j++) {       // loop over all locations
+		for (auto &timepoint : _locations[j]) { // loop over all timepoints
+			m.add(timepoint.calculateExpectedCounts(Model.phi(_locations[j].location_id(), timepoint.timepoint_id())));
+		}
+	}
+	double meanExpectedCounts = m.mean();
+
+	// calculate correction factor
+	double scale = AvgNumObsPerTimepoint / meanExpectedCounts;
+	return scale;
+}
+
+void TMethods::simulatePoisson(double AvgNumObsPerTimepoint, const TModelBase &Model, bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalizeToSum1AfterUpdate();
 	_setValuesForSingleCovariate();
 
 	if (SimulateCovariates) { _simulateCovariates(); }
 
+	double scale = _calculateScaleSimulationCounts(AvgNumObsPerTimepoint, Model);
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
-		_locations[j].simulatePoisson(N0, Model);
+		_locations[j].simulatePoisson(scale, Model);
 	}
 }
 
-std::vector<double> TMethods::simulateNB(size_t N0, const TModelBase &Model, double A, bool SimulateCovariates) {
+std::vector<double> TMethods::simulateNB(double AvgNumObsPerTimepoint, const TModelBase &Model, double A,
+                                         bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalizeToSum1AfterUpdate();
 	_setValuesForSingleCovariate();
 
 	if (SimulateCovariates) { _simulateCovariates(); }
 
+	double scale = _calculateScaleSimulationCounts(AvgNumObsPerTimepoint, Model);
 	std::vector<double> mus(_locations.size());
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
-		mus[j] = (double)N0;
+		mus[j] = scale;
 		_locations[j].simulateNB(Model, A, mus[j]);
 	}
 	return mus;

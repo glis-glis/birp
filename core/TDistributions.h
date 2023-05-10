@@ -34,7 +34,8 @@ public:
 	virtual double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                           size_t index_in_counts, size_t ix_linNumMethLoc) const = 0;
 
-	virtual void simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) = 0;
+	virtual void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &AvgNumObsPerTimepoint,
+	                      bool SimulateCovariates) = 0;
 };
 
 //---------------------------------------
@@ -53,7 +54,8 @@ public:
 	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;
 
 	// simulation
-	void simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) override;
+	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &AvgNumObsPerTimepoint,
+	              bool SimulateCovariates) override;
 };
 
 //--------------------------------
@@ -90,7 +92,8 @@ public:
 	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;
 
 	// simulate
-	void simulate(TData &Data, const TModelBase &Model, size_t N0, bool SimulateCovariates) override;
+	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &AvgNumObsPerTimepoint,
+	              bool SimulateCovariates) override;
 };
 
 #endif // BIRP_TDISTRIBUTIONS_H
