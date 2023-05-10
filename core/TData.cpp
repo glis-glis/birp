@@ -517,7 +517,12 @@ void TMethods::_simulateOneCovariateEffort(size_t c, const std::string &Cov) {
 
 void TMethods::_simulateCovariatesEffort() {
 	using namespace coretools;
-	std::string effortString = instances::parameters().getParameterWithDefault("covariatesEffort", "gamma(1, 2)");
+	std::string effortString = "gamma(1, 2)";
+	if (instances::parameters().parameterExists("covariatesEffort_" + _methodName)) {
+		effortString = instances::parameters().getParameter("covariatesEffort_" + _methodName);
+	} else if (instances::parameters().parameterExists("covariatesEffort")) {
+		effortString = instances::parameters().getParameter("covariatesEffort");
+	}
 	if (str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
 		for (size_t c = 0; c < numCovariatesEffort(); ++c) { _simulateOneCovariateEffort(c, effortString); }
@@ -558,7 +563,12 @@ void TMethods::_simulateOneCovariateDetection(size_t c, const std::string &Cov) 
 
 void TMethods::_simulateCovariatesDetection() {
 	using namespace coretools;
-	std::string effortString = instances::parameters().getParameterWithDefault("covariatesDetection", "normal(0, 1)");
+	std::string effortString = "normal(0, 1)";
+	if (instances::parameters().parameterExists("covariatesDetection_" + _methodName)) {
+		effortString = instances::parameters().getParameter("covariatesDetection_" + _methodName);
+	} else if (instances::parameters().parameterExists("covariatesDetection")) {
+		effortString = instances::parameters().getParameter("covariatesDetection");
+	}
 	if (str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
 		for (size_t c = 0; c < numCovariatesDetection(); ++c) { _simulateOneCovariateDetection(c, effortString); }
@@ -576,15 +586,20 @@ void TMethods::_simulateCovariatesDetection() {
 	}
 }
 
-void TMethods::_simulateZeroCovariates(){
+void TMethods::_simulateZeroCovariates() {
 	using namespace coretools;
-	double pi = instances::parameters().getParameterWithDefault("proportionZeroEffort", 0.0);
-	if (pi > 0.0){
+	coretools::Probability pi = 0.0;
+	if (instances::parameters().parameterExists("proportionZeroEffort_" + _methodName)) {
+		pi = instances::parameters().getParameter<coretools::Probability>("proportionZeroEffort_" + _methodName);
+	} else if (instances::parameters().parameterExists("proportionZeroEffort")) {
+		pi = instances::parameters().getParameter<coretools::Probability>("proportionZeroEffort");
+	}
+	if (pi > 0.0) {
 		// go over data again and set to zero, if needed
 		for (auto &_location : _locations) {
 			for (auto &t : _location) {
-				if (instances::randomGenerator().pickOneOfTwo(pi) == 1){
-					t.setCovariateEffort(c, 0.0);
+				if (instances::randomGenerator().pickOneOfTwo(pi) == 1) { // set it to zero!
+					for (size_t c = 0; c < t.covariatesEffort().size(); ++c) { t.setCovariateEffort(c, 0.0); }
 				}
 			}
 		}
@@ -789,7 +804,7 @@ void TData::fillMethLocIndices(size_t NumSpecies) {
 	// fill i_j to linear
 	_i_j_to_linear.resize(_numSpecies);
 	for (size_t species = 0; species < _numSpecies; ++species) {
-		_i_j_to_linear[species].resize(_methods.size());           // size = numMethods
+		_i_j_to_linear[species].resize(_methods.size()); // size = numMethods
 		for (size_t i = 0; i < _methods.size(); ++i) {
 			_i_j_to_linear[species][i].resize(_methods[i].size()); // size = numLocations of this method
 			for (size_t j = 0; j < _methods[i].size(); ++j) {
