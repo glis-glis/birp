@@ -82,6 +82,7 @@ protected:
 	coretools::TMatrix<size_t> _rho;
 
 	// Jeffrey's prior
+	bool _noJP    = false;
 	double _tryJP = 0.0;
 	double _curJP = 0.0;
 

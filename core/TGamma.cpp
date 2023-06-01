@@ -301,6 +301,9 @@ TGamma::TGamma(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TPara
 	}
 	// default: do not infer times of change
 	if (!parameters().parameterExists("inferTimesOfChange")) { _timesOfChange->getDefinition().update(false); }
+
+	// calculate Jeffrey's prior?
+	_noJP = parameters().parameterExists("noJP");
 }
 
 void TGamma::initialize(const TUniqueContainer<size_t> &Timepoints) {
@@ -369,6 +372,7 @@ bool TGamma::updateSpecificIndex(size_t m) { return _gamma->updateSpecificIndex(
 
 double TGamma::getLogPriorRatio(const TData &Data, const TModelBase &Model) {
 	// -> prior on gamma: Jeffrey prior
+	if (_noJP) { return 0.0; }
 	_tryJP = Model.calculateJeffreyPrior(Data, *this);
 	return _tryJP - _curJP;
 }
