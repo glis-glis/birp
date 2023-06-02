@@ -86,6 +86,10 @@ protected:
 	double _tryJP = 0.0;
 	double _curJP = 0.0;
 
+	// keep track of posterior summaries of gamma's
+	std::vector<std::vector<size_t>> _summaryGammaPosterior;
+	size_t _counter = 0;
+
 	// initialization
 	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
 
@@ -103,6 +107,10 @@ public:
 
 	bool updateSpecificIndex(size_t m);
 	bool acceptOrReject(double logH, size_t m);
+
+	void updateSummaryGammaPosterior();
+	void resetSummaryGammaPosterior();
+	void writeSummaryGammaPosterior(const std::string &Prefix);
 
 	void setSimulatedGammaToZero();
 
@@ -165,6 +173,10 @@ public:
 	void swapTryCur(size_t j, size_t k);
 
 	double calculateLogPriorRatio(size_t j, size_t k);
+
+	// write posterior summaries of gamma's
+	void resetSummaryGammaPosterior();
+	void writeSummaryGammaPosterior(const std::string &Prefix);
 
 	// simulations
 	void setSimulatedGammaToZero();

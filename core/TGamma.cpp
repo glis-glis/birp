@@ -310,6 +310,8 @@ void TGamma::initialize(const TUniqueContainer<size_t> &Timepoints) {
 	_timesOfChange->initStorage({_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
 	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
 
+	_summaryGammaPosterior.resize(_numEpochs, std::vector<size_t>(_numEpochs, 0));
+
 	_fillRho(Timepoints);
 }
 
@@ -383,6 +385,41 @@ bool TGamma::acceptOrReject(double logH, size_t m) {
 		return true;
 	}
 	return false;
+}
+
+void TGamma::resetSummaryGammaPosterior() {
+	_counter = 0;
+	for (size_t m = 0; m < _numEpochs; ++m) {
+		std::fill(_summaryGammaPosterior[m].begin(), _summaryGammaPosterior[m].end(), 0);
+	}
+}
+
+void TGamma::updateSummaryGammaPosterior() {
+	++_counter;
+	for (size_t m = 0; m < _numEpochs; ++m) {     // rows
+		for (size_t n = 0; n < _numEpochs; ++n) { // column
+			if (m == n) {
+				// on the diagonal: count if gamma_m > 0
+				if (_gamma->value(m) >= 0.0) { ++_summaryGammaPosterior[m][n]; }
+			} else {
+				// off the diagonal: count if gamma_m > gamma_n
+				if (_gamma->value(m) > _gamma->value(n)) { ++_summaryGammaPosterior[m][n]; }
+			}
+		}
+	}
+}
+
+void TGamma::writeSummaryGammaPosterior(const std::string &Prefix) {
+	std::vector<std::string> rowNames(_numEpochs);
+	for (size_t m = 0; m < _numEpochs; ++m) { rowNames[m] = "gamma_" + coretools::str::toString(m + 1); }
+	auto header = rowNames;
+	header.insert(header.begin(), "row_bigger_than_column");
+	coretools::TOutputFile file(Prefix + "_gammaSummaries.txt", header);
+	for (size_t m = 0; m < _numEpochs; ++m) {
+		file << rowNames[m];
+		for (size_t n = 0; n < _numEpochs; ++n) { file << (double)_summaryGammaPosterior[m][n] / (double)_counter; }
+		file.endln();
+	}
 }
 
 // getters
@@ -557,6 +594,9 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 			}
 		}
 	}
+
+	// update gamma summaries
+	_gamma.updateSummaryGammaPosterior();
 }
 
 double TStochasticPrior::calculateLogPriorRatio(size_t j, size_t k) {
@@ -586,3 +626,9 @@ double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) con
 void TStochasticPrior::setSimulatedGammaToZero() { _gamma.setSimulatedGammaToZero(); }
 
 std::vector<double> TStochasticPrior::deterministicPhi() const { return _gamma.phi(); }
+
+void TStochasticPrior::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPosterior(); };
+
+void TStochasticPrior::writeSummaryGammaPosterior(const std::string &Prefix) {
+	_gamma.writeSummaryGammaPosterior(Prefix);
+}

@@ -33,7 +33,8 @@ void TModelBase::_estimateInitialParameters(const TData &Data) { _distr->estimat
 
 void TModelBase::_updateDistributionParameters(const TData &Data) { _distr->update(Data, *this); };
 
-void TModelBase::_simulateDistributionParameters(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
+void TModelBase::_simulateDistributionParameters(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint,
+                                                 bool SimulateCovariates) {
 	_distr->simulate(Data, *this, AvgNumObsPerTimepoint, SimulateCovariates);
 }
 
@@ -262,6 +263,9 @@ void TDeterministic::update(const TData &Data) {
 			}
 		}
 	}
+
+	// update gamma summaries
+	_gamma.updateSummaryGammaPosterior();
 }
 
 void TDeterministic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
@@ -270,6 +274,12 @@ void TDeterministic::simulate(TData &Data, const std::vector<double> &AvgNumObsP
 	_fillPhi();
 	_simulateDistributionParameters(Data, AvgNumObsPerTimepoint, SimulateCovariates);
 };
+
+// write posterior summaries of gamma's
+void TDeterministic::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPosterior(); }
+void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) {
+	_gamma.writeSummaryGammaPosterior(Prefix);
+}
 
 //------------------------------------------
 // TStochastic
@@ -389,7 +399,7 @@ void TStochastic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerT
 	// simulate phi from transition probabilities
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		size_t ix = _logPhi->getIndex({j, 0});
-		_logPhi->setInitial(ix, 0.0); // set first phi = 1 -> logPhi = 0
+		_logPhi->setInitial(ix, 0.0);                       // set first phi = 1 -> logPhi = 0
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
 			ix = _logPhi->getIndex({j, k});
 			_logPhi->setInitial(ix, _prior.sampleFromTransitionProbability(j, k));
@@ -402,3 +412,7 @@ void TStochastic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerT
 coretools::StrictlyPositive<double> TStochastic::phi(size_t j, size_t k) const {
 	return exp(_logPhi->value(_logPhi->getIndex({j, k})));
 }
+
+// write posterior summaries of gamma's
+void TStochastic::resetSummaryGammaPosterior() { _prior.resetSummaryGammaPosterior(); }
+void TStochastic::writeSummaryGammaPosterior(const std::string &Prefix) { _prior.writeSummaryGammaPosterior(Prefix); }

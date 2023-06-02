@@ -14,6 +14,9 @@
 #include "stattools/Priors/TPriorExponential.h"
 #include "stattools/Priors/TPriorUniform.h"
 
+// forward declarations
+class TBirpPrior;
+
 //------------------------------------------
 // TBirpCommonModel
 //------------------------------------------
@@ -76,6 +79,8 @@ private:
 	std::unique_ptr<TBirpNegBinomAddOn> _negBinomAddOn;
 	std::unique_ptr<TBirpStochasticAddOn> _stochasticAddOn;
 
+	std::shared_ptr<TBirpPrior> _birpPrior;
+
 	std::unique_ptr<stattools::TObservationTyped<TypeCounts, 2>> _data;
 
 public:
@@ -84,6 +89,8 @@ public:
 	           const TUniqueContainer<std::string> &CovariateEffortNames,
 	           const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
 	           stattools::TDAGBuilder &DAGBuilder);
+
+	void writeSummaryGammaPosterior(const std::string &Prefix);
 };
 
 #endif // BIRP_TBIRPCONFIGURATION_H

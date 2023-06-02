@@ -299,6 +299,9 @@ void TBirpCore::infer() {
 	// run MCMC
 	stattools::TMCMC mcmc;
 	mcmc.runMCMC(_outname, &dagBuilder);
+
+	// tell model to write gamma summaries to file
+	model.writeSummaryGammaPosterior(_outname);
 }
 
 //-----------------------------------

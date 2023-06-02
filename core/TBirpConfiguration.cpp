@@ -147,16 +147,20 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 	}
 
 	// create birp prior (Poisson or Negative Binomial)
-	std::shared_ptr<TBirpPrior> birp =
+	_birpPrior =
 	    std::make_shared<TBirpPrior>(Data, Locations, TimePoints, CovariateEffortNames, CovariateDetectionNames,
 	                                 SpeciesNames.size(), _commonModel, _negBinomAddOn, _stochasticAddOn, Filename);
 
 	// create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
 	coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;
-	_data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>("likelihood", birp, fakeData,
+	_data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>("likelihood", _birpPrior, fakeData,
 	                                                                      stattools::TObservationDefinition(Filename));
 
 	// add to DAG
 	DAGBuilder.addToDAG(_data.get());
 	DAGBuilder.buildDAG();
+}
+
+void TBirpModel::writeSummaryGammaPosterior(const std::string &Prefix) {
+	_birpPrior->writeSummaryGammaPosterior(Prefix);
 }

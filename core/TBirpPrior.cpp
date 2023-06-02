@@ -79,6 +79,15 @@ double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 	return sum;
 }
 
+void TBirpPrior::burninHasFinished() {
+	for (auto &model : _models) { model->resetSummaryGammaPosterior(); }
+}
+
+void TBirpPrior::writeSummaryGammaPosterior(const std::string &Prefix) {
+	// todo: make sure for multispecies to add name of species to Prefix!
+	for (auto &model : _models) { model->writeSummaryGammaPosterior(Prefix); }
+}
+
 //------------------------------------
 // Simulations
 
@@ -106,7 +115,9 @@ void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called w
 	// do we need to simulate covariates?
 	bool simulateCovariates = !parameters().parameterExists("simulationFile");
 
-	for (size_t s = 0; s < _models.size(); s++) { _models[s]->simulate(_data, avgNumObsPerTimepoint, simulateCovariates); }
+	for (size_t s = 0; s < _models.size(); s++) {
+		_models[s]->simulate(_data, avgNumObsPerTimepoint, simulateCovariates);
+	}
 }
 
 //------------------------------------

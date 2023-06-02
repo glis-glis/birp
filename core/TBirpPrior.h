@@ -64,6 +64,10 @@ public:
 	// update all parameters
 	void updateParams() override;
 
+	// write summaries of gamma posterior
+	void burninHasFinished() override;
+	void writeSummaryGammaPosterior(const std::string &Prefix);
+
 	// getters for locations, methods, timepoints, species for tests
 	const TUniqueContainer<std::string> &locations() const;
 	const TUniqueContainer<size_t> &timepoints() const;

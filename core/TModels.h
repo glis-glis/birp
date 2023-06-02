@@ -79,6 +79,10 @@ public:
 	double sumCurLL() const;
 	void setCurLL(size_t ij, double Value);
 	void setCurLL(const std::vector<double> &Values);
+
+	// write posterior summaries of gamma's
+	virtual void resetSummaryGammaPosterior()                          = 0;
+	virtual void writeSummaryGammaPosterior(const std::string &Prefix) = 0;
 };
 
 //------------------------------------------
@@ -112,6 +116,10 @@ public:
 	void simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) override;
 
 	TypePhi phi(size_t location_id, size_t timepoint_id) const override;
+
+	// write posterior summaries of gamma's
+	void resetSummaryGammaPosterior() override;
+	void writeSummaryGammaPosterior(const std::string &Prefix) override;
 };
 
 //------------------------------------------
@@ -149,6 +157,10 @@ public:
 	void simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) override;
 
 	TypePhi phi(size_t location_id, size_t timepoint_k) const override;
+
+	// write posterior summaries of gamma's
+	void resetSummaryGammaPosterior() override;
+	void writeSummaryGammaPosterior(const std::string &Prefix) override;
 };
 
 #endif // BIRP_TMODELS_H
