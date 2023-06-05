@@ -128,8 +128,8 @@ public:
 class TStochasticPrior {
 	// yellow box
 protected:
-	stattools::TParameterTyped<TypeLogPhi, 2> *_logPhi = nullptr;
-	stattools::TParameterTyped<TypeSigma, 1> *_sigma   = nullptr;
+	stattools::TParameterTyped<TypeLogPhi, 2> *_logPhi     = nullptr;
+	stattools::TParameterTyped<TypeLogSigma, 1> *_logSigma = nullptr;
 
 	// TGamma
 	TGamma _gamma;
@@ -146,6 +146,9 @@ protected:
 	std::vector<std::vector<double>> _tryLogTransitionProbs;
 	std::vector<std::vector<double>> _curLogTransitionProbs;
 
+	// store determinitic phi
+	std::vector<TypePhi> _deterministicPhi;
+
 	// fill rho and delta
 	void _fillStochasticRho(const TUniqueContainer<size_t> &Timepoints);
 	void _initializeSumRhoGamma();
@@ -156,7 +159,8 @@ protected:
 	coretools::probdist::TNormalDistr _getMeanSdTransitionProbability(size_t j, size_t k) const;
 
 public:
-	TStochasticPrior(stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi, stattools::TParameterTyped<TypeSigma, 1> *Sigma,
+	TStochasticPrior(stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
+	                 stattools::TParameterTyped<TypeLogSigma, 1> *LogSigma,
 	                 stattools::TParameterTyped<TypeGamma, 1> *Gamma,
 	                 stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 	~TStochasticPrior() = default;
@@ -183,7 +187,8 @@ public:
 	double sampleFromTransitionProbability(size_t j, size_t k) const;
 
 	// getters
-	std::vector<double> deterministicPhi() const;
+	TypePhi deterministicPhi(size_t k) const;
+	const std::vector<TypePhi> & allDeterministicPhi() const;
 };
 
 #endif // BIRP_TGAMMA_H

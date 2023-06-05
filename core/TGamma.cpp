@@ -445,10 +445,10 @@ size_t TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 //------------------------------------------
 
 TStochasticPrior::TStochasticPrior(stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
-                                   stattools::TParameterTyped<TypeSigma, 1> *Sigma,
+                                   stattools::TParameterTyped<TypeLogSigma, 1> *LogSigma,
                                    stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                                    stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
-    : _logPhi(LogPhi), _sigma(Sigma), _gamma(Gamma, TimesOfChange) {}
+    : _logPhi(LogPhi), _logSigma(LogSigma), _gamma(Gamma, TimesOfChange) {}
 
 void TStochasticPrior::initialize(const TUniqueContainer<size_t> &Timepoints) {
 	// initialize gamma and times of change
@@ -460,6 +460,9 @@ void TStochasticPrior::initialize(const TUniqueContainer<size_t> &Timepoints) {
 
 	// fill rho
 	_fillStochasticRho(Timepoints);
+
+	// fill deterministic phi
+	_deterministicPhi = _gamma.phi(); // todo update in MCMC
 
 	// resize delta's
 	_newSumRhoGamma.resize(_gamma.numTimepoints(), 0.0);
@@ -532,7 +535,8 @@ coretools::probdist::TNormalDistr TStochasticPrior::_getMeanSdTransitionProbabil
 	const auto deltaTime = (double)_deltaTimeVec[k];
 
 	// calculate mean of normal distribution
-	const auto sigma2               = _sigma->value() * _sigma->value();
+	const auto sigma                = exp(_logSigma->value());
+	const auto sigma2               = sigma * sigma;
 	const auto sumRhoGamma          = _newSumRhoGamma[k];
 	const auto log_phi_j_previous_k = _logPhi->value(_logPhi->getIndex({j, k - 1}));
 	const auto mean                 = log_phi_j_previous_k + sumRhoGamma - sigma2 / 2.0 * deltaTime;
@@ -625,7 +629,8 @@ double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) con
 
 void TStochasticPrior::setSimulatedGammaToZero() { _gamma.setSimulatedGammaToZero(); }
 
-std::vector<double> TStochasticPrior::deterministicPhi() const { return _gamma.phi(); }
+TypePhi TStochasticPrior::deterministicPhi(size_t k) const { return _deterministicPhi[k]; }
+const std::vector<TypePhi> &TStochasticPrior::allDeterministicPhi() const { return _deterministicPhi; }
 
 void TStochasticPrior::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPosterior(); };
 

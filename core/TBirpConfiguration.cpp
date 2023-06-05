@@ -118,11 +118,15 @@ TBirpNegBinomAddOn::TBirpNegBinomAddOn(TData &Data, const std::string &Filename,
 TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
     : logPhi("logPhi", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogPhi, 2>>(),
              {Filename}),
-      sigma("sigma", std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigma, 1>>(),
-            {Filename, "10"}) {
+      logSigma("logSigma",
+               std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogSigma, 1>>(),
+               {Filename}) {
+
+	logPhi.getDefinition().setJumpSizeForAll(false);
+	logPhi.getDefinition().setEqualNumberOfUpdates(false); // first logPhi is not updated
 
 	// add to DAG
-	DAGBuilder.addToDAG({&logPhi, &sigma});
+	DAGBuilder.addToDAG({&logPhi, &logSigma});
 }
 
 //------------------------------------------

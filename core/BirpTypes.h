@@ -31,6 +31,6 @@ typedef coretools::WeakType<double> TypeBeta;
 typedef coretools::StrictlyPositive<double> TypeSigmaAlpha;
 typedef coretools::WeakTypeWithExp<double> TypeLogPhi;
 typedef coretools::StrictlyPositive<double> TypePhi;
-typedef coretools::StrictlyPositive<double> TypeSigma;
+typedef coretools::MinMaxVariable<double> TypeLogSigma;
 
 #endif // BIRPTYPES_H

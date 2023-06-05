@@ -47,6 +47,15 @@ std::vector<double> TModelBase::calculateSigma(const TLocations &loc) const {
 	return sigma;
 }
 
+std::vector<double> TModelBase::calculateSigmaFromDeterministicPhi(const TLocations &loc) const {
+	std::vector<double> sigma(loc.size());
+	for (size_t k = 0; k < loc.size(); k++) {
+		// calculate sigma and fill into p (will normalize later)
+		sigma[k] = deterministicPhi(loc[k].timepoint_id()) * loc[k].effort();
+	}
+	return sigma;
+}
+
 arma::mat TModelBase::_calcFisherInfo(const TGamma &Gamma, const std::vector<double> &p,
                                       const std::vector<double> &sigma, TypeNu nu, const TLocations &loc) {
 	// size of p and sigma = number of timepoints of current location
@@ -81,7 +90,7 @@ double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma)
 		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
 			size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
 			for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
-				std::vector sigma     = calculateSigma(method[l]);
+				std::vector sigma     = calculateSigmaFromDeterministicPhi(method[l]);
 				std::vector<double> p = sigma;
 				// now normalize by row sum!
 				coretools::normalize(p);
@@ -241,6 +250,7 @@ void TDeterministic::initializeTempVariables(const TData &Data) {
 void TDeterministic::_fillPhi() { _newPhi = _gamma.phi(); }
 
 TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id) const { return _newPhi[timepoint_id]; }
+TypePhi TDeterministic::deterministicPhi(size_t timepoint_id) const { return _newPhi[timepoint_id]; }
 
 void TDeterministic::update(const TData &Data) {
 	// update distribution parameters
@@ -290,9 +300,9 @@ TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data,
                          stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                          stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                          stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
-                         stattools::TParameterTyped<TypeSigma, 1> *Sigma)
-    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _prior(LogPhi, Sigma, Gamma, TimesOfChange),
-      _logPhi(LogPhi), _sigma(Sigma) {}
+                         stattools::TParameterTyped<TypeLogSigma, 1> *LogSigma)
+    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _prior(LogPhi, LogSigma, Gamma, TimesOfChange),
+      _logPhi(LogPhi), _logSigma(LogSigma) {}
 
 void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
                              const TUniqueContainer<std::size_t> &TimePoints) {
@@ -306,11 +316,16 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 	auto timeNames = std::make_shared<coretools::TNamesStrings>(tmp);
 
 	_logPhi->initStorage({Locations.size(), TimePoints.size()}, {locNames, timeNames});
-	_sigma->initStorage();
+	_logSigma->initStorage();
 }
 
 void TStochastic::_setPhiFromDeterministic() {
-	auto deterministicPhi = _prior.deterministicPhi();
+	auto deterministicPhi = _prior.allDeterministicPhi();
+	// shift such that first phi = 1
+	for (size_t k = 0; k < deterministicPhi.size(); ++k) {
+		deterministicPhi[k] = deterministicPhi[k] / deterministicPhi[0];
+	}
+
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
 		for (size_t k = 0; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
 			const auto index = _logPhi->getIndex({j, k});       // get linear index
@@ -327,7 +342,7 @@ void TStochastic::estimateInitial(const TData &Data, const TUniqueContainer<size
 	_setPhiFromDeterministic();
 
 	// set smallish sigma
-	_sigma->setInitial(0.1);
+	_logSigma->setInitial(log(0.1));
 }
 
 void TStochastic::initializeTempVariables(const TData &Data) {
@@ -361,17 +376,17 @@ void TStochastic::_updateLogPhi(const TData &Data) {
 	}
 }
 
-void TStochastic::_updateSigma() {
+void TStochastic::_updateLogSigma() {
 	// propose a new value
-	if (!_sigma->update()) { return; }
+	if (!_logSigma->update()) { return; }
 
 	double LLRatio = 0.0;
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { LLRatio += _prior.calculateLogPriorRatio(j, k); }
 	}
 
-	const double logH = LLRatio + _sigma->getLogPriorRatio();
-	if (_sigma->acceptOrReject(logH, 0)) {
+	const double logH = LLRatio + _logSigma->getLogPriorRatio();
+	if (_logSigma->acceptOrReject(logH, 0)) {
 		// accepted: update transition probabilities
 		_prior.swapTryCur();
 		swapTryCur();
@@ -386,7 +401,7 @@ void TStochastic::update(const TData &Data) {
 	_prior.updateGamma(Data, *this);
 
 	if (_logPhi->isUpdated()) { _updateLogPhi(Data); }
-	if (_sigma->isUpdated()) { _updateSigma(); }
+	if (_logSigma->isUpdated()) { _updateLogSigma(); }
 }
 
 void TStochastic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
@@ -410,8 +425,13 @@ void TStochastic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerT
 };
 
 coretools::StrictlyPositive<double> TStochastic::phi(size_t j, size_t k) const {
-	return exp(_logPhi->value(_logPhi->getIndex({j, k})));
+	const double phi = exp(_logPhi->value(_logPhi->getIndex({j, k})));
+	if (phi < coretools::StrictlyPositive<double>::min()) { return coretools::StrictlyPositive<double>::min(); }
+	if (phi > coretools::StrictlyPositive<double>::max()) { return coretools::StrictlyPositive<double>::max(); }
+	return phi;
 }
+
+TypePhi TStochastic::deterministicPhi(size_t timepoint_id) const { return _prior.deterministicPhi(timepoint_id); }
 
 // write posterior summaries of gamma's
 void TStochastic::resetSummaryGammaPosterior() { _prior.resetSummaryGammaPosterior(); }
