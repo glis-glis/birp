@@ -118,7 +118,7 @@ public:
 	size_t numTimepoints() const;
 	TypeGamma gamma(size_t m) const;
 	size_t rho(size_t row, size_t col) const;
-	std::vector<double> phi() const;
+	std::vector<TypePhi> phi() const;
 };
 
 //------------------------------------------
@@ -147,7 +147,8 @@ protected:
 	std::vector<std::vector<double>> _curLogTransitionProbs;
 
 	// store determinitic phi
-	std::vector<TypePhi> _deterministicPhi;
+	std::vector<TypePhi> _newDeterministicPhi;
+	std::vector<TypePhi> _oldDeterministicPhi;
 
 	// fill rho and delta
 	void _fillStochasticRho(const TUniqueContainer<size_t> &Timepoints);
@@ -188,7 +189,7 @@ public:
 
 	// getters
 	TypePhi deterministicPhi(size_t k) const;
-	const std::vector<TypePhi> & allDeterministicPhi() const;
+	std::vector<TypePhi> calculateDeterministicPhi() const;
 };
 
 #endif // BIRP_TGAMMA_H

@@ -3,6 +3,7 @@
 //
 #include "TModels.h"
 #include "TDistributions.h"
+#include "coretools/devtools.h"
 
 //---------------------------------------
 // TModelBase
@@ -320,7 +321,7 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 }
 
 void TStochastic::_setPhiFromDeterministic() {
-	auto deterministicPhi = _prior.allDeterministicPhi();
+	auto deterministicPhi = _prior.calculateDeterministicPhi();
 	// shift such that first phi = 1
 	for (size_t k = 0; k < deterministicPhi.size(); ++k) {
 		deterministicPhi[k] = deterministicPhi[k] / deterministicPhi[0];
@@ -341,8 +342,8 @@ void TStochastic::estimateInitial(const TData &Data, const TUniqueContainer<size
 	// initialize phi based on deterministic phi
 	_setPhiFromDeterministic();
 
-	// set smallish sigma
-	_logSigma->setInitial(log(0.1));
+	// set sigma
+	_logSigma->setInitial(0.0);
 }
 
 void TStochastic::initializeTempVariables(const TData &Data) {

@@ -97,8 +97,8 @@ protected:
 	TGamma _gamma;
 
 	// store temporary phi
-	std::vector<double> _newPhi;
-	std::vector<double> _oldPhi;
+	std::vector<TypePhi> _newPhi;
+	std::vector<TypePhi> _oldPhi;
 
 	void _fillPhi();
 

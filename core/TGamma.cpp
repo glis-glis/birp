@@ -431,11 +431,12 @@ TypeGamma TGamma::gamma(size_t m) const { return _gamma->value(m); }
 
 size_t TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 
-[[nodiscard]] std::vector<double> TGamma::phi() const {
-	std::vector<double> phi(numTimepoints(), 0.0);
+[[nodiscard]] std::vector<TypePhi> TGamma::phi() const {
+	std::vector<TypePhi> phi(numTimepoints());
 	for (size_t k = 0; k < numTimepoints(); ++k) {
-		for (size_t m = 0; m < _numEpochs; m++) { phi[k] += (double)_rho(k, m) * gamma(m); }
-		phi[k] = exp(phi[k]); // make logPhi to phi
+		double logPhi = 0.0;
+		for (size_t m = 0; m < _numEpochs; m++) { logPhi += (double)_rho(k, m) * gamma(m); }
+		phi[k] = exp(logPhi); // make logPhi to phi
 	}
 	return phi;
 }
@@ -461,8 +462,9 @@ void TStochasticPrior::initialize(const TUniqueContainer<size_t> &Timepoints) {
 	// fill rho
 	_fillStochasticRho(Timepoints);
 
-	// fill deterministic phi
-	_deterministicPhi = _gamma.phi(); // todo update in MCMC
+	// resize deterministic phi
+	_newDeterministicPhi.resize(_gamma.numTimepoints());
+	_oldDeterministicPhi.resize(_gamma.numTimepoints());
 
 	// resize delta's
 	_newSumRhoGamma.resize(_gamma.numTimepoints(), 0.0);
@@ -475,9 +477,16 @@ void TStochasticPrior::estimateInitialGamma(const TData &Data, const TUniqueCont
 }
 
 void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBase &Model, bool CalculateJP) {
-	if (CalculateJP) { _gamma.initializeJP(Data, Model); }
+	// initialize rho sum gamma
 	_initializeSumRhoGamma();
 	_oldSumRhoGamma = _newSumRhoGamma;
+
+	// initialize deterministic phi
+	_newDeterministicPhi = _gamma.phi();
+	_oldDeterministicPhi = _newDeterministicPhi;
+
+	// initialize JP
+	if (CalculateJP) { _gamma.initializeJP(Data, Model); }
 
 	_initializeTransitionProbabilities();
 }
@@ -585,6 +594,9 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 			// remember current delta
 			_oldSumRhoGamma = _newSumRhoGamma;
 			_initializeSumRhoGamma();
+			// remember current phi
+			_oldDeterministicPhi       = _newDeterministicPhi;
+			_newDeterministicPhi       = _gamma.phi();
 			const double LLRatio       = calculateLLRatioForUpdateGamma();
 			const double logPriorRatio = _gamma.getLogPriorRatio(Data, Model); // Jeffrey prior
 
@@ -594,7 +606,8 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 				swapTryCur(); // -> _oldLL = newLL;
 			} else {
 				// rejected
-				_newSumRhoGamma = _oldSumRhoGamma;
+				_newSumRhoGamma      = _oldSumRhoGamma;
+				_newDeterministicPhi = _oldDeterministicPhi;
 			}
 		}
 	}
@@ -629,8 +642,8 @@ double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) con
 
 void TStochasticPrior::setSimulatedGammaToZero() { _gamma.setSimulatedGammaToZero(); }
 
-TypePhi TStochasticPrior::deterministicPhi(size_t k) const { return _deterministicPhi[k]; }
-const std::vector<TypePhi> &TStochasticPrior::allDeterministicPhi() const { return _deterministicPhi; }
+TypePhi TStochasticPrior::deterministicPhi(size_t k) const { return _newDeterministicPhi[k]; }
+std::vector<TypePhi> TStochasticPrior::calculateDeterministicPhi() const { return _gamma.phi(); }
 
 void TStochasticPrior::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPosterior(); };
 

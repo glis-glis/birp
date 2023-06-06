@@ -23,14 +23,14 @@ typedef coretools::UnsignedInt<uint16_t> TypeIndex;
 typedef coretools::WeakType<double> TypeGamma;
 typedef coretools::Positive<double> TypeEffort;
 typedef coretools::UnsignedInt<uint16_t> TypeTime;
-typedef coretools::StrictlyPositiveWithMax<double> TypeMu;
+typedef coretools::StrictlyPositiveWithMax<double, 1> TypeMu;
 typedef coretools::StrictlyPositive<double> TypeSigmaMu;
-typedef coretools::MinMaxVariable<double> TypeLogA;
-typedef coretools::StrictlyPositiveWithMax<double> TypeAlpha;
+typedef coretools::MinMaxVariable<double, 1> TypeLogA;
+typedef coretools::StrictlyPositiveWithMax<double, 2> TypeAlpha;
 typedef coretools::WeakType<double> TypeBeta;
 typedef coretools::StrictlyPositive<double> TypeSigmaAlpha;
 typedef coretools::WeakTypeWithExp<double> TypeLogPhi;
 typedef coretools::StrictlyPositive<double> TypePhi;
-typedef coretools::MinMaxVariable<double> TypeLogSigma;
+typedef coretools::MinMaxVariable<double, 2> TypeLogSigma;
 
 #endif // BIRPTYPES_H

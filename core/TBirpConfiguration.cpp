@@ -7,6 +7,7 @@
 #include "TBirpPrior.h"
 #include "TData.h"
 #include "coretools/Types/strongTypes.h"
+#include "coretools/devtools.h"
 #include "stattools/MCMC/TMCMC.h"
 #include "stattools/Priors/TPriorDirichlet.h"
 #include "stattools/Priors/TPriorExponential.h"
@@ -124,6 +125,8 @@ TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename, stattool
 
 	logPhi.getDefinition().setJumpSizeForAll(false);
 	logPhi.getDefinition().setEqualNumberOfUpdates(false); // first logPhi is not updated
+
+	TypeLogSigma ::setMin(-10.); // prevent numeric issues with very small sigma: 1/sigma can result in nan
 
 	// add to DAG
 	DAGBuilder.addToDAG({&logPhi, &logSigma});
