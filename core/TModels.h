@@ -143,6 +143,9 @@ protected:
 	void _updateLogSigma();
 	void _updateLogPhi(const TData &Data);
 	void _setPhiFromDeterministic();
+	void _shiftLogPhis(size_t j, size_t k, double diff);
+	void _jointUpdateLogPhi(size_t j, size_t k, const TData &Data);
+	void _jointUpdateLogPhi(const TData &Data);
 
 public:
 	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data,

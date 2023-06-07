@@ -368,11 +368,52 @@ void TStochastic::_updateLogPhi(size_t j, size_t k, const TData &Data) {
 	}
 }
 
+void TStochastic::_shiftLogPhis(size_t j, size_t k, double diff) {
+	for (size_t l = k + 1; l < _logPhi->dimensions()[1]; ++l) {
+		const size_t ix_next = _logPhi->getIndex({j, l});
+		_logPhi->set(ix_next, _logPhi->value(ix_next) + diff);
+	}
+}
+
+void TStochastic::_jointUpdateLogPhi(size_t j, size_t k, const TData &Data) {
+	// propose a new value
+	const size_t ix = _logPhi->getIndex({j, k});
+	_logPhi->updateSpecificIndex(ix);
+
+	// calculate difference and add this different to all logPhi on the right
+	const double diff = _logPhi->value(ix) - _logPhi->oldValue(ix);
+	_shiftLogPhis(j, k, diff);
+
+	// only transition probability from previous matters!
+	const auto logPriorRatio = _prior.calculateLogPriorRatio(j, k);
+
+	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
+	// and k)
+	const auto LLRatio       = calculateLLRatio_perLocation(j, Data);
+	const double logH        = LLRatio + logPriorRatio;
+	if (_logPhi->acceptOrReject(logH, ix)) {
+		_prior.swapTryCur(j, k);
+		swapTryCur_perLocation(j, Data);
+	} else {
+		// re-set other phi's: shift back
+		_shiftLogPhis(j, k, -diff);
+	}
+}
+
 void TStochastic::_updateLogPhi(const TData &Data) {
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
 			// loop over all timepoints (ignore first, since this is always 1)
 			_updateLogPhi(j, k, Data);
+		}
+	}
+}
+
+void TStochastic::_jointUpdateLogPhi(const TData &Data) {
+	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
+		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
+			// loop over all timepoints (ignore first, since this is always 1)
+			_jointUpdateLogPhi(j, k, Data);
 		}
 	}
 }
@@ -401,7 +442,10 @@ void TStochastic::update(const TData &Data) {
 	// update gamma
 	_prior.updateGamma(Data, *this);
 
-	if (_logPhi->isUpdated()) { _updateLogPhi(Data); }
+	if (_logPhi->isUpdated()) {
+		_updateLogPhi(Data);
+		_jointUpdateLogPhi(Data);
+	}
 	if (_logSigma->isUpdated()) { _updateLogSigma(); }
 }
 
