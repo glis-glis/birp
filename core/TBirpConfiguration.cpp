@@ -141,15 +141,21 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
                        const TUniqueContainer<std::string> &SpeciesNames,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
-                       stattools::TDAGBuilder &DAGBuilder)
+                       stattools::TDAGBuilder &DAGBuilder, bool Stochastic)
     : _commonModel(Data, CovariateEffortNames, Filename, DAGBuilder) {
 
-	if (parameters().parameterExists("negativeBinomial") && parameters().parameterExists("stochastic")) {
+	// do negative binomial?
+	if (parameters().parameterExists("negativeBinomial")) {
 		_negBinomAddOn   = std::make_unique<TBirpNegBinomAddOn>(Data, Filename, DAGBuilder);
-		_stochasticAddOn = std::make_unique<TBirpStochasticAddOn>(Filename, DAGBuilder);
-	} else if (parameters().parameterExists("negativeBinomial")) {
-		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(Data, Filename, DAGBuilder);
-	} else if (parameters().parameterExists("stochastic")) {
+	}
+
+	// do stochastic?
+	if (Stochastic){
+		// set initial values of all non-stochastic parameters from deterministic MCMC
+		for (const auto &p : DAGBuilder.getAllParameters()) {
+			p->getDefinition().setInitVal(Filename + "_meanVar.txt");
+		}
+		// create stochastic add-on
 		_stochasticAddOn = std::make_unique<TBirpStochasticAddOn>(Filename, DAGBuilder);
 	}
 
@@ -157,6 +163,11 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 	_birpPrior =
 	    std::make_shared<TBirpPrior>(Data, Locations, TimePoints, CovariateEffortNames, CovariateDetectionNames,
 	                                 SpeciesNames.size(), _commonModel, _negBinomAddOn, _stochasticAddOn, Filename);
+
+	// add updater for joint logPhi update
+	if (Stochastic){
+		DAGBuilder.addExtraUpdater(_birpPrior->getPtrToJointUpdater());
+	}
 
 	// create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
 	coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;

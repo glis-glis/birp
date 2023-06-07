@@ -287,14 +287,11 @@ void TBirpCore::_sortTimepoints() {
 	for (auto &method : _data) { method.sorttimes(sortingIndex); }
 }
 
-void TBirpCore::infer() {
-	// read data
-	_readForInference(true);
-
+void TBirpCore::_runMCMC(bool Stochastic) {
 	// create model
 	stattools::TDAGBuilder dagBuilder;
 	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
-	                 _outname, dagBuilder);
+	                 _outname, dagBuilder, Stochastic);
 
 	// run MCMC
 	stattools::TMCMC mcmc;
@@ -302,6 +299,25 @@ void TBirpCore::infer() {
 
 	// tell model to write gamma summaries to file
 	model.writeSummaryGammaPosterior(_outname);
+}
+
+void TBirpCore::infer() {
+	// read data
+	_readForInference(true);
+
+	if (parameters().parameterExists("stochastic")) {
+		// run MCMC (deterministic)
+		logfile().startIndent("Running MCMC with deterministic model for initialization:");
+		_runMCMC(false);
+		logfile().endIndent();
+		// infer stochastic and use parameter estimates of deterministic to initialize
+		logfile().startIndent("Running MCMC with stochastic model:");
+		_runMCMC(true);
+		logfile().endIndent();
+	} else {
+		// run MCMC (deterministic)
+		_runMCMC(false);
+	}
 }
 
 //-----------------------------------
@@ -423,9 +439,10 @@ void TBirpCore::simulate() {
 	_data.fillMethLocIndices(_speciesNames.size());
 
 	// create model
+	const bool stochastic = parameters().parameterExists("stochastic");
 	stattools::TDAGBuilder dagBuilder;
 	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
-	                 _outname, dagBuilder);
+	                 _outname, dagBuilder, stochastic);
 
 	// run simulator
 	stattools::TSimulator simulator;

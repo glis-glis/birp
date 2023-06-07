@@ -72,6 +72,8 @@ public:
 	const TUniqueContainer<std::string> &locations() const;
 	const TUniqueContainer<size_t> &timepoints() const;
 	const TData &data() const;
+
+	stattools::TUpdateBase *getPtrToJointUpdater() { return _models[0]->getPtrToJointUpdater(); }
 };
 
 #endif // TBIRPPRIOR_H

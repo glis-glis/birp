@@ -31,9 +31,9 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 	// create models
 	size_t speciesID = 0;
 	if (StochasticAddOn) {
-		_models.emplace_back(std::make_unique<TStochastic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
-		                                                   &CommonModel.timesOfChange, &StochasticAddOn->logPhi,
-		                                                   &StochasticAddOn->logSigma));
+		_models.emplace_back(std::make_unique<TStochastic>(
+		    speciesID, Data, Locations.size(), TimePoints.size(), NegBinomAddOn, &CommonModel.gamma,
+		    &CommonModel.timesOfChange, &StochasticAddOn->logPhi, &StochasticAddOn->logSigma));
 	} else {
 		_models.emplace_back(std::make_unique<TDeterministic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
 		                                                      &CommonModel.timesOfChange));

@@ -52,6 +52,7 @@ protected:
 	void _sortTimepoints();
 
 	void _readForInference(bool hasCounts);
+	void _runMCMC(bool Stochastic);
 
 	// simulate
 	void _fillTimepointsFromCommandLine();

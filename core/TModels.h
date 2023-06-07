@@ -85,6 +85,8 @@ public:
 	// write posterior summaries of gamma's
 	virtual void resetSummaryGammaPosterior()                          = 0;
 	virtual void writeSummaryGammaPosterior(const std::string &Prefix) = 0;
+
+	virtual stattools::TUpdateBase *getPtrToJointUpdater() { return nullptr; }
 };
 
 //------------------------------------------
@@ -138,6 +140,8 @@ protected:
 	stattools::TParameterTyped<TypeLogPhi, 2> *_logPhi     = nullptr;
 	stattools::TParameterTyped<TypeLogSigma, 1> *_logSigma = nullptr;
 
+	std::unique_ptr<stattools::TUpdateUniqueIrregular<TypeLogPhi>> _jointUpdater;
+
 	// update functions
 	void _updateLogPhi(size_t j, size_t k, const TData &Data);
 	void _updateLogSigma();
@@ -149,6 +153,7 @@ protected:
 
 public:
 	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data,
+	            size_t NumLocations, size_t NumTimePoint,
 	            const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
 	            stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
 	            stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
@@ -169,6 +174,8 @@ public:
 	// write posterior summaries of gamma's
 	void resetSummaryGammaPosterior() override;
 	void writeSummaryGammaPosterior(const std::string &Prefix) override;
+
+	stattools::TUpdateBase *getPtrToJointUpdater() override { return _jointUpdater.get(); }
 };
 
 #endif // BIRP_TMODELS_H

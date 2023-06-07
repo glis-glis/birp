@@ -297,13 +297,18 @@ void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) {
 //------------------------------------------
 
 TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data,
+                         size_t NumLocations, size_t NumTimePoints,
                          const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
                          stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                          stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                          stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
                          stattools::TParameterTyped<TypeLogSigma, 1> *LogSigma)
     : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _prior(LogPhi, LogSigma, Gamma, TimesOfChange),
-      _logPhi(LogPhi), _logSigma(LogSigma) {}
+      _logPhi(LogPhi), _logSigma(LogSigma) {
+
+	_jointUpdater = std::make_unique<stattools::TUpdateUniqueIrregular<TypeLogPhi>>(
+	    NumLocations * NumTimePoints, true, stattools::ProposalKernel::normal, "jointLogPhi");
+}
 
 void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
                              const TUniqueContainer<std::size_t> &TimePoints) {
@@ -369,19 +374,18 @@ void TStochastic::_updateLogPhi(size_t j, size_t k, const TData &Data) {
 }
 
 void TStochastic::_shiftLogPhis(size_t j, size_t k, double diff) {
-	for (size_t l = k + 1; l < _logPhi->dimensions()[1]; ++l) {
-		const size_t ix_next = _logPhi->getIndex({j, l});
-		_logPhi->set(ix_next, _logPhi->value(ix_next) + diff);
+	for (size_t l = k; l < _logPhi->dimensions()[1]; ++l) {
+		const size_t ix = _logPhi->getIndex({j, l});
+		_logPhi->set(ix, _logPhi->value(ix) + diff);
 	}
 }
 
 void TStochastic::_jointUpdateLogPhi(size_t j, size_t k, const TData &Data) {
 	// propose a new value
 	const size_t ix = _logPhi->getIndex({j, k});
-	_logPhi->updateSpecificIndex(ix);
+	auto diff       = _jointUpdater->propose(0.0, ix);
 
-	// calculate difference and add this different to all logPhi on the right
-	const double diff = _logPhi->value(ix) - _logPhi->oldValue(ix);
+	// calculate difference and add this difference to all logPhi on the right (including current phi)
 	_shiftLogPhis(j, k, diff);
 
 	// only transition probability from previous matters!
@@ -389,14 +393,15 @@ void TStochastic::_jointUpdateLogPhi(size_t j, size_t k, const TData &Data) {
 
 	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
 	// and k)
-	const auto LLRatio       = calculateLLRatio_perLocation(j, Data);
-	const double logH        = LLRatio + logPriorRatio;
-	if (_logPhi->acceptOrReject(logH, ix)) {
+	const auto LLRatio  = calculateLLRatio_perLocation(j, Data);
+	const double logH   = LLRatio + logPriorRatio;
+	const size_t ixLast = _logPhi->getIndex({j, _logPhi->dimensions()[1]});
+	coretools::TRange range(ix, ixLast, 1);
+	if (_logPhi->acceptOrReject<false>(logH, range)) {
 		_prior.swapTryCur(j, k);
 		swapTryCur_perLocation(j, Data);
 	} else {
-		// re-set other phi's: shift back
-		_shiftLogPhis(j, k, -diff);
+		_jointUpdater->reject(ix);
 	}
 }
 
