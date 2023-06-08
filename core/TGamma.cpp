@@ -335,7 +335,8 @@ std::vector<size_t> TGamma::getEpochStarts(const TUniqueContainer<size_t> &Timep
 	// return start of each epoch, including for a hypothetical epoch after the last epoch
 	assert(!Timepoints.empty());
 
-	std::vector<size_t> epochStarts = {0};
+	size_t minTime         = *std::min(Timepoints.cbegin(), Timepoints.cend());
+	std::vector<size_t> epochStarts = {minTime};
 	if (_timesOfChange->totalSize() != 0) {
 		size_t maxTimeOfChange = _timesOfChange->max_value();
 		size_t maxTime         = std::max(Timepoints.back(), maxTimeOfChange + 1);

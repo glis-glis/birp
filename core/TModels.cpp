@@ -327,10 +327,6 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 
 void TStochastic::_setPhiFromDeterministic() {
 	auto deterministicPhi = _prior.calculateDeterministicPhi();
-	// shift such that first phi = 1
-	for (size_t k = 0; k < deterministicPhi.size(); ++k) {
-		deterministicPhi[k] = deterministicPhi[k] / deterministicPhi[0];
-	}
 
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
 		for (size_t k = 0; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
