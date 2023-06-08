@@ -176,10 +176,14 @@ public:
 	double calculateLLRatioForUpdateGamma();
 	void swapTryCur();
 	void swapTryCur(size_t j, size_t k);
-
 	double calculateLogPriorRatio(size_t j, size_t k);
 
+	// joint update of gamma
+	std::vector<double> updateGamma_forLogPhiJointUpdate(size_t m);
+	bool evaluateGamma_forLogPhiJointUpdate(size_t m, double LLRatio, const TData &Data, const TModelBase &Model);
+
 	// write posterior summaries of gamma's
+	void updateSummaryGammaPosterior();
 	void resetSummaryGammaPosterior();
 	void writeSummaryGammaPosterior(const std::string &Prefix);
 
@@ -190,6 +194,7 @@ public:
 	// getters
 	TypePhi deterministicPhi(size_t k) const;
 	std::vector<TypePhi> calculateDeterministicPhi() const;
+	size_t numEpochs() const;
 };
 
 #endif // BIRP_TGAMMA_H

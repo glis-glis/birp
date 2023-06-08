@@ -296,9 +296,8 @@ void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) {
 // TStochastic
 //------------------------------------------
 
-TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data,
-                         size_t NumLocations, size_t NumTimePoints,
-                         const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
+TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations,
+                         size_t NumTimePoints, const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
                          stattools::TParameterTyped<TypeGamma, 1> *Gamma,
                          stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
                          stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
@@ -369,38 +368,6 @@ void TStochastic::_updateLogPhi(size_t j, size_t k, const TData &Data) {
 	}
 }
 
-void TStochastic::_shiftLogPhis(size_t j, size_t k, double diff) {
-	for (size_t l = k; l < _logPhi->dimensions()[1]; ++l) {
-		const size_t ix = _logPhi->getIndex({j, l});
-		_logPhi->set(ix, _logPhi->value(ix) + diff);
-	}
-}
-
-void TStochastic::_jointUpdateLogPhi(size_t j, size_t k, const TData &Data) {
-	// propose a new value
-	const size_t ix = _logPhi->getIndex({j, k});
-	auto diff       = _jointUpdater->propose(0.0, ix);
-
-	// calculate difference and add this difference to all logPhi on the right (including current phi)
-	_shiftLogPhis(j, k, diff);
-
-	// only transition probability from previous matters!
-	const auto logPriorRatio = _prior.calculateLogPriorRatio(j, k);
-
-	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
-	// and k)
-	const auto LLRatio  = calculateLLRatio_perLocation(j, Data);
-	const double logH   = LLRatio + logPriorRatio;
-	const size_t ixLast = _logPhi->getIndex({j, _logPhi->dimensions()[1]});
-	coretools::TRange range(ix, ixLast, 1);
-	if (_logPhi->acceptOrReject<false>(logH, range)) {
-		_prior.swapTryCur(j, k);
-		swapTryCur_perLocation(j, Data);
-	} else {
-		_jointUpdater->reject(ix);
-	}
-}
-
 void TStochastic::_updateLogPhi(const TData &Data) {
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
@@ -410,13 +377,35 @@ void TStochastic::_updateLogPhi(const TData &Data) {
 	}
 }
 
-void TStochastic::_jointUpdateLogPhi(const TData &Data) {
-	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
-		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
-			// loop over all timepoints (ignore first, since this is always 1)
-			_jointUpdateLogPhi(j, k, Data);
+void TStochastic::_jointUpdateLogPhiGamma(const TData &Data) {
+	for (size_t m = 0; m < _prior.numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
+		// propose new gamma
+		const auto Delta = _prior.updateGamma_forLogPhiJointUpdate(m);
+		// adjust logPhi by Delta_k
+		for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over all locations
+			for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
+				const size_t linear     = _logPhi->getIndex({j, k});
+				const double logPhi_new = _logPhi->value(linear) + Delta[k];
+				_logPhi->set(linear, logPhi_new);
+			}
+		}
+
+		// calculate LL: no need to add prior on phi (= transition probabilities), since they didn't change!
+		const double LLRatio = calculateLLRatio(Data);
+		if (_prior.evaluateGamma_forLogPhiJointUpdate(m, LLRatio, Data, *this)) {
+			// accepted: swap LL of all locations
+			swapTryCur();
+		} else {
+			// rejected: re-set all logPhi
+			for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over all locations
+				for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
+					_logPhi->reset(_logPhi->getIndex({j, k}));
+				}
+			}
 		}
 	}
+	// update summaries of gamma posterior after update has finished
+	_prior.updateSummaryGammaPosterior();
 }
 
 void TStochastic::_updateLogSigma() {
@@ -432,7 +421,6 @@ void TStochastic::_updateLogSigma() {
 	if (_logSigma->acceptOrReject(logH, 0)) {
 		// accepted: update transition probabilities
 		_prior.swapTryCur();
-		swapTryCur();
 	}
 }
 
@@ -443,10 +431,13 @@ void TStochastic::update(const TData &Data) {
 	// update gamma
 	_prior.updateGamma(Data, *this);
 
+	// update logPhi
 	if (_logPhi->isUpdated()) {
 		_updateLogPhi(Data);
-		_jointUpdateLogPhi(Data);
+		_jointUpdateLogPhiGamma(Data);
 	}
+
+	// update logSigma
 	if (_logSigma->isUpdated()) { _updateLogSigma(); }
 }
 

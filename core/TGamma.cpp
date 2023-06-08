@@ -335,7 +335,7 @@ std::vector<size_t> TGamma::getEpochStarts(const TUniqueContainer<size_t> &Timep
 	// return start of each epoch, including for a hypothetical epoch after the last epoch
 	assert(!Timepoints.empty());
 
-	size_t minTime         = *std::min(Timepoints.cbegin(), Timepoints.cend());
+	size_t minTime                  = *std::min(Timepoints.cbegin(), Timepoints.cend());
 	std::vector<size_t> epochStarts = {minTime};
 	if (_timesOfChange->totalSize() != 0) {
 		size_t maxTimeOfChange = _timesOfChange->max_value();
@@ -602,9 +602,9 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 			const double logPriorRatio = _gamma.getLogPriorRatio(Data, Model); // Jeffrey prior
 
 			const double logH = LLRatio + logPriorRatio;
-			if (_gamma.acceptOrReject(logH, m)) {
-				// accepted -> update LL and jeffrey's Prior
-				swapTryCur(); // -> _oldLL = newLL;
+			if (_gamma.acceptOrReject(logH, m)) { // already swaps JP (if necessary)
+				// accepted
+				swapTryCur(); // -> _curLogTransitionProbs = _tryLogTransitionProbs;
 			} else {
 				// rejected
 				_newSumRhoGamma      = _oldSumRhoGamma;
@@ -612,10 +612,43 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 			}
 		}
 	}
-
-	// update gamma summaries
-	_gamma.updateSummaryGammaPosterior();
+	// update summaries of gamma posterior after update has finished
+	updateSummaryGammaPosterior();
 }
+
+std::vector<double> TStochasticPrior::updateGamma_forLogPhiJointUpdate(size_t m) {
+	std::vector<double> Delta(_gamma.numTimepoints(), 0.0);
+	if (_gamma.updateSpecificIndex(m)) {
+		// remember current delta
+		_oldSumRhoGamma = _newSumRhoGamma;
+		_initializeSumRhoGamma();
+		// remember current phi
+		_oldDeterministicPhi = _newDeterministicPhi;
+		_newDeterministicPhi = _gamma.phi();
+
+		// calculate Delta
+		for (size_t k = 0; k < _gamma.numTimepoints(); ++k) {
+			for (size_t l = 0; l <= k; ++l) { Delta[k] += _newSumRhoGamma[l] - _oldSumRhoGamma[l]; }
+		}
+	}
+	return Delta;
+}
+
+bool TStochasticPrior::evaluateGamma_forLogPhiJointUpdate(size_t m, double LLRatio, const TData &Data,
+                                                          const TModelBase &Model) {
+	const double logPriorRatio = _gamma.getLogPriorRatio(Data, Model); // Jeffrey prior
+	const double logH          = LLRatio + logPriorRatio;
+	if (_gamma.acceptOrReject(logH, m)) {                              // already swaps JP (if necessary)
+		// no need to swap transition probabilities: these didn't change!
+		return true;
+	}
+	// rejected
+	_newSumRhoGamma      = _oldSumRhoGamma;
+	_newDeterministicPhi = _oldDeterministicPhi;
+	return false;
+}
+
+void TStochasticPrior::updateSummaryGammaPosterior() { _gamma.updateSummaryGammaPosterior(); }
 
 double TStochasticPrior::calculateLogPriorRatio(size_t j, size_t k) {
 	if (k == _gamma.numTimepoints()) { return 0.0; } // last timepoint: no data on the right
@@ -645,6 +678,8 @@ void TStochasticPrior::setSimulatedGammaToZero() { _gamma.setSimulatedGammaToZer
 
 TypePhi TStochasticPrior::deterministicPhi(size_t k) const { return _newDeterministicPhi[k]; }
 std::vector<TypePhi> TStochasticPrior::calculateDeterministicPhi() const { return _gamma.phi(); }
+
+size_t TStochasticPrior::numEpochs() const { return _gamma.numEpochs(); }
 
 void TStochasticPrior::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPosterior(); };
 

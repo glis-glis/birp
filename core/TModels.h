@@ -142,18 +142,21 @@ protected:
 
 	std::unique_ptr<stattools::TUpdateUniqueIrregular<TypeLogPhi>> _jointUpdater;
 
-	// update functions
-	void _updateLogPhi(size_t j, size_t k, const TData &Data);
-	void _updateLogSigma();
-	void _updateLogPhi(const TData &Data);
+	// initialization
 	void _setPhiFromDeterministic();
-	void _shiftLogPhis(size_t j, size_t k, double diff);
-	void _jointUpdateLogPhi(size_t j, size_t k, const TData &Data);
-	void _jointUpdateLogPhi(const TData &Data);
+
+	// update single logPhi
+	void _updateLogPhi(size_t j, size_t k, const TData &Data);
+	void _updateLogPhi(const TData &Data);
+
+	// joint update logPhi and gamma
+	void _jointUpdateLogPhiGamma(const TData &Data);
+
+	// update logSigma
+	void _updateLogSigma();
 
 public:
-	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data,
-	            size_t NumLocations, size_t NumTimePoint,
+	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations, size_t NumTimePoint,
 	            const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
 	            stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
 	            stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
