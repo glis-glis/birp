@@ -432,6 +432,8 @@ TypeGamma TGamma::gamma(size_t m) const { return _gamma->value(m); }
 
 size_t TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 
+bool TGamma::gammaIsUpdated() const { return _gamma->isUpdated(); }
+
 [[nodiscard]] std::vector<TypePhi> TGamma::phi() const {
 	std::vector<TypePhi> phi(numTimepoints());
 	for (size_t k = 0; k < numTimepoints(); ++k) {
@@ -615,6 +617,8 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 	// update summaries of gamma posterior after update has finished
 	updateSummaryGammaPosterior();
 }
+
+bool TStochasticPrior::gammaIsUpdated() const { return _gamma.gammaIsUpdated(); }
 
 std::vector<double> TStochasticPrior::updateGamma_forLogPhiJointUpdate(size_t m) {
 	std::vector<double> Delta(_gamma.numTimepoints(), 0.0);

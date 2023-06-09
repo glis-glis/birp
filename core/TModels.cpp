@@ -213,8 +213,11 @@ void TModelBase::swapTryCur_perMethod(size_t i, const TData &Data) {
 }
 
 double TModelBase::curLL(size_t ij) const { return _curLL[ij]; }
+
 double TModelBase::sumCurLL() const { return coretools::containerSum(_curLL); }
+
 void TModelBase::setCurLL(size_t ij, double Value) { _curLL[ij] = Value; }
+
 void TModelBase::setCurLL(const std::vector<double> &Values) { _curLL = Values; }
 
 //------------------------------------------
@@ -251,6 +254,7 @@ void TDeterministic::initializeTempVariables(const TData &Data) {
 void TDeterministic::_fillPhi() { _newPhi = _gamma.phi(); }
 
 TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id) const { return _newPhi[timepoint_id]; }
+
 TypePhi TDeterministic::deterministicPhi(size_t timepoint_id) const { return _newPhi[timepoint_id]; }
 
 void TDeterministic::update(const TData &Data) {
@@ -288,6 +292,7 @@ void TDeterministic::simulate(TData &Data, const std::vector<double> &AvgNumObsP
 
 // write posterior summaries of gamma's
 void TDeterministic::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPosterior(); }
+
 void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) {
 	_gamma.writeSummaryGammaPosterior(Prefix);
 }
@@ -307,6 +312,7 @@ TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, s
 
 	_jointUpdater = std::make_unique<stattools::TUpdateUniqueIrregular<TypeLogPhi>>(
 	    NumLocations * NumTimePoints, true, stattools::ProposalKernel::normal, "jointLogPhi");
+	_jointUpdater->setProposalWidth("0.1");
 }
 
 void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
@@ -378,6 +384,7 @@ void TStochastic::_updateLogPhi(const TData &Data) {
 }
 
 void TStochastic::_jointUpdateLogPhiGamma(const TData &Data) {
+	if (!_prior.gammaIsUpdated()) { return; }
 	for (size_t m = 0; m < _prior.numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
 		// propose new gamma
 		const auto Delta = _prior.updateGamma_forLogPhiJointUpdate(m);
@@ -408,6 +415,47 @@ void TStochastic::_jointUpdateLogPhiGamma(const TData &Data) {
 	_prior.updateSummaryGammaPosterior();
 }
 
+void TStochastic::_shiftLogPhis(size_t j, size_t k, double diff) {
+	for (size_t l = k; l < _logPhi->dimensions()[1]; ++l) {
+		const size_t ix = _logPhi->getIndex({j, l});
+		_logPhi->set(ix, _logPhi->value(ix) + diff);
+	}
+}
+
+void TStochastic::_jointUpdateLogPhi(size_t j, size_t k, const TData &Data) {
+	// propose a new value
+	const size_t ix = _logPhi->getIndex({j, k});
+	auto diff       = _jointUpdater->propose(0.0, ix);
+
+	// calculate difference and add this difference to all logPhi on the right (including current phi)
+	_shiftLogPhis(j, k, diff);
+
+	// only transition probability from previous matters!
+	const auto logPriorRatio = _prior.calculateLogPriorRatio(j, k);
+
+	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
+	// and k)
+	const auto LLRatio  = calculateLLRatio_perLocation(j, Data);
+	const double logH   = LLRatio + logPriorRatio;
+	const size_t ixLast = _logPhi->getIndex({j, _logPhi->dimensions()[1]});
+	coretools::TRange range(ix, ixLast, 1);
+	if (_logPhi->acceptOrReject<false>(logH, range)) {
+		_prior.swapTryCur(j, k);
+		swapTryCur_perLocation(j, Data);
+	} else {
+		_jointUpdater->reject(ix);
+	}
+}
+
+void TStochastic::_jointUpdateLogPhi(const TData &Data) {
+	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
+		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
+			// loop over all timepoints (ignore first, since this is always 1)
+			_jointUpdateLogPhi(j, k, Data);
+		}
+	}
+}
+
 void TStochastic::_updateLogSigma() {
 	// propose a new value
 	if (!_logSigma->update()) { return; }
@@ -435,6 +483,7 @@ void TStochastic::update(const TData &Data) {
 	if (_logPhi->isUpdated()) {
 		_updateLogPhi(Data);
 		_jointUpdateLogPhiGamma(Data);
+		_jointUpdateLogPhi(Data);
 	}
 
 	// update logSigma
@@ -472,4 +521,5 @@ TypePhi TStochastic::deterministicPhi(size_t timepoint_id) const { return _prior
 
 // write posterior summaries of gamma's
 void TStochastic::resetSummaryGammaPosterior() { _prior.resetSummaryGammaPosterior(); }
+
 void TStochastic::writeSummaryGammaPosterior(const std::string &Prefix) { _prior.writeSummaryGammaPosterior(Prefix); }

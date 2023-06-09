@@ -88,7 +88,7 @@ public:
 	           const TUniqueContainer<std::size_t> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
 	           const TUniqueContainer<std::string> &CovariateEffortNames,
 	           const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
-	           stattools::TDAGBuilder &DAGBuilder, bool Stochastic);
+	           stattools::TDAGBuilder &DAGBuilder, bool Stochastic, bool Simulate);
 
 	void writeSummaryGammaPosterior(const std::string &Prefix);
 };

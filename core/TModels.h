@@ -152,7 +152,12 @@ protected:
 	// joint update logPhi and gamma
 	void _jointUpdateLogPhiGamma(const TData &Data);
 
-	// update logSigma
+    // joint update of logPhi
+    void _shiftLogPhis(size_t j, size_t k, double diff);
+    void _jointUpdateLogPhi(size_t j, size_t k, const TData &Data);
+    void _jointUpdateLogPhi(const TData &Data) ;
+
+    // update logSigma
 	void _updateLogSigma();
 
 public:

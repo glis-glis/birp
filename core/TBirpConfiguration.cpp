@@ -141,19 +141,21 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
                        const TUniqueContainer<std::string> &SpeciesNames,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
-                       stattools::TDAGBuilder &DAGBuilder, bool Stochastic)
+                       stattools::TDAGBuilder &DAGBuilder, bool Stochastic, bool Simulate)
     : _commonModel(Data, CovariateEffortNames, Filename, DAGBuilder) {
 
 	// do negative binomial?
 	if (parameters().parameterExists("negativeBinomial")) {
-		_negBinomAddOn   = std::make_unique<TBirpNegBinomAddOn>(Data, Filename, DAGBuilder);
+		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(Data, Filename, DAGBuilder);
 	}
 
 	// do stochastic?
-	if (Stochastic){
+	if (Stochastic) {
 		// set initial values of all non-stochastic parameters from deterministic MCMC
-		for (const auto &p : DAGBuilder.getAllParameters()) {
-			p->getDefinition().setInitVal(Filename + "_meanVar.txt");
+		if (!Simulate) {
+			for (const auto &p : DAGBuilder.getAllParameters()) {
+				p->getDefinition().setInitVal(Filename + "_meanVar.txt");
+			}
 		}
 		// create stochastic add-on
 		_stochasticAddOn = std::make_unique<TBirpStochasticAddOn>(Filename, DAGBuilder);
@@ -165,9 +167,7 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 	                                 SpeciesNames.size(), _commonModel, _negBinomAddOn, _stochasticAddOn, Filename);
 
 	// add updater for joint logPhi update
-	if (Stochastic){
-		DAGBuilder.addExtraUpdater(_birpPrior->getPtrToJointUpdater());
-	}
+	if (Stochastic) { DAGBuilder.addExtraUpdater(_birpPrior->getPtrToJointUpdater()); }
 
 	// create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
 	coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;

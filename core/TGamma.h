@@ -119,6 +119,7 @@ public:
 	TypeGamma gamma(size_t m) const;
 	size_t rho(size_t row, size_t col) const;
 	std::vector<TypePhi> phi() const;
+	bool gammaIsUpdated() const;
 };
 
 //------------------------------------------
@@ -195,6 +196,7 @@ public:
 	TypePhi deterministicPhi(size_t k) const;
 	std::vector<TypePhi> calculateDeterministicPhi() const;
 	size_t numEpochs() const;
+	bool gammaIsUpdated() const;
 };
 
 #endif // BIRP_TGAMMA_H

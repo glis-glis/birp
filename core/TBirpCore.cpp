@@ -291,7 +291,7 @@ void TBirpCore::_runMCMC(bool Stochastic) {
 	// create model
 	stattools::TDAGBuilder dagBuilder;
 	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
-	                 _outname, dagBuilder, Stochastic);
+	                 _outname, dagBuilder, Stochastic, false);
 
 	// run MCMC
 	stattools::TMCMC mcmc;
@@ -442,7 +442,7 @@ void TBirpCore::simulate() {
 	const bool stochastic = parameters().parameterExists("stochastic");
 	stattools::TDAGBuilder dagBuilder;
 	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
-	                 _outname, dagBuilder, stochastic);
+	                 _outname, dagBuilder, stochastic, true);
 
 	// run simulator
 	stattools::TSimulator simulator;
