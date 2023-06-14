@@ -494,6 +494,8 @@ void TStochastic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerT
 
 	// simulate gamma
 	_prior.setSimulatedGammaToZero();
+	// set logSigma to something small (only if it has not been specified by the user)
+	_logSigma->setInitial(-1.0);
 
 	_prior.initializeTempVariables(Data, *this, false);
 
