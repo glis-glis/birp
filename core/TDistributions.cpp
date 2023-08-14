@@ -90,11 +90,11 @@ void TNegBinDistribution::initialize(const TData &Data, const TUniqueContainer<s
 	_logA->initStorage({Data.size()}, {names});
 }
 
-double TNegBinDistribution::_getMuOrN(size_t j, size_t ij) const {
+double TNegBinDistribution::_getMuOrN(size_t location_id, size_t ij) const {
 	if (_isMu) {
 		return _muOrN->value(ij); // if mu: method-location specific
 	}
-	return _muOrN->value(j); // if N: location-specific
+	return _muOrN->value(location_id); // if N: location-specific
 }
 
 double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const TLocations &loc,
@@ -103,8 +103,8 @@ double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const 
 	double alpha_0 = 0.0;
 	double term2   = 0.0;
 	const double a = exp(_logA->value(ix_method));
-	for (size_t k = 0; k < loc.size(); k++) {                                           // loop over timepoints
-		double alpha_k = a * _getMuOrN(loc.location_id(), ix_linNumMethLoc) * sigma[k]; // todo: location_id()???
+	for (size_t k = 0; k < loc.size(); k++) { // loop over timepoints
+		double alpha_k = a * _getMuOrN(loc.location_id(), ix_linNumMethLoc) * sigma[k];
 		alpha_0 += alpha_k;
 		const double x_k = (double)loc[k].counts_per_species(index_in_counts);
 		term2 += coretools::diffGammaLog(alpha_k, x_k);
