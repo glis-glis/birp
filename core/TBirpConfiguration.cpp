@@ -96,20 +96,13 @@ TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::stri
 // TBirpNegBinomAddOn
 //------------------------------------------
 
-TBirpNegBinomAddOn::TBirpNegBinomAddOn(TData &Data, const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
-    : sigmaMu("sigmaMu",
-              std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeSigmaMu, 1>>(),
-              {Filename, "1"}),
-      mu("mu",
-         std::make_shared<stattools::prior::TDirichletVarInferred<stattools::TParameterBase, TypeMu, 1, TypeSigmaMu>>(
-             &sigmaMu),
-         {Filename, readAlphaDirichlet("alpha_mu", Data.numMethLoc(0),
-                                       1.0)}), // todo speciesID 0 because right now single species
+TBirpNegBinomAddOn::TBirpNegBinomAddOn(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
+    : mu("mu", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeMu, 1>>(), {Filename}),
       logA("logA", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogA, 1>>(),
            {Filename}) {
 
 	// add to DAG
-	DAGBuilder.addToDAG({&mu, &sigmaMu, &logA});
+	DAGBuilder.addToDAG({&mu, &logA});
 }
 
 //------------------------------------------
@@ -146,7 +139,7 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 
 	// do negative binomial?
 	if (parameters().parameterExists("negativeBinomial")) {
-		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(Data, Filename, DAGBuilder);
+		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(Filename, DAGBuilder);
 	}
 
 	// do stochastic?

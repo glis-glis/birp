@@ -4,8 +4,8 @@
 
 #include "TDistributions.h"
 #include "TModels.h"
-#include "stattools/ParametersObservations/TIndexSampler.h"
 #include "coretools/devtools.h"
+#include "stattools/ParametersObservations/TIndexSampler.h"
 
 using namespace coretools::instances;
 
@@ -91,39 +91,42 @@ double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const 
 }
 
 void TNegBinDistribution::_updateMu(const TData &Data, TModelBase &Model) {
-	stattools::TIndexSampler sampler(
-	    Data.numMethLoc(_speciesIDinUniqueContainer)); // draw random indices from range [0, _numMethLoc]
-	sampler.sampleIndices();
+	// sum_j mu_ij = 1
+	for (size_t i = 0; i < Data.size(); ++i) { // loop over methods
+		// if no data for this species: skip method
+		const auto &m = Data[i];
+		if (!m.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
+		// draw random indices from range [0, J_i] (numLocations for current method)
+		stattools::TIndexSampler sampler(m.size());
+		sampler.sampleIndices();
 
-	for (size_t c = 0; c < sampler.length(); ++c) {
-		// pick two indices i to update
-		auto [c1, c2] = sampler.getIndexPair(c);
+		for (size_t c = 0; c < sampler.length(); ++c) {
+			// pick two indices j to update
+			auto [j1, j2] = sampler.getIndexPair(c);
 
-		auto [m_ix_c1, l_ix_c1] = Data.linear_to_i_j(_speciesIDinUniqueContainer, c1);
-		auto [m_ix_c2, l_ix_c2] = Data.linear_to_i_j(_speciesIDinUniqueContainer, c2);
-		const auto &m1          = Data[m_ix_c1];
-		const auto &m2          = Data[m_ix_c2];
-		const auto &loc1        = m1[l_ix_c1];
-		const auto &loc2        = m2[l_ix_c2];
+			const size_t linear1 = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j1);
+			const size_t linear2 = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j2);
+			const auto &loc1     = m[j1];
+			const auto &loc2     = m[j2];
 
-		_mu->updatePairWiseSumOneVector(c1, c2);
+			_mu->updatePairWiseSumOneVector(linear1, linear2);
 
-		std::vector<double> sigma1 = Model.calculateSigma(loc1);
-		std::vector<double> sigma2 = Model.calculateSigma(loc2);
+			std::vector<double> sigma1 = Model.calculateSigma(loc1);
+			std::vector<double> sigma2 = Model.calculateSigma(loc2);
 
-		size_t index_in_counts1 = m1.getIndexInCounts(_speciesIDinUniqueContainer);
-		const auto newLL1       = calculateLL(sigma1, loc1, {}, index_in_counts1, c1, m_ix_c1);
-		size_t index_in_counts2 = m2.getIndexInCounts(_speciesIDinUniqueContainer);
-		const auto newLL2       = calculateLL(sigma2, loc2, {}, index_in_counts2, c2, m_ix_c2);
+			size_t index_in_counts = m.getIndexInCounts(_speciesIDinUniqueContainer);
+			const auto newLL1      = calculateLL(sigma1, loc1, {}, index_in_counts, linear1, i);
+			const auto newLL2      = calculateLL(sigma2, loc2, {}, index_in_counts, linear2, i);
 
-		const double LLRatio = newLL1 + newLL2 - Model.curLL(c1) - Model.curLL(c2); // in log
-		const double logH    = LLRatio + _mu->getLogPriorRatio(c1) + _mu->getLogPriorRatio(c2);
+			const double LLRatio = newLL1 + newLL2 - Model.curLL(linear1) - Model.curLL(linear2); // in log
+			const double logH    = LLRatio + _mu->getLogPriorRatio(linear1) + _mu->getLogPriorRatio(linear2);
 
-		coretools::TRange range(c1, c2);
-		if (_mu->acceptOrReject(logH, range, c1)) {
-			// accepted -> update LL
-			Model.setCurLL(c1, newLL1);
-			Model.setCurLL(c2, newLL2);
+			coretools::TRange range(linear1, linear2);
+			if (_mu->acceptOrReject(logH, range, linear1)) {
+				// accepted -> update LL
+				Model.setCurLL(linear1, newLL1);
+				Model.setCurLL(linear2, newLL2);
+			}
 		}
 	}
 }
@@ -168,7 +171,19 @@ void TNegBinDistribution::_estimateInitialMu(const TData &Data) {
 
 	// initialize to very small value: not all i-j-combinations exists
 	for (size_t c = 0; c < Data.numMethLoc(_speciesIDinUniqueContainer); ++c) { _mu->setInitial(c, nus[c]); }
-	_mu->normalizeToSum1AfterUpdate();
+	// now normalize mu
+	for (size_t i = 0; i < Data.size(); ++i) { // loop over methods
+		double sum = 0.0;
+		for (size_t j = 0; j < Data[i].size(); ++j) { // loop over locations and sum up values of mu
+			const double mu = _mu->value(Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j));
+			sum += mu;
+		}
+		for (size_t j = 0; j < Data[i].size(); ++j) { // loop over locations and divide by sum
+			const size_t ix = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
+			const double mu = _mu->value(ix);
+			_mu->setInitial(ix, mu / sum);
+		}
+	}
 }
 
 void TNegBinDistribution::estimateInitialParameters(const TData &Data) {
