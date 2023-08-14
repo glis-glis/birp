@@ -44,34 +44,57 @@ void TPoissonDistribution::simulate(TData &Data, const TModelBase &Model,
 // TNegBinDistribution
 //--------------------------------
 
-TNegBinDistribution::TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMu, 1> *Mu,
+TNegBinDistribution::TNegBinDistribution(size_t SpeciesIDinUniqueContainer,
+                                         stattools::TParameterTyped<TypeMuOrN, 1> *MuOrN,
                                          stattools::TParameterTyped<TypeLogA, 1> *LogA)
     : TDistributionBase(SpeciesIDinUniqueContainer) {
-	_mu   = Mu;
-	_logA = LogA;
+	_muOrN = MuOrN;
+	_logA  = LogA;
+
+	_isMu = _muOrN->name() == "mu";
 
 	// set max of logA to something reasonable: otherwise we have numeric issues with gammaLog function
 	TypeLogA::setMax(10.0);
 }
 
-void TNegBinDistribution::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations) {
-	// initialize mu
-	auto muNames     = std::make_shared<coretools::TNamesStrings>();
-	auto methodNames = std::make_shared<coretools::TNamesStrings>();
+void TNegBinDistribution::_initializeMu(const TData &Data, const TUniqueContainer<std::string> &Locations) {
+	auto names = std::make_shared<coretools::TNamesStrings>();
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &m = Data[i];
-		methodNames->addName({m.name()});
 		if (m.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
 			for (size_t j = 0; j < m.size(); ++j) {
 				const std::string name = m.name() + "_" + Locations[m[j].location_id()];
-				muNames->addName({name});
+				names->addName({name});
 			}
 		}
 	}
-	_mu->initStorage({Data.numMethLoc(_speciesIDinUniqueContainer)}, {muNames});
+	_muOrN->initStorage({Data.numMethLoc(_speciesIDinUniqueContainer)}, {names});
+}
+
+void TNegBinDistribution::_initializeN(const TUniqueContainer<std::string> &Locations) {
+	auto names = std::make_shared<coretools::TNamesStrings>(Locations.vec());
+	_muOrN->initStorage({Locations.size()}, {names});
+}
+
+void TNegBinDistribution::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations) {
+	// initialize mu
+	if (_isMu) {
+		_initializeMu(Data, Locations);
+	} else { // N
+		_initializeN(Locations);
+	}
 
 	// initialize a: number of methods
-	_logA->initStorage({Data.size()}, {methodNames});
+	auto names = std::make_shared<coretools::TNamesStrings>();
+	for (size_t i = 0; i < Data.size(); ++i) { names->addName({Data[i].name()}); }
+	_logA->initStorage({Data.size()}, {names});
+}
+
+double TNegBinDistribution::_getMuOrN(size_t j, size_t ij) const {
+	if (_isMu) {
+		return _muOrN->value(ij); // if mu: method-location specific
+	}
+	return _muOrN->value(j); // if N: location-specific
 }
 
 double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const TLocations &loc,
@@ -80,8 +103,8 @@ double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const 
 	double alpha_0 = 0.0;
 	double term2   = 0.0;
 	const double a = exp(_logA->value(ix_method));
-	for (size_t k = 0; k < loc.size(); k++) { // loop over timepoints
-		double alpha_k = a * _mu->value(ix_linNumMethLoc) * sigma[k];
+	for (size_t k = 0; k < loc.size(); k++) {                                           // loop over timepoints
+		double alpha_k = a * _getMuOrN(loc.location_id(), ix_linNumMethLoc) * sigma[k]; // todo: location_id()???
 		alpha_0 += alpha_k;
 		const double x_k = (double)loc[k].counts_per_species(index_in_counts);
 		term2 += coretools::diffGammaLog(alpha_k, x_k);
@@ -109,7 +132,7 @@ void TNegBinDistribution::_updateMu(const TData &Data, TModelBase &Model) {
 			const auto &loc1     = m[j1];
 			const auto &loc2     = m[j2];
 
-			_mu->updatePairWiseSumOneVector(linear1, linear2);
+			_muOrN->updatePairWiseSumOneVector(linear1, linear2);
 
 			std::vector<double> sigma1 = Model.calculateSigma(loc1);
 			std::vector<double> sigma2 = Model.calculateSigma(loc2);
@@ -119,14 +142,60 @@ void TNegBinDistribution::_updateMu(const TData &Data, TModelBase &Model) {
 			const auto newLL2      = calculateLL(sigma2, loc2, {}, index_in_counts, linear2, i);
 
 			const double LLRatio = newLL1 + newLL2 - Model.curLL(linear1) - Model.curLL(linear2); // in log
-			const double logH    = LLRatio + _mu->getLogPriorRatio(linear1) + _mu->getLogPriorRatio(linear2);
+			const double logH    = LLRatio + _muOrN->getLogPriorRatio(linear1) + _muOrN->getLogPriorRatio(linear2);
 
 			coretools::TRange range(linear1, linear2);
-			if (_mu->acceptOrReject(logH, range, linear1)) {
+			if (_muOrN->acceptOrReject(logH, range, linear1)) {
 				// accepted -> update LL
 				Model.setCurLL(linear1, newLL1);
 				Model.setCurLL(linear2, newLL2);
 			}
+		}
+	}
+}
+
+std::pair<double, std::vector<double>> TNegBinDistribution::_calcHastingsRatioN(const std::vector<size_t> &ij,
+                                                                                const TData &Data, TModelBase &Model) {
+	std::vector<double> newLL(ij.size());
+	double LLRatio = 0.0;
+	for (size_t c = 0; c < ij.size(); ++c) {
+		// loop over methods-locations combinations relevant for second location
+		const auto [i, j]         = Data.linear_to_i_j(_speciesIDinUniqueContainer, ij[c]);
+		size_t index_in_counts    = Data[i].getIndexInCounts(_speciesIDinUniqueContainer);
+		const auto &loc           = Data[i][j];
+		std::vector<double> sigma = Model.calculateSigma(loc);
+		newLL[c]                  = calculateLL(sigma, loc, {}, index_in_counts, ij[c], i);
+		LLRatio += newLL[c] - Model.curLL(ij[c]);
+	}
+	return {LLRatio, newLL};
+}
+
+void TNegBinDistribution::_updateN(const TData &Data, TModelBase &Model) {
+	// sum_j N_j = 1
+	// draw random indices from range [0, J-1] (numLocations)
+	stattools::TIndexSampler sampler(_muOrN->totalSize());
+	sampler.sampleIndices();
+
+	for (size_t c = 0; c < sampler.length(); ++c) {
+		// pick two indices j to update: correspond to indices in unique container
+		auto [location_id_1, location_id_2] = sampler.getIndexPair(c);
+		_muOrN->updatePairWiseSumOneVector(location_id_1, location_id_2);
+
+		// for those location-ids: which ones are the relevant linear indices (ij)?
+		// -> all the methods where this location occurs
+		const auto &ij_1 = Data.locationId_to_ij(_speciesIDinUniqueContainer, location_id_1);
+		const auto &ij_2 = Data.locationId_to_ij(_speciesIDinUniqueContainer, location_id_2);
+
+		const auto [LLRatio_1, newLL_1] = _calcHastingsRatioN(ij_1, Data, Model);
+		const auto [LLRatio_2, newLL_2] = _calcHastingsRatioN(ij_2, Data, Model);
+
+		const double logH =
+		    LLRatio_1 + LLRatio_2 + _muOrN->getLogPriorRatio(location_id_1) + _muOrN->getLogPriorRatio(location_id_2);
+		coretools::TRange range(location_id_1, location_id_2);
+		if (_muOrN->acceptOrReject(logH, range, location_id_1)) {
+			// accepted -> update LL
+			for (size_t a = 0; a < ij_1.size(); ++a) { Model.setCurLL(ij_1[a], newLL_1[a]); }
+			for (size_t a = 0; a < ij_2.size(); ++a) { Model.setCurLL(ij_2[a], newLL_2[a]); }
 		}
 	}
 }
@@ -154,12 +223,17 @@ void TNegBinDistribution::_updateLogA(const TData &Data, TModelBase &Model) {
 }
 
 void TNegBinDistribution::update(const TData &Data, TModelBase &Model) {
-	if (_mu->isUpdated()) { _updateMu(Data, Model); }
+	if (_muOrN->isUpdated()) {
+		if (_isMu) {
+			_updateMu(Data, Model);
+		} else {
+			_updateN(Data, Model);
+		}
+	}
 	if (_logA->isUpdated()) { _updateLogA(Data, Model); }
 }
 
-void TNegBinDistribution::_estimateInitialMu(const TData &Data) {
-	// initialize mu: relative nu's
+std::vector<double> TNegBinDistribution::_getNuPerIJ(const TData &Data) {
 	std::vector<double> nus(Data.numMethLoc(_speciesIDinUniqueContainer));
 	for (size_t c = 0; c < Data.numMethLoc(_speciesIDinUniqueContainer); ++c) {
 		auto [m_id, l_id] = Data.linear_to_i_j(_speciesIDinUniqueContainer, c);
@@ -167,28 +241,53 @@ void TNegBinDistribution::_estimateInitialMu(const TData &Data) {
 		                             Data[m_id][l_id].nu(Data[m_id].getIndexInCounts(
                               _speciesIDinUniqueContainer))); // do not allow 0: problem for Dirichlet
 	}
-	coretools::normalize(nus);
+	return nus;
+}
 
-	// initialize to very small value: not all i-j-combinations exists
-	for (size_t c = 0; c < Data.numMethLoc(_speciesIDinUniqueContainer); ++c) { _mu->setInitial(c, nus[c]); }
+void TNegBinDistribution::_estimateInitialMu(const TData &Data) {
+	// initialize mu: relative nu's
+	auto nu = _getNuPerIJ(Data);
+	for (size_t c = 0; c < Data.numMethLoc(_speciesIDinUniqueContainer); ++c) { _muOrN->setInitial(c, nu[c]); }
+
 	// now normalize mu
 	for (size_t i = 0; i < Data.size(); ++i) { // loop over methods
 		double sum = 0.0;
 		for (size_t j = 0; j < Data[i].size(); ++j) { // loop over locations and sum up values of mu
-			const double mu = _mu->value(Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j));
+			const double mu = _muOrN->value(Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j));
 			sum += mu;
 		}
 		for (size_t j = 0; j < Data[i].size(); ++j) { // loop over locations and divide by sum
 			const size_t ix = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
-			const double mu = _mu->value(ix);
-			_mu->setInitial(ix, mu / sum);
+			const double mu = _muOrN->value(ix);
+			_muOrN->setInitial(ix, mu / sum);
 		}
+	}
+}
+
+void TNegBinDistribution::_estimateInitialN(const TData &Data) {
+	// initialize N: relative nu's
+	auto nu = _getNuPerIJ(Data);
+
+	std::vector<double> nu_per_location(_muOrN->totalSize(), 0.0);
+	for (size_t location_id = 0; location_id < _muOrN->totalSize(); ++location_id) {
+		const auto &ij = Data.locationId_to_ij(_speciesIDinUniqueContainer, location_id);
+		for (size_t c = 0; c < ij[c]; ++c) { nu_per_location[location_id] += nu[ij[c]]; }
+	}
+
+	// normalize
+	coretools::normalize(nu);
+	for (size_t location_id = 0; location_id < _muOrN->totalSize(); ++location_id) {
+		_muOrN->setInitial(location_id, nu_per_location[location_id]);
 	}
 }
 
 void TNegBinDistribution::estimateInitialParameters(const TData &Data) {
 	// initialize mu
-	_estimateInitialMu(Data);
+	if (_isMu) {
+		_estimateInitialMu(Data);
+	} else {
+		_estimateInitialN(Data);
+	}
 	for (size_t i = 0; i < Data.size(); ++i) { _logA->setInitial(i, 0.0); } // log(1) = 0
 }
 
@@ -212,6 +311,7 @@ void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model,
 		// simulate mus based on detectionProb and a: will return a vector with length = numLocations
 		auto mus = Data[i].simulateNB(AvgNumObsPerTimepoint[i], Model, A[i], SimulateCovariates);
 		coretools::normalize(mus);
-		for (size_t c = 0; c < Data[i].size(); ++c) { _mu->set(c, mus[c]); }
+		for (size_t c = 0; c < Data[i].size(); ++c) { _muOrN->set(c, mus[c]); }
 	}
+	// todo: how to simulate N_j?
 }

@@ -49,10 +49,10 @@ public:
 class TBirpNegBinomAddOn {
 public:
 	// only relevant for negative binomial model
-	stattools::TParameterTyped<TypeMu, 1> mu;
+	stattools::TParameterTyped<TypeMuOrN, 1> muOrN;
 	stattools::TParameterTyped<TypeLogA, 1> logA;
 
-	TBirpNegBinomAddOn(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);
+	TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);
 };
 
 //------------------------------------------

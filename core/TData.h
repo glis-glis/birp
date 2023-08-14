@@ -307,6 +307,7 @@ private:
 	// indices (per species)
 	std::vector<std::vector<std::pair<size_t, size_t>>> _linear_to_i_j;
 	std::vector<std::vector<std::vector<size_t>>> _i_j_to_linear;
+	std::vector<std::vector<std::vector<size_t>>> _ij_per_locationId;
 
 	// fill indices
 	void _fillNumMethLocs();
@@ -318,7 +319,7 @@ public:
 
 	void addMethod(const TMethods &Method);
 
-	void fillMethLocIndices(size_t NumSpecies);
+	void fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::string> &Locations);
 
 	// iterators
 	size_t size() const;
@@ -334,6 +335,7 @@ public:
 	size_t numMethLoc(size_t SpeciesIDInUniqueContainer) const;
 	size_t i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t j) const;
 	const std::pair<size_t, size_t> &linear_to_i_j(size_t SpeciesIDInUniqueContainer, size_t linear) const;
+	const std::vector<size_t> &locationId_to_ij(size_t SpeciesIDInUniqueContainer, size_t location_id) const;
 };
 
 #endif // BIRP_TDATA_H

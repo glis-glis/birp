@@ -308,8 +308,7 @@ TMethods::TMethods(const std::string_view &methodName, size_t index,
                    const std::vector<std::size_t> &speciesIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer)
-    : _methodName(methodName), _i(index),
-      _covariateEffortIDsinUniqueContainer(covariateEffortIDsinUniqueContainer),
+    : _methodName(methodName), _i(index), _covariateEffortIDsinUniqueContainer(covariateEffortIDsinUniqueContainer),
       _covariateDetectionIDsinUniqueContainer(covariateDetectionIDsinUniqueContainer),
       _speciesIDsinUniqueContainer(speciesIDsinUniqueContainer) { // infer or simulate from file
 }
@@ -318,8 +317,7 @@ TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t Ti
                    const std::vector<size_t> &speciesIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer)
-    : _methodName(methodName), _i(index),
-      _covariateEffortIDsinUniqueContainer(covariateEffortIDsinUniqueContainer),
+    : _methodName(methodName), _i(index), _covariateEffortIDsinUniqueContainer(covariateEffortIDsinUniqueContainer),
       _covariateDetectionIDsinUniqueContainer(covariateDetectionIDsinUniqueContainer),
       _speciesIDsinUniqueContainer(speciesIDsinUniqueContainer) { // simulate
 
@@ -839,7 +837,7 @@ std::pair<size_t, size_t> TData::_getMethAndLocIndex(size_t ij_index, size_t spe
 	DEVERROR("Did not find method and location index for species - this should not happen.");
 }
 
-void TData::fillMethLocIndices(size_t NumSpecies) {
+void TData::fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::string> &Locations) {
 	_numSpecies = NumSpecies;
 
 	_fillNumMethLocs();
@@ -866,6 +864,23 @@ void TData::fillMethLocIndices(size_t NumSpecies) {
 			}
 		}
 	}
+
+	// fill _ij_per_locationId: numSpecies x locations (in unique-container) x linear methLoc-indices for that location
+	_ij_per_locationId.resize(_numSpecies);
+	for (size_t species = 0; species < _numSpecies; ++species) {
+		_ij_per_locationId[species].resize(Locations.size());
+		for (size_t location_id = 0; location_id < Locations.size(); ++location_id) {
+			// loop over all possible method-location combinations of current species
+			for (size_t ij = 0; ij < numMethLoc(species); ++ij) {
+				const auto [i, j] = linear_to_i_j(species, ij);
+				// j=0 in method 1 is not necessarily the first location in the unique container -> check for
+				// location_id
+				if (_methods[i][j].location_id() == location_id) {
+					_ij_per_locationId[species][location_id].push_back(ij);
+				}
+			}
+		}
+	}
 }
 
 size_t TData::size() const { return _methods.size(); }
@@ -889,4 +904,8 @@ size_t TData::i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t 
 }
 const std::pair<size_t, size_t> &TData::linear_to_i_j(size_t SpeciesIDInUniqueContainer, size_t linear) const {
 	return _linear_to_i_j[SpeciesIDInUniqueContainer][linear];
+}
+
+const std::vector<size_t> &TData::locationId_to_ij(size_t SpeciesIDInUniqueContainer, size_t location_id) const {
+	return _ij_per_locationId[SpeciesIDInUniqueContainer][location_id];
 }

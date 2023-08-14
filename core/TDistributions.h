@@ -64,22 +64,32 @@ public:
 
 class TNegBinDistribution : public TDistributionBase {
 protected:
-	// parameters: mu and a
-	stattools::TParameterTyped<TypeMu, 1> *_mu     = nullptr;
-	stattools::TParameterTyped<TypeLogA, 1> *_logA = nullptr;
+	// parameters: mu (or N) and a
+	stattools::TParameterTyped<TypeMuOrN, 1> *_muOrN = nullptr;
+	stattools::TParameterTyped<TypeLogA, 1> *_logA   = nullptr;
+	bool _isMu;
+
+	double _getMuOrN(size_t j, size_t ij) const;
 
 	// update functions
 	void _updateMu(const TData &Data, TModelBase &Model);
 	void _updateLogA(const TData &Data, TModelBase &Model);
+	std::pair<double, std::vector<double>> _calcHastingsRatioN(const std::vector<size_t> &ij, const TData &Data,
+	                                                           TModelBase &Model);
+	void _updateN(const TData &Data, TModelBase &Model);
 
 	// initialization
+	void _initializeN(const TUniqueContainer<std::string> &Locations);
+	void _initializeMu(const TData &Data, const TUniqueContainer<std::string> &Locations);
 	void _estimateInitialMu(const TData &Data);
+	void _estimateInitialN(const TData &Data);
+	std::vector<double> _getNuPerIJ(const TData &Data);
 
 	// simulate
 	std::vector<double> _setAForSimulation(const TData &Data);
 
 public:
-	TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMu, 1> *Mu,
+	TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMuOrN, 1> *MuOrN,
 	                    stattools::TParameterTyped<TypeLogA, 1> *LogA);
 
 	~TNegBinDistribution() override = default;

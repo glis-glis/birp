@@ -96,13 +96,22 @@ TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::stri
 // TBirpNegBinomAddOn
 //------------------------------------------
 
-TBirpNegBinomAddOn::TBirpNegBinomAddOn(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
-    : mu("mu", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeMu, 1>>(), {Filename}),
+std::string getNameMuOrN(bool HasDetectionCovariates) {
+	if (HasDetectionCovariates) { // if detection probabilities are modelled through covariates: mu reduces to N_T0
+		return "N";
+	}
+	return "mu";
+}
+
+TBirpNegBinomAddOn::TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::string &Filename,
+                                       stattools::TDAGBuilder &DAGBuilder)
+    : muOrN(getNameMuOrN(HasDetectionCovariates),
+            std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeMuOrN, 1>>(), {Filename}),
       logA("logA", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogA, 1>>(),
            {Filename}) {
 
 	// add to DAG
-	DAGBuilder.addToDAG({&mu, &logA});
+	DAGBuilder.addToDAG({&muOrN, &logA});
 }
 
 //------------------------------------------
@@ -138,8 +147,9 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
     : _commonModel(Data, CovariateEffortNames, Filename, DAGBuilder) {
 
 	// do negative binomial?
+	const bool hasDetectionCovariates = !CovariateDetectionNames.empty();
 	if (parameters().parameterExists("negativeBinomial")) {
-		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(Filename, DAGBuilder);
+		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(hasDetectionCovariates, Filename, DAGBuilder);
 	}
 
 	// do stochastic?

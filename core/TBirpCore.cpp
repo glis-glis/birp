@@ -98,7 +98,7 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	}
 	for (const auto &name : filenames) { _readFile(name, hasCounts); }
 	_sortTimepoints();
-	_data.fillMethLocIndices(_speciesNames.size());
+	_data.fillMethLocIndices(_speciesNames.size(), _locations);
 
 	// write filtered counts
 	_writeFile("filtered");
@@ -436,7 +436,7 @@ void TBirpCore::simulate() {
 		}
 		for (auto &m : _data) { m.fillIDVectors(_speciesNames.size()); }
 	}
-	_data.fillMethLocIndices(_speciesNames.size());
+	_data.fillMethLocIndices(_speciesNames.size(), _locations);
 
 	// create model
 	const bool stochastic = parameters().parameterExists("stochastic");

@@ -15,7 +15,7 @@ TModelBase::TModelBase(size_t SpeciesIDinUniqueContainer, const TData &Data,
 
 	// create distribution
 	if (NegBinomAddOn) { // negative binomial
-		_distr = std::make_unique<TNegBinDistribution>(_speciesIDinUniqueContainer, &NegBinomAddOn->mu,
+		_distr = std::make_unique<TNegBinDistribution>(_speciesIDinUniqueContainer, &NegBinomAddOn->muOrN,
 		                                               &NegBinomAddOn->logA);
 	} else { // Poisson
 		_distr = std::make_unique<TPoissonDistribution>(_speciesIDinUniqueContainer);
@@ -230,8 +230,6 @@ double TModelBase::curLLPerMethod(size_t i, const TData &Data) {
 double TModelBase::sumCurLL() const { return coretools::containerSum(_curLL); }
 
 void TModelBase::setCurLL(size_t ij, double Value) { _curLL[ij] = Value; }
-
-void TModelBase::setCurLL(const std::vector<double> &Values) { _curLL = Values; }
 
 void TModelBase::setCurLLPerMethod(const std::vector<double> &Values, size_t i, const TData &Data) {
 	// used when a method has changed
