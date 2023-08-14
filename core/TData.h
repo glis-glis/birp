@@ -178,7 +178,7 @@ public:
 class TMethods {
 private:
 	std::string _methodName;
-	size_t _method_id;
+	size_t _i;
 
 	std::vector<TLocations> _locations;
 
@@ -256,7 +256,6 @@ public:
 	// getters
 	size_t size() const;
 	const std::string &name() const;
-	size_t method_id() const;
 	size_t numCovariatesEffort() const;
 	size_t numCovariatesDetection() const;
 	bool inferAlpha() const;

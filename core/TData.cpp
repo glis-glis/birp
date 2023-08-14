@@ -308,7 +308,7 @@ TMethods::TMethods(const std::string_view &methodName, size_t index,
                    const std::vector<std::size_t> &speciesIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer)
-    : _methodName(methodName), _method_id(index),
+    : _methodName(methodName), _i(index),
       _covariateEffortIDsinUniqueContainer(covariateEffortIDsinUniqueContainer),
       _covariateDetectionIDsinUniqueContainer(covariateDetectionIDsinUniqueContainer),
       _speciesIDsinUniqueContainer(speciesIDsinUniqueContainer) { // infer or simulate from file
@@ -318,7 +318,7 @@ TMethods::TMethods(const std::string &methodName, size_t locationSize, size_t Ti
                    const std::vector<size_t> &speciesIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer)
-    : _methodName(methodName), _method_id(index),
+    : _methodName(methodName), _i(index),
       _covariateEffortIDsinUniqueContainer(covariateEffortIDsinUniqueContainer),
       _covariateDetectionIDsinUniqueContainer(covariateDetectionIDsinUniqueContainer),
       _speciesIDsinUniqueContainer(speciesIDsinUniqueContainer) { // simulate
@@ -474,7 +474,6 @@ void TMethods::initializeEffort() {
 size_t TMethods::size() const { return _locations.size(); }
 const std::string &TMethods::name() const { return _methodName; }
 
-size_t TMethods::method_id() const { return _method_id; }
 size_t TMethods::numCovariatesEffort() const { return _covariateEffortIDsinUniqueContainer.size(); }
 size_t TMethods::numCovariatesDetection() const { return _covariateDetectionIDsinUniqueContainer.size(); }
 bool TMethods::inferAlpha() const { return _locations.cbegin()->cbegin()->inferAlpha(); }
@@ -744,13 +743,13 @@ void TMethods::_updateAlpha(size_t c1, size_t c2, const TData &Data,
 	// calculate Hastings ratio
 	double logRatio = _alpha->getLogPriorRatio(c1) + _alpha->getLogPriorDensity(c2);
 	for (const auto &Model : Models) { // loop over species
-		logRatio += Model->calculateLLRatio_perMethod(method_id(), Data);
+		logRatio += Model->calculateLLRatio_perMethod(_i, Data);
 	}
 	// decide if accept or reject
 	coretools::TRange range(c1, c2);
 	if (_alpha->acceptOrReject(logRatio, range, c1)) {
 		// accepted: set likelihood in all epoch models
-		for (const auto &Model : Models) { Model->swapTryCur_perMethod(method_id(), Data); }
+		for (const auto &Model : Models) { Model->swapTryCur_perMethod(_i, Data); }
 	} else {
 		// rejected: re-set effort to old value before update
 		for (auto &location : _locations) { location.resetAlphaEffort(); }
@@ -782,12 +781,12 @@ void TMethods::_updateBeta(size_t d, const TData &Data, const std::vector<std::u
 	// calculate Hastings ratio
 	double logRatio = Beta->getLogPriorRatio(d);
 	for (const auto &Model : Models) { // loop over species
-		logRatio += Model->calculateLLRatio_perMethod(method_id(), Data);
+		logRatio += Model->calculateLLRatio_perMethod(_i, Data);
 	}
 	// decide if accept or reject
 	if (Beta->acceptOrReject(logRatio, d)) {
 		// accepted: set likelihood in all epoch models
-		for (const auto &Model : Models) { Model->swapTryCur_perMethod(method_id(), Data); }
+		for (const auto &Model : Models) { Model->swapTryCur_perMethod(_i, Data); }
 	} else {
 		// rejected: re-set effort to old value before update
 		for (auto &location : _locations) { location.resetBetaEffort(); }

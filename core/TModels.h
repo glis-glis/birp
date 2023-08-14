@@ -78,9 +78,11 @@ public:
 	void swapTryCur_perMethod(size_t i, const TData &Data);
 
 	double curLL(size_t ij) const;
+	double curLLPerMethod(size_t i, const TData &Data);
 	double sumCurLL() const;
 	void setCurLL(size_t ij, double Value);
 	void setCurLL(const std::vector<double> &Values);
+	void setCurLLPerMethod(const std::vector<double> &Values, size_t i, const TData &Data);
 
 	// write posterior summaries of gamma's
 	virtual void resetSummaryGammaPosterior()                          = 0;

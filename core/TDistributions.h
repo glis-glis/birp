@@ -32,7 +32,7 @@ public:
 	virtual void estimateInitialParameters(const TData &Data)                                  = 0;
 
 	virtual double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
-	                           size_t index_in_counts, size_t ix_linNumMethLoc) const = 0;
+	                           size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const = 0;
 
 	virtual void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &AvgNumObsPerTimepoint,
 	                      bool SimulateCovariates) = 0;
@@ -51,7 +51,7 @@ public:
 	void estimateInitialParameters(const TData &) override{};
 
 	double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
-	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;
+	                   size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const override;
 
 	// simulation
 	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &AvgNumObsPerTimepoint,
@@ -76,7 +76,7 @@ protected:
 	void _estimateInitialMu(const TData &Data);
 
 	// simulate
-	double _setAForSimulation(const TData &Data);
+	std::vector<double> _setAForSimulation(const TData &Data);
 
 public:
 	TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMu, 1> *Mu,
@@ -89,7 +89,7 @@ public:
 	void estimateInitialParameters(const TData &Data) override;
 
 	double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
-	                   size_t index_in_counts, size_t ix_linNumMethLoc) const override;
+	                   size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const override;
 
 	// simulate
 	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &AvgNumObsPerTimepoint,

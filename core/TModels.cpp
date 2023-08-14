@@ -117,7 +117,8 @@ void TModelBase::_initializeLL(const TData &Data) {
 				// now normalize by row sum!
 				coretools::normalize(p);
 				// add to Likelihood
-				_curLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc);
+				_curLL[ix_linNumMethLoc] =
+				    _distr->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc, i);
 			}
 		}
 	}
@@ -137,7 +138,8 @@ double TModelBase::calculateLLRatio(const TData &Data) {
 				// now normalize by row sum!
 				coretools::normalize(p);
 				// add to Likelihood
-				_tryLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc);
+				_tryLL[ix_linNumMethLoc] =
+				    _distr->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc, i);
 			}
 		}
 	}
@@ -157,7 +159,7 @@ double TModelBase::calculateLLRatio_perLocation(size_t j, const TData &Data) {
 			// now normalize by row sum!
 			coretools::normalize(p);
 			// add to Likelihood
-			_tryLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[j], p, index_in_counts, ix_linNumMethLoc);
+			_tryLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[j], p, index_in_counts, ix_linNumMethLoc, i);
 		}
 	}
 	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
@@ -179,9 +181,8 @@ double TModelBase::calculateLLRatio_perMethod(size_t i, const TData &Data) {
 		// now normalize by row sum!
 		coretools::normalize(p);
 		// calculate Likelihood
-		size_t ix_linNumMethLoc  = Data.i_j_to_linear(_speciesIDinUniqueContainer, method.method_id(),
-		                                              j); // method_id should always be the same as i!
-		_tryLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[j], p, index_in_counts, ix_linNumMethLoc);
+		size_t ix_linNumMethLoc  = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
+		_tryLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[j], p, index_in_counts, ix_linNumMethLoc, i);
 	}
 	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
 }
@@ -207,18 +208,40 @@ void TModelBase::swapTryCur_perMethod(size_t i, const TData &Data) {
 	const auto &method = Data[i];
 	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
 	for (size_t j = 0; j < method.size(); ++j) { // loop over locations
-		size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, method.method_id(), j);
+		size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
 		std::swap(_tryLL[ix_linNumMethLoc], _curLL[ix_linNumMethLoc]);
 	}
 }
 
 double TModelBase::curLL(size_t ij) const { return _curLL[ij]; }
 
+double TModelBase::curLLPerMethod(size_t i, const TData &Data) {
+	// used when a method has changed
+	const auto &method = Data[i];
+	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return 0.0; }
+	double LL = 0.0;
+	for (size_t j = 0; j < method.size(); ++j) { // loop over locations
+		size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
+		LL += _curLL[ix_linNumMethLoc];
+	}
+	return LL;
+}
+
 double TModelBase::sumCurLL() const { return coretools::containerSum(_curLL); }
 
 void TModelBase::setCurLL(size_t ij, double Value) { _curLL[ij] = Value; }
 
 void TModelBase::setCurLL(const std::vector<double> &Values) { _curLL = Values; }
+
+void TModelBase::setCurLLPerMethod(const std::vector<double> &Values, size_t i, const TData &Data) {
+	// used when a method has changed
+	const auto &method = Data[i];
+	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
+	for (size_t j = 0; j < method.size(); ++j) { // loop over locations
+		size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
+		_curLL[ix_linNumMethLoc]               = Values[j];
+	}
+}
 
 //------------------------------------------
 // TDeterministic
@@ -502,7 +525,7 @@ void TStochastic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerT
 	// simulate phi from transition probabilities
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		size_t ix = _logPhi->getIndex({j, 0});
-		_logPhi->setInitial(ix, 0.0);                       // set first phi = 1 -> logPhi = 0
+		_logPhi->setInitial(ix, 0.0); // set first phi = 1 -> logPhi = 0
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
 			ix = _logPhi->getIndex({j, k});
 			_logPhi->setInitial(ix, _prior.sampleFromTransitionProbability(j, k));
