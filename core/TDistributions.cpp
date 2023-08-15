@@ -271,11 +271,11 @@ void TNegBinDistribution::_estimateInitialN(const TData &Data) {
 	std::vector<double> nu_per_location(_muOrN->totalSize(), 0.0);
 	for (size_t location_id = 0; location_id < _muOrN->totalSize(); ++location_id) {
 		const auto &ij = Data.locationId_to_ij(_speciesIDinUniqueContainer, location_id);
-		for (size_t c = 0; c < ij[c]; ++c) { nu_per_location[location_id] += nu[ij[c]]; }
+		for (auto c : ij) { nu_per_location[location_id] += nu[c]; }
 	}
 
 	// normalize
-	coretools::normalize(nu);
+	coretools::normalize(nu_per_location);
 	for (size_t location_id = 0; location_id < _muOrN->totalSize(); ++location_id) {
 		_muOrN->setInitial(location_id, nu_per_location[location_id]);
 	}
@@ -308,10 +308,17 @@ void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model,
 	for (size_t i = 0; i < Data.size(); ++i) {
 		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
 
-		// simulate mus based on detectionProb and a: will return a vector with length = numLocations
-		auto mus = Data[i].simulateNB(AvgNumObsPerTimepoint[i], Model, A[i], SimulateCovariates);
-		coretools::normalize(mus);
-		for (size_t c = 0; c < Data[i].size(); ++c) { _muOrN->set(c, mus[c]); }
+		Data[i].simulateNB(AvgNumObsPerTimepoint[i], Model, A[i], SimulateCovariates);
+
+		// set mu: 1 / J_i (all locations contribute equally)
+		if (_isMu) {
+			for (size_t c = 0; c < Data[i].size(); ++c) {
+				_muOrN->set(Data.i_j_to_linear(_speciesIDinUniqueContainer, i, c), 1.0 / (double)Data[i].size());
+			}
+		}
 	}
-	// todo: how to simulate N_j?
+	// set N: 1 / J (all locations contribute equally)
+	if (!_isMu) {
+		for (size_t j = 0; j < _muOrN->totalSize(); ++j) { _muOrN->set(j, 1.0 / (double)_muOrN->totalSize()); }
+	}
 }

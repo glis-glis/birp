@@ -284,8 +284,7 @@ public:
 	// functions for simulating
 	void simulatePoisson(double AvgNumObsPerTimepoint, const TModelBase &Model, bool SimulateCovariates);
 
-	std::vector<double> simulateNB(double AvgNumObsPerTimepoint, const TModelBase &Model, double A,
-	                               bool SimulateCovariates);
+	void simulateNB(double AvgNumObsPerTimepoint, const TModelBase &Model, double A, bool SimulateCovariates);
 
 	// writing
 	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,

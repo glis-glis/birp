@@ -692,7 +692,7 @@ void TMethods::simulatePoisson(double AvgNumObsPerTimepoint, const TModelBase &M
 	}
 }
 
-std::vector<double> TMethods::simulateNB(double AvgNumObsPerTimepoint, const TModelBase &Model, double A,
+void TMethods::simulateNB(double AvgNumObsPerTimepoint, const TModelBase &Model, double A,
                                          bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalizeToSum1AfterUpdate();
@@ -701,12 +701,9 @@ std::vector<double> TMethods::simulateNB(double AvgNumObsPerTimepoint, const TMo
 	if (SimulateCovariates) { _simulateCovariates(); }
 
 	double scale = _calculateScaleSimulationCounts(AvgNumObsPerTimepoint, Model);
-	std::vector<double> mus(_locations.size());
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
-		mus[j] = scale;
-		_locations[j].simulateNB(Model, A, mus[j]);
+		_locations[j].simulateNB(Model, A, scale);
 	}
-	return mus;
 }
 
 void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
