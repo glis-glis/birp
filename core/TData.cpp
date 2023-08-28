@@ -187,8 +187,8 @@ void TTimepoints::simulatePoisson(double Scale, double phi) {
 void TTimepoints::simulateNB(double phi, double a, double Scale) {
 	// first draw lambda from a Gamma distr and then from there draw counts from Pois
 	// note: Scale corresponds to mu_ij
-	double alpha           = a * Scale * phi * _effort;
-	double beta            = a;
+	double alpha           = Scale * phi * _effort / a;
+	double beta            = 1.0 / a;
 	double lambda          = coretools::instances::randomGenerator().getGammaRand(alpha, beta);
 	_counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom(lambda);
 }
@@ -692,8 +692,7 @@ void TMethods::simulatePoisson(double AvgNumObsPerTimepoint, const TModelBase &M
 	}
 }
 
-void TMethods::simulateNB(double AvgNumObsPerTimepoint, const TModelBase &Model, double A,
-                                         bool SimulateCovariates) {
+void TMethods::simulateNB(double AvgNumObsPerTimepoint, const TModelBase &Model, double A, bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalizeToSum1AfterUpdate();
 	_setValuesForSingleCovariate();

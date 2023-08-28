@@ -23,7 +23,7 @@ typedef coretools::WeakType<double> TypeGamma;
 typedef coretools::Positive<double> TypeEffort;
 typedef coretools::UnsignedInt<uint16_t> TypeTime;
 typedef coretools::Probability TypeMuOrN;
-typedef coretools::MinMaxVariable<double, 1> TypeLogA;
+typedef coretools::StrictlyPositive<double> TypeA;
 typedef coretools::StrictlyPositiveWithMax<double, 2> TypeAlpha;
 typedef coretools::WeakType<double> TypeBeta;
 typedef coretools::WeakTypeWithExp<double> TypeLogPhi;

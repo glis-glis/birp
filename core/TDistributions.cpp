@@ -46,15 +46,12 @@ void TPoissonDistribution::simulate(TData &Data, const TModelBase &Model,
 
 TNegBinDistribution::TNegBinDistribution(size_t SpeciesIDinUniqueContainer,
                                          stattools::TParameterTyped<TypeMuOrN, 1> *MuOrN,
-                                         stattools::TParameterTyped<TypeLogA, 1> *LogA)
+                                         stattools::TParameterTyped<TypeA, 1> *A)
     : TDistributionBase(SpeciesIDinUniqueContainer) {
 	_muOrN = MuOrN;
-	_logA  = LogA;
+	_a     = A;
 
 	_isMu = _muOrN->name() == "mu";
-
-	// set max of logA to something reasonable: otherwise we have numeric issues with gammaLog function
-	TypeLogA::setMax(10.0);
 }
 
 void TNegBinDistribution::_initializeMu(const TData &Data, const TUniqueContainer<std::string> &Locations) {
@@ -87,7 +84,7 @@ void TNegBinDistribution::initialize(const TData &Data, const TUniqueContainer<s
 	// initialize a: number of methods
 	auto names = std::make_shared<coretools::TNamesStrings>();
 	for (size_t i = 0; i < Data.size(); ++i) { names->addName({Data[i].name()}); }
-	_logA->initStorage({Data.size()}, {names});
+	_a->initStorage({Data.size()}, {names});
 }
 
 double TNegBinDistribution::_getMuOrN(size_t location_id, size_t ij) const {
@@ -102,9 +99,11 @@ double TNegBinDistribution::calculateLL(const std::vector<double> &sigma, const 
                                         size_t ix_linNumMethLoc, size_t ix_method) const {
 	double alpha_0 = 0.0;
 	double term2   = 0.0;
-	const double a = exp(_logA->value(ix_method));
+	const double a = _a->value(ix_method);
 	for (size_t k = 0; k < loc.size(); k++) { // loop over timepoints
-		double alpha_k = a * _getMuOrN(loc.location_id(), ix_linNumMethLoc) * sigma[k];
+		const double mu = _getMuOrN(loc.location_id(), ix_linNumMethLoc);
+		const double phi_s = sigma[k];
+		double alpha_k = mu * phi_s / a;
 		alpha_0 += alpha_k;
 		const double x_k = (double)loc[k].counts_per_species(index_in_counts);
 		term2 += coretools::diffGammaLog(alpha_k, x_k);
@@ -200,10 +199,10 @@ void TNegBinDistribution::_updateN(const TData &Data, TModelBase &Model) {
 	}
 }
 
-void TNegBinDistribution::_updateLogA(const TData &Data, TModelBase &Model) {
+void TNegBinDistribution::_updateA(const TData &Data, TModelBase &Model) {
 	for (size_t i = 0; i < Data.size(); ++i) { // loop over methods
 		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
-		_logA->updateSpecificIndex(i);
+		_a->updateSpecificIndex(i);
 		const auto &m = Data[i];
 		std::vector<double> newLL(m.size());
 		for (size_t j = 0; j < m.size(); ++j) {
@@ -214,8 +213,8 @@ void TNegBinDistribution::_updateLogA(const TData &Data, TModelBase &Model) {
 			newLL[j]                     = calculateLL(sigma, loc, {}, index_in_counts, ij, i);
 		}
 		const double LLRatio = coretools::containerSum(newLL) - Model.curLLPerMethod(i, Data);
-		const double logH    = LLRatio + _logA->getLogPriorRatio(i);
-		if (_logA->acceptOrReject(logH, i)) {
+		const double logH    = LLRatio + _a->getLogPriorRatio(i);
+		if (_a->acceptOrReject(logH, i)) {
 			// accepted -> update LL
 			Model.setCurLLPerMethod(newLL, i, Data);
 		}
@@ -230,7 +229,7 @@ void TNegBinDistribution::update(const TData &Data, TModelBase &Model) {
 			_updateN(Data, Model);
 		}
 	}
-	if (_logA->isUpdated()) { _updateLogA(Data, Model); }
+	if (_a->isUpdated()) { _updateA(Data, Model); }
 }
 
 std::vector<double> TNegBinDistribution::_getNuPerIJ(const TData &Data) {
@@ -288,14 +287,14 @@ void TNegBinDistribution::estimateInitialParameters(const TData &Data) {
 	} else {
 		_estimateInitialN(Data);
 	}
-	for (size_t i = 0; i < Data.size(); ++i) { _logA->setInitial(i, 0.0); } // log(1) = 0
+	for (size_t i = 0; i < Data.size(); ++i) { _a->setInitial(i, 1.0); }
 }
 
 std::vector<double> TNegBinDistribution::_setAForSimulation(const TData &Data) {
 	std::vector<double> a(Data.size());
 	for (size_t i = 0; i < Data.size(); ++i) {
-		_logA->setInitial(i, log(Data[i].size()));
-		a[i] = exp(_logA->value(i)); // calculate a = exp(log(a))
+		_a->setInitial(i, (double)Data[i].size());
+		a[i] = _a->value(i);
 	}
 	return a;
 }

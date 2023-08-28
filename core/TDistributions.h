@@ -66,14 +66,14 @@ class TNegBinDistribution : public TDistributionBase {
 protected:
 	// parameters: mu (or N) and a
 	stattools::TParameterTyped<TypeMuOrN, 1> *_muOrN = nullptr;
-	stattools::TParameterTyped<TypeLogA, 1> *_logA   = nullptr;
+	stattools::TParameterTyped<TypeA, 1> *_a         = nullptr;
 	bool _isMu;
 
 	double _getMuOrN(size_t j, size_t ij) const;
 
 	// update functions
 	void _updateMu(const TData &Data, TModelBase &Model);
-	void _updateLogA(const TData &Data, TModelBase &Model);
+	void _updateA(const TData &Data, TModelBase &Model);
 	std::pair<double, std::vector<double>> _calcHastingsRatioN(const std::vector<size_t> &ij, const TData &Data,
 	                                                           TModelBase &Model);
 	void _updateN(const TData &Data, TModelBase &Model);
@@ -90,7 +90,7 @@ protected:
 
 public:
 	TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMuOrN, 1> *MuOrN,
-	                    stattools::TParameterTyped<TypeLogA, 1> *LogA);
+	                    stattools::TParameterTyped<TypeA, 1> *A);
 
 	~TNegBinDistribution() override = default;
 

@@ -103,15 +103,17 @@ std::string getNameMuOrN(bool HasDetectionCovariates) {
 	return "mu";
 }
 
+std::string getLambdaA() { return parameters().getParameterWithDefault("lambda_a", "1.0"); }
+
 TBirpNegBinomAddOn::TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::string &Filename,
                                        stattools::TDAGBuilder &DAGBuilder)
     : muOrN(getNameMuOrN(HasDetectionCovariates),
             std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeMuOrN, 1>>(), {Filename}),
-      logA("logA", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogA, 1>>(),
-           {Filename}) {
+      a("a", std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeA, 1>>(),
+        {Filename, getLambdaA()}) {
 
 	// add to DAG
-	DAGBuilder.addToDAG({&muOrN, &logA});
+	DAGBuilder.addToDAG({&muOrN, &a});
 }
 
 //------------------------------------------

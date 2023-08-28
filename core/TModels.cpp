@@ -16,7 +16,7 @@ TModelBase::TModelBase(size_t SpeciesIDinUniqueContainer, const TData &Data,
 	// create distribution
 	if (NegBinomAddOn) { // negative binomial
 		_distr = std::make_unique<TNegBinDistribution>(_speciesIDinUniqueContainer, &NegBinomAddOn->muOrN,
-		                                               &NegBinomAddOn->logA);
+		                                               &NegBinomAddOn->a);
 	} else { // Poisson
 		_distr = std::make_unique<TPoissonDistribution>(_speciesIDinUniqueContainer);
 	}
