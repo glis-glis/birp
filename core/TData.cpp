@@ -4,9 +4,9 @@
 
 #include "TData.h"
 #include "TModels.h"
+#include "coretools/devtools.h"
 #include "stattools/ParametersObservations/TIndexSampler.h"
 #include <regex>
-
 //-------------------------------------------
 // TTimepoints
 //-------------------------------------------
@@ -168,14 +168,13 @@ void TTimepoints::write(coretools::TOutputFile &File, std::string location,
 	File << coretools::endl;
 }
 
-double TTimepoints::calculateExpectedCounts(double phi) {
-	// TODO: confirm with Daniel that this is also true for NB
+double TTimepoints::calculatePhiEffort(double phi) {
 	coretools::Positive<double> lambda = phi * _effort; // note: without N0 or mu
 	return lambda;
 }
 
-void TTimepoints::simulatePoisson(double Scale, double phi) {
-	coretools::Positive<double> lambda = Scale * phi * _effort;
+void TTimepoints::simulatePoisson(double u, double phi) {
+	coretools::Positive<double> lambda = u * phi * _effort;
 
 	if (lambda == 0.0) {
 		_counts_per_species[0] = 0;
@@ -184,10 +183,9 @@ void TTimepoints::simulatePoisson(double Scale, double phi) {
 	}
 }
 
-void TTimepoints::simulateNB(double phi, double a, double Scale) {
+void TTimepoints::simulateNB(double phi, double a, double u) {
 	// first draw lambda from a Gamma distr and then from there draw counts from Pois
-	// note: Scale corresponds to mu_ij
-	double alpha           = Scale * phi * _effort / a;
+	double alpha           = u * phi * _effort / a;
 	double beta            = 1.0 / a;
 	double lambda          = coretools::instances::randomGenerator().getGammaRand(alpha, beta);
 	_counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom(lambda);
@@ -288,15 +286,15 @@ void TLocations::resetBetaEffort() {
 	for (auto &timepoint : _timepoints) { timepoint.resetBetaEffort(); }
 }
 
-void TLocations::simulatePoisson(double Scale, const TModelBase &Model) {
+void TLocations::simulatePoisson(double u, const TModelBase &Model) {
 	for (auto &timepoint : _timepoints) {
-		timepoint.simulatePoisson(Scale, Model.phi(location_id(), timepoint.timepoint_id()));
+		timepoint.simulatePoisson(u, Model.phi(location_id(), timepoint.timepoint_id()));
 	}
 }
 
-void TLocations::simulateNB(const TModelBase &Model, double a, double Scale) {
+void TLocations::simulateNB(const TModelBase &Model, double a, double u) {
 	for (auto &timepoint : _timepoints) {
-		timepoint.simulateNB(Model.phi(location_id(), timepoint.timepoint_id()), a, Scale);
+		timepoint.simulateNB(Model.phi(location_id(), timepoint.timepoint_id()), a, u);
 	}
 }
 
@@ -665,44 +663,49 @@ void TMethods::_setValuesForSingleCovariate() {
 	}
 }
 
-double TMethods::_calculateScaleSimulationCounts(double AvgNumObsPerTimepoint, const TModelBase &Model) {
-	coretools::TMeanVar<double> m;
+double TMethods::_calculateU_i(double n_i_bar, const TModelBase &Model) {
+	double sum = 0.0;
+	size_t JK  = 0;
 	for (size_t j = 0; j < size(); j++) {       // loop over all locations
 		for (auto &timepoint : _locations[j]) { // loop over all timepoints
-			m.add(timepoint.calculateExpectedCounts(Model.phi(_locations[j].location_id(), timepoint.timepoint_id())));
+			sum += timepoint.calculatePhiEffort(Model.phi(_locations[j].location_id(), timepoint.timepoint_id()));
+			++JK;
 		}
 	}
-	double meanExpectedCounts = m.mean();
-
-	// calculate correction factor
-	double scale = AvgNumObsPerTimepoint / meanExpectedCounts;
-	return scale;
+	const double u_i = n_i_bar * (double)JK / sum;
+	return u_i;
 }
 
-void TMethods::simulatePoisson(double AvgNumObsPerTimepoint, const TModelBase &Model, bool SimulateCovariates) {
+void TMethods::simulatePoisson(double n_i_bar, const TModelBase &Model, bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalizeToSum1AfterUpdate();
 	_setValuesForSingleCovariate();
 
 	if (SimulateCovariates) { _simulateCovariates(); }
 
-	double scale = _calculateScaleSimulationCounts(AvgNumObsPerTimepoint, Model);
+	// calculate scaling factor u_i
+	const double u_i = _calculateU_i(n_i_bar, Model);
+
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
-		_locations[j].simulatePoisson(scale, Model);
+		_locations[j].simulatePoisson(u_i, Model);
 	}
 }
 
-void TMethods::simulateNB(double AvgNumObsPerTimepoint, const TModelBase &Model, double A, bool SimulateCovariates) {
+double TMethods::simulateNB(double n_i_bar, const TModelBase &Model, double a, bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalizeToSum1AfterUpdate();
 	_setValuesForSingleCovariate();
 
 	if (SimulateCovariates) { _simulateCovariates(); }
 
-	double scale = _calculateScaleSimulationCounts(AvgNumObsPerTimepoint, Model);
+	// calculate scaling factor u_i
+	const double u_i = _calculateU_i(n_i_bar, Model);
+
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
-		_locations[j].simulateNB(Model, A, scale);
+		_locations[j].simulateNB(Model, a, u_i);
 	}
+
+	return u_i;
 }
 
 void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,

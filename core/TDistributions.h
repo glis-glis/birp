@@ -34,7 +34,7 @@ public:
 	virtual double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                           size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const = 0;
 
-	virtual void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &AvgNumObsPerTimepoint,
+	virtual void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &n_bar,
 	                      bool SimulateCovariates) = 0;
 };
 
@@ -54,7 +54,7 @@ public:
 	                   size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const override;
 
 	// simulation
-	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &AvgNumObsPerTimepoint,
+	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &n_bar,
 	              bool SimulateCovariates) override;
 };
 
@@ -64,16 +64,16 @@ public:
 
 class TNegBinDistribution : public TDistributionBase {
 protected:
-	// parameters: mu (or N) and a
+	// parameters: mu (or N) and b
 	stattools::TParameterTyped<TypeMuOrN, 1> *_muOrN = nullptr;
-	stattools::TParameterTyped<TypeA, 1> *_a         = nullptr;
+	stattools::TParameterTyped<TypeB, 1> *_b         = nullptr;
 	bool _isMu;
 
 	double _getMuOrN(size_t j, size_t ij) const;
 
 	// update functions
 	void _updateMu(const TData &Data, TModelBase &Model);
-	void _updateA(const TData &Data, TModelBase &Model);
+	void _updateB(const TData &Data, TModelBase &Model);
 	std::pair<double, std::vector<double>> _calcHastingsRatioN(const std::vector<size_t> &ij, const TData &Data,
 	                                                           TModelBase &Model);
 	void _updateN(const TData &Data, TModelBase &Model);
@@ -86,11 +86,11 @@ protected:
 	std::vector<double> _getNuPerIJ(const TData &Data);
 
 	// simulate
-	std::vector<double> _setAForSimulation(const TData &Data);
+	std::vector<double> _readAFromCommandLine(const TData &Data);
 
 public:
 	TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMuOrN, 1> *MuOrN,
-	                    stattools::TParameterTyped<TypeA, 1> *A);
+	                    stattools::TParameterTyped<TypeB, 1> *B);
 
 	~TNegBinDistribution() override = default;
 
@@ -102,7 +102,7 @@ public:
 	                   size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const override;
 
 	// simulate
-	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &AvgNumObsPerTimepoint,
+	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &n_bar,
 	              bool SimulateCovariates) override;
 };
 

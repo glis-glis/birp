@@ -43,8 +43,7 @@ protected:
 	void _initializeDistribution(const TData &Data, const TUniqueContainer<std::string> &Locations);
 	void _estimateInitialParameters(const TData &Data);
 	void _updateDistributionParameters(const TData &Data);
-	void _simulateDistributionParameters(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint,
-	                                     bool SimulateCovariates);
+	void _simulateDistributionParameters(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates);
 	void _initializeLL(const TData &Data);
 
 public:
@@ -53,11 +52,11 @@ public:
 	virtual ~TModelBase() = default;
 
 	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-	                        const TUniqueContainer<std::size_t> &TimePoints)                                      = 0;
-	virtual void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints)                   = 0;
-	virtual void initializeTempVariables(const TData &Data)                                                       = 0;
-	virtual void update(const TData &Data)                                                                        = 0;
-	virtual void simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) = 0;
+	                        const TUniqueContainer<std::size_t> &TimePoints)                      = 0;
+	virtual void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints)   = 0;
+	virtual void initializeTempVariables(const TData &Data)                                       = 0;
+	virtual void update(const TData &Data)                                                        = 0;
+	virtual void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) = 0;
 
 	// calculate sigma
 	std::vector<double> calculateSigma(const TLocations &loc) const;
@@ -118,7 +117,7 @@ public:
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
-	void simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) override;
+	void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) override;
 
 	TypePhi phi(size_t location_id, size_t timepoint_id) const override;
 	TypePhi deterministicPhi(size_t timepoint_k) const override;
@@ -153,12 +152,12 @@ protected:
 	// joint update logPhi and gamma
 	void _jointUpdateLogPhiGamma(const TData &Data);
 
-    // joint update of logPhi
-    void _shiftLogPhis(size_t j, size_t k, double diff);
-    void _jointUpdateLogPhi(size_t j, size_t k, const TData &Data);
-    void _jointUpdateLogPhi(const TData &Data) ;
+	// joint update of logPhi
+	void _shiftLogPhis(size_t j, size_t k, double diff);
+	void _jointUpdateLogPhi(size_t j, size_t k, const TData &Data);
+	void _jointUpdateLogPhi(const TData &Data);
 
-    // update logSigma
+	// update logSigma
 	void _updateLogSigma();
 
 public:
@@ -175,7 +174,7 @@ public:
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
-	void simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) override;
+	void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) override;
 
 	TypePhi phi(size_t location_id, size_t timepoint_k) const override;
 	TypePhi deterministicPhi(size_t timepoint_k) const override;

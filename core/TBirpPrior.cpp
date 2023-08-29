@@ -25,7 +25,7 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 	for (auto &b : CommonModel.beta0) { addPriorParameter(b.get()); }
 	for (auto &b : CommonModel.beta) { addPriorParameter(b.get()); }
 	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
-	if (NegBinomAddOn) { addPriorParameter({&NegBinomAddOn->muOrN, &NegBinomAddOn->a}); }
+	if (NegBinomAddOn) { addPriorParameter({&NegBinomAddOn->muOrN, &NegBinomAddOn->b}); }
 	if (StochasticAddOn) { addPriorParameter({&StochasticAddOn->logPhi, &StochasticAddOn->logSigma}); }
 
 	// create models
@@ -91,33 +91,29 @@ void TBirpPrior::writeSummaryGammaPosterior(const std::string &Prefix) {
 //------------------------------------
 // Simulations
 
-std::vector<double> TBirpPrior::_readAvgNumObsPerTimepointFromCommandLine() const {
-	std::vector<double> avgNumObsPerTimepoint;
-	std::vector<double> avgNumObsPerTimepointDefault = {1000.0};
-	parameters().fillParameterIntoContainerWithDefault("avgNumObsPerTimepoint", avgNumObsPerTimepoint, ',',
-	                                                   avgNumObsPerTimepointDefault);
-	if (avgNumObsPerTimepoint.size() == 1) {
-		avgNumObsPerTimepoint.resize(_data.size(), avgNumObsPerTimepoint[0]); // same for all methods
+std::vector<double> TBirpPrior::_readNBarFromCommandLine() const {
+	std::vector<double> n_bar;
+	std::vector<double> n_bar_default = {1000.0};
+	parameters().fillParameterIntoContainerWithDefault("n_bar", n_bar, ',', n_bar_default);
+	if (n_bar.size() == 1) {
+		n_bar.resize(_data.size(), n_bar[0]); // same for all methods
 	}
-	if (avgNumObsPerTimepoint.size() != _data.size()) {
-		UERROR("Size of avgNumObsPerTimepoint (", avgNumObsPerTimepoint.size(),
-		       ") does not match the number of methods (", _data.size(), ")!");
+	if (n_bar.size() != _data.size()) {
+		UERROR("Size of n_bar (", n_bar.size(), ") does not match the number of methods (", _data.size(), ")!");
 	}
-	return avgNumObsPerTimepoint;
+	return n_bar;
 }
 
 void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called when simulated
 	// first calculate effort
 	for (auto &method : _data) { method.initializeEffort(); }
 
-	auto avgNumObsPerTimepoint = _readAvgNumObsPerTimepointFromCommandLine();
+	auto n_bar = _readNBarFromCommandLine();
 
 	// do we need to simulate covariates?
 	bool simulateCovariates = !parameters().parameterExists("simulationFile");
 
-	for (size_t s = 0; s < _models.size(); s++) {
-		_models[s]->simulate(_data, avgNumObsPerTimepoint, simulateCovariates);
-	}
+	for (size_t s = 0; s < _models.size(); s++) { _models[s]->simulate(_data, n_bar, simulateCovariates); }
 }
 
 //------------------------------------

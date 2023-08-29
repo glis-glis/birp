@@ -16,7 +16,7 @@ TModelBase::TModelBase(size_t SpeciesIDinUniqueContainer, const TData &Data,
 	// create distribution
 	if (NegBinomAddOn) { // negative binomial
 		_distr = std::make_unique<TNegBinDistribution>(_speciesIDinUniqueContainer, &NegBinomAddOn->muOrN,
-		                                               &NegBinomAddOn->a);
+		                                               &NegBinomAddOn->b);
 	} else { // Poisson
 		_distr = std::make_unique<TPoissonDistribution>(_speciesIDinUniqueContainer);
 	}
@@ -34,9 +34,9 @@ void TModelBase::_estimateInitialParameters(const TData &Data) { _distr->estimat
 
 void TModelBase::_updateDistributionParameters(const TData &Data) { _distr->update(Data, *this); };
 
-void TModelBase::_simulateDistributionParameters(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint,
+void TModelBase::_simulateDistributionParameters(TData &Data, const std::vector<double> &n_bar,
                                                  bool SimulateCovariates) {
-	_distr->simulate(Data, *this, AvgNumObsPerTimepoint, SimulateCovariates);
+	_distr->simulate(Data, *this, n_bar, SimulateCovariates);
 }
 
 std::vector<double> TModelBase::calculateSigma(const TLocations &loc) const {
@@ -304,11 +304,11 @@ void TDeterministic::update(const TData &Data) {
 	_gamma.updateSummaryGammaPosterior();
 }
 
-void TDeterministic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
+void TDeterministic::simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) {
 
 	_gamma.setSimulatedGammaToZero();
 	_fillPhi();
-	_simulateDistributionParameters(Data, AvgNumObsPerTimepoint, SimulateCovariates);
+	_simulateDistributionParameters(Data, n_bar, SimulateCovariates);
 };
 
 // write posterior summaries of gamma's
@@ -511,7 +511,7 @@ void TStochastic::update(const TData &Data) {
 	if (_logSigma->isUpdated()) { _updateLogSigma(); }
 }
 
-void TStochastic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerTimepoint, bool SimulateCovariates) {
+void TStochastic::simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) {
 
 	// simulate gamma
 	_prior.setSimulatedGammaToZero();
@@ -530,7 +530,7 @@ void TStochastic::simulate(TData &Data, const std::vector<double> &AvgNumObsPerT
 		}
 	}
 
-	_simulateDistributionParameters(Data, AvgNumObsPerTimepoint, SimulateCovariates);
+	_simulateDistributionParameters(Data, n_bar, SimulateCovariates);
 };
 
 coretools::StrictlyPositive<double> TStochastic::phi(size_t j, size_t k) const {

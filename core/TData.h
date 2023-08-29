@@ -96,13 +96,13 @@ public:
 		}
 	}
 
-	double calculateExpectedCounts(double phi);
+	double calculatePhiEffort(double phi);
 
 	// functions for simulating under Poisson model
-	void simulatePoisson(double Scale, double phi);
+	void simulatePoisson(double u, double phi);
 
 	// functions for simulating under Negative Binomial model
-	void simulateNB(double phi, double a, double Scale);
+	void simulateNB(double phi, double a, double u);
 };
 
 //-------------------------------------------
@@ -165,10 +165,10 @@ public:
 	}
 
 	// functions for simulating under Poisson model
-	void simulatePoisson(double Scale, const TModelBase &Model);
+	void simulatePoisson(double u, const TModelBase &Model);
 
 	// functions for simulating under Negative Binomial model
-	void simulateNB(const TModelBase &Model, double a, double Scale);
+	void simulateNB(const TModelBase &Model, double a, double u);
 };
 
 //-------------------------------------------
@@ -222,7 +222,7 @@ private:
 	void _simulateCovariatesEffort();
 	void _simulateZeroCovariates();
 	void _simulateCovariates();
-	double _calculateScaleSimulationCounts(double AvgNumObsPerTimepoint, const TModelBase &Model);
+	double _calculateU_i(double n_i_bar, const TModelBase &Model);
 
 public:
 	explicit TMethods(const std::string_view &methodName, size_t index,
@@ -282,9 +282,9 @@ public:
 	void updateAlphaBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 
 	// functions for simulating
-	void simulatePoisson(double AvgNumObsPerTimepoint, const TModelBase &Model, bool SimulateCovariates);
+	void simulatePoisson(double n_bar, const TModelBase &Model, bool SimulateCovariates);
 
-	void simulateNB(double AvgNumObsPerTimepoint, const TModelBase &Model, double A, bool SimulateCovariates);
+	double simulateNB(double n_bar, const TModelBase &Model, double A, bool SimulateCovariates);
 
 	// writing
 	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
