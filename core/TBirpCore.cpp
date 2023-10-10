@@ -12,6 +12,7 @@
 #include "stattools/Priors/TPriorDirichlet.h"
 #include "stattools/Priors/TPriorExponential.h"
 #include "stattools/Priors/TPriorNormal.h"
+#include "coretools/devtools.h"
 
 using namespace coretools::instances;
 using namespace stattools;
@@ -271,7 +272,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		// add timepoint to data, either in existing object or create new one
 		_data.back().add(pt, location_id); // back: goes to last element
 	}
-
+	WINK();
 	// standardize covariates
 	_data.back().standardizeCovariates();
 

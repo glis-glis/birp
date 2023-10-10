@@ -8,6 +8,7 @@
 #include "TModels.h"
 #include "coretools/Main/TParameters.h"
 #include "coretools/Math/TProbabilityDistributions.h"
+#include "coretools/devtools.h"
 
 using namespace coretools::instances;
 
@@ -246,7 +247,6 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 		std::tie(y[m], t[m], dataSeriesIndex[m], l_to_ij[m], numDataPointsWithZeroCounts[m]) =
 		    _get_Y_m(Data, Timepoints, m, SpeciesID);
 	}
-
 	std::vector<bool> epochInitialized(_numEpochs, false);
 	while (std::accumulate(epochInitialized.begin(), epochInitialized.end(), 0U) < _numEpochs) {
 		// 1) find epoch that contains the most data points per degree of freedom (= number of parameters = L + 1)

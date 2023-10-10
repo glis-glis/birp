@@ -21,7 +21,7 @@ typedef coretools::UnsignedInt<uint64_t> TypeCounts;
 typedef coretools::UnsignedInt<uint64_t> TypeNu;
 typedef coretools::WeakType<double> TypeGamma;
 typedef coretools::Positive<double> TypeEffort;
-typedef coretools::UnsignedInt<uint16_t> TypeTime;
+typedef coretools::Positive<double> TypeTime;
 typedef coretools::Probability TypeMuOrN;
 typedef coretools::StrictlyPositive<double> TypeB;
 typedef coretools::StrictlyPositiveWithMax<double, 2> TypeAlpha;
