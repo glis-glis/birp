@@ -20,8 +20,8 @@ using namespace stattools::prior;
 std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretools::StrictlyPositive<double> Default) {
 	// read values of alpha from command line
 	std::vector<coretools::StrictlyPositive<double>> alphas;
-	if (parameters().parameterExists(ArgName)) {
-		parameters().fillParameterIntoContainer(ArgName, alphas, ',');
+	if (parameters().exists(ArgName)) {
+		parameters().fill(ArgName, alphas);
 	} else {
 		alphas.push_back(Default);
 	}
@@ -103,7 +103,7 @@ std::string getNameMuOrN(bool HasDetectionCovariates) {
 	return "mu";
 }
 
-std::string getLambdaB() { return parameters().getParameterWithDefault("lambda_b", "1.0"); }
+std::string getLambdaB() { return parameters().get("lambda_b", "1.0"); }
 
 TBirpNegBinomAddOn::TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::string &Filename,
                                        stattools::TDAGBuilder &DAGBuilder)
@@ -141,7 +141,7 @@ TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename, stattool
 //------------------------------------------
 
 TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,
-                       const TUniqueContainer<std::size_t> &TimePoints,
+                       const TUniqueContainer<TypeTime> &TimePoints,
                        const TUniqueContainer<std::string> &SpeciesNames,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
@@ -150,7 +150,7 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 
 	// do negative binomial?
 	const bool hasDetectionCovariates = !CovariateDetectionNames.empty();
-	if (parameters().parameterExists("negativeBinomial")) {
+	if (parameters().exists("negativeBinomial")) {
 		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(hasDetectionCovariates, Filename, DAGBuilder);
 	}
 

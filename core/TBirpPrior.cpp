@@ -11,7 +11,7 @@
 using namespace coretools::instances;
 
 TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locations,
-                       const TUniqueContainer<std::size_t> &TimePoints,
+                       const TUniqueContainer<TypeTime> &TimePoints,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, size_t numSpecies,
                        TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
@@ -94,7 +94,7 @@ void TBirpPrior::writeSummaryGammaPosterior(const std::string &Prefix) {
 std::vector<double> TBirpPrior::_readNBarFromCommandLine() const {
 	std::vector<double> n_bar;
 	std::vector<double> n_bar_default = {1000.0};
-	parameters().fillParameterIntoContainerWithDefault("n_bar", n_bar, ',', n_bar_default);
+	parameters().fill("n_bar", n_bar, n_bar_default);
 	if (n_bar.size() == 1) {
 		n_bar.resize(_data.size(), n_bar[0]); // same for all methods
 	}
@@ -111,9 +111,9 @@ void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called w
 	auto n_bar = _readNBarFromCommandLine();
 
 	// do we need to simulate covariates?
-	bool simulateCovariates = !parameters().parameterExists("simulationFile");
+	bool simulateCovariates = !parameters().exists("simulationFile");
 
-	for (size_t s = 0; s < _models.size(); s++) { _models[s]->simulate(_data, n_bar, simulateCovariates); }
+	for (const auto & model : _models) { model->simulate(_data, n_bar, simulateCovariates); }
 }
 
 //------------------------------------
@@ -123,4 +123,4 @@ const TUniqueContainer<std::string> &TBirpPrior::locations() const { return _loc
 
 const TData &TBirpPrior::data() const { return _data; }
 
-const TUniqueContainer<size_t> &TBirpPrior::timepoints() const { return _timepoints; }
+const TUniqueContainer<TypeTime> &TBirpPrior::timepoints() const { return _timepoints; }

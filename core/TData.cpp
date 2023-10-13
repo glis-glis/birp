@@ -158,7 +158,7 @@ void TTimepoints::resetBetaEffort() {
 }
 
 void TTimepoints::write(coretools::TOutputFile &File, std::string location,
-                        const TUniqueContainer<size_t> &Timepoints) const {
+                        const TUniqueContainer<TypeTime> &Timepoints) const {
 	File << location << Timepoints[_timepoint_id] << _counts_per_species;
 
 	// write covariate(s)
@@ -247,7 +247,7 @@ void TLocations::sorttimes(const std::vector<size_t> &index) {
 }
 
 void TLocations::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
-                       const TUniqueContainer<size_t> &Timepoints) const {
+                       const TUniqueContainer<TypeTime> &Timepoints) const {
 	const std::string &location = Locations[_location_id];
 	for (const auto &timepoint : _timepoints) { timepoint.write(File, location, Timepoints); }
 }
@@ -414,7 +414,7 @@ auto TMethods::_getSumEffortCovariates() {
 }
 
 bool assumeTrueDetectionProbability() {
-	return coretools::instances::parameters().parameterExists("assumeTrueDetectionProbability");
+	return coretools::instances::parameters().exists("assumeTrueDetectionProbability");
 }
 
 void TMethods::standardizeCovariates() {
@@ -549,10 +549,10 @@ void TMethods::_simulateOneCovariateEffort(size_t c, const std::string &Cov) {
 void TMethods::_simulateCovariatesEffort() {
 	using namespace coretools;
 	std::string effortString = "gamma(1, 2)";
-	if (instances::parameters().parameterExists("covariatesEffort_" + _methodName)) {
-		effortString = instances::parameters().getParameter("covariatesEffort_" + _methodName);
-	} else if (instances::parameters().parameterExists("covariatesEffort")) {
-		effortString = instances::parameters().getParameter("covariatesEffort");
+	if (instances::parameters().exists("covariatesEffort_" + _methodName)) {
+		effortString = instances::parameters().get("covariatesEffort_" + _methodName);
+	} else if (instances::parameters().exists("covariatesEffort")) {
+		effortString = instances::parameters().get("covariatesEffort");
 	}
 	if (str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
@@ -595,10 +595,10 @@ void TMethods::_simulateOneCovariateDetection(size_t c, const std::string &Cov) 
 void TMethods::_simulateCovariatesDetection() {
 	using namespace coretools;
 	std::string effortString = "normal(0, 1)";
-	if (instances::parameters().parameterExists("covariatesDetection_" + _methodName)) {
-		effortString = instances::parameters().getParameter("covariatesDetection_" + _methodName);
-	} else if (instances::parameters().parameterExists("covariatesDetection")) {
-		effortString = instances::parameters().getParameter("covariatesDetection");
+	if (instances::parameters().exists("covariatesDetection_" + _methodName)) {
+		effortString = instances::parameters().get("covariatesDetection_" + _methodName);
+	} else if (instances::parameters().exists("covariatesDetection")) {
+		effortString = instances::parameters().get("covariatesDetection");
 	}
 	if (str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
@@ -620,10 +620,10 @@ void TMethods::_simulateCovariatesDetection() {
 void TMethods::_simulateZeroCovariates() {
 	using namespace coretools;
 	coretools::Probability pi = 0.0;
-	if (instances::parameters().parameterExists("proportionZeroEffort_" + _methodName)) {
-		pi = instances::parameters().getParameter<coretools::Probability>("proportionZeroEffort_" + _methodName);
-	} else if (instances::parameters().parameterExists("proportionZeroEffort")) {
-		pi = instances::parameters().getParameter<coretools::Probability>("proportionZeroEffort");
+	if (instances::parameters().exists("proportionZeroEffort_" + _methodName)) {
+		pi = instances::parameters().get<coretools::Probability>("proportionZeroEffort_" + _methodName);
+	} else if (instances::parameters().exists("proportionZeroEffort")) {
+		pi = instances::parameters().get<coretools::Probability>("proportionZeroEffort");
 	}
 	if (pi > 0.0) {
 		// go over data again and set to zero, if needed
@@ -709,7 +709,7 @@ double TMethods::simulateNB(double n_i_bar, const TModelBase &Model, double a, b
 }
 
 void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
-                     const TUniqueContainer<size_t> &Timepoints) const {
+                     const TUniqueContainer<TypeTime> &Timepoints) const {
 	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
 }
 

@@ -236,9 +236,10 @@ std::vector<double> TNegBinDistribution::_getNuPerIJ(const TData &Data) {
 	std::vector<double> nus(Data.numMethLoc(_speciesIDinUniqueContainer));
 	for (size_t c = 0; c < Data.numMethLoc(_speciesIDinUniqueContainer); ++c) {
 		auto [m_id, l_id] = Data.linear_to_i_j(_speciesIDinUniqueContainer, c);
-		nus[c]            = std::max(coretools::UnsignedInt<uint64_t>(1),
-		                             Data[m_id][l_id].nu(Data[m_id].getIndexInCounts(
-                              _speciesIDinUniqueContainer))); // do not allow 0: problem for Dirichlet
+		nus[c]            = (double)Data[m_id][l_id].nu(Data[m_id].getIndexInCounts(_speciesIDinUniqueContainer));
+		if (nus[c] < 1.0) { // do not allow 0: problem for Dirichlet
+			nus[c] = 1.0;
+		}
 	}
 	return nus;
 }
@@ -293,7 +294,7 @@ void TNegBinDistribution::estimateInitialParameters(const TData &Data) {
 std::vector<double> TNegBinDistribution::_readAFromCommandLine(const TData &Data) {
 	std::vector<double> a;
 	std::vector<double> a_default = {1.0};
-	parameters().fillParameterIntoContainerWithDefault("a", a, ',', a_default);
+	parameters().fill("a", a, a_default);
 	if (a.size() == 1) {
 		a.resize(Data.size(), a[0]); // same for all methods
 	}

@@ -64,7 +64,7 @@ public:
 	void standardizeCovariates(const std::vector<coretools::TMeanVar<double>> &MeanVar,
 	                           const std::vector<double> &SumsPerCovariate, bool AssumeTrueDetectionProbability);
 
-	void write(coretools::TOutputFile &File, std::string location, const TUniqueContainer<size_t> &Timepoints) const;
+	void write(coretools::TOutputFile &File, std::string location, const TUniqueContainer<TypeTime> &Timepoints) const;
 
 	// getters
 	const std::vector<TypeCovariateEffort> &covariatesEffort() const;
@@ -138,7 +138,7 @@ public:
 	const TTimepoints &operator[](const size_t index) const;
 
 	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<size_t> &Timepoints) const;
+	           const TUniqueContainer<TypeTime> &Timepoints) const;
 
 	std::vector<TTimepoints>::const_iterator cbegin() const;
 
@@ -288,7 +288,7 @@ public:
 
 	// writing
 	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<size_t> &Timepoints) const;
+	           const TUniqueContainer<TypeTime> &Timepoints) const;
 };
 
 //-------------------------------------------

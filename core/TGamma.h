@@ -28,15 +28,15 @@ private:
 
 	// number of epochs
 	size_t _numEpochs = 0;
-	std::vector<size_t> _epochStarts;
+	std::vector<TypeTime> _epochStarts;
 
-	bool _timePointIsWithinEpoch(const TUniqueContainer<size_t> &Timepoints, size_t t, size_t m) const;
+	bool _timePointIsWithinEpoch(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t m) const;
 	size_t _getNextEpochInitialGamma(const std::vector<bool> &EpochInitialized,
 	                                 const std::vector<std::vector<double>> &y,
 	                                 const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
-	auto _get_Y_m(const TData &Data, const TUniqueContainer<size_t> &Timepoints, size_t m, size_t SpeciesID) const;
-	arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
-	                 const std::vector<size_t> &DataSeriesIndex, size_t L) const;
+	auto _get_Y_m(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t m, size_t SpeciesID) const;
+	static arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
+	                 const std::vector<size_t> &DataSeriesIndex, size_t L) ;
 	void _augmentYWithOLSEstimatesStart(size_t curEpoch, const arma::vec &Beta, std::vector<std::vector<double>> &y,
 	                                    std::vector<std::vector<TypeTime>> &t,
 	                                    std::vector<std::vector<size_t>> &dataSeriesIndex,
@@ -45,22 +45,22 @@ private:
 	                                  std::vector<std::vector<TypeTime>> &t,
 	                                  std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
-	void _augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij, size_t l,
+	static void _augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij, size_t l,
 	                                             std::vector<std::vector<size_t>> &dataSeriesIndex, size_t curEpoch,
-	                                             size_t otherEpoch) const;
-	bool _dontAugmentDataSeries(const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+	                                             size_t otherEpoch) ;
+	static bool _dontAugmentDataSeries(const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                            const std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                            const std::vector<std::vector<TypeTime>> &t, size_t l, size_t curEpoch,
-	                            size_t otherEpoch, TypeTime EpochBorder) const;
-	bool _epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
-	                          const std::vector<size_t> &dataSeriesIndex) const;
-	bool _epochIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
+	                            size_t otherEpoch, TypeTime EpochBorder) ;
+	static bool _epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
+	                          const std::vector<size_t> &dataSeriesIndex) ;
+	static bool _epochIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
 	                                                const std::vector<size_t> &dataSeriesIndex,
-	                                                const std::vector<size_t> &numDataPointsWithZeroCounts) const;
+	                                                const std::vector<size_t> &numDataPointsWithZeroCounts) ;
 
 public:
-	TOLSGamma(size_t NumEpochs, const std::vector<size_t> &EpochStarts);
-	std::vector<double> estimateInitialGamma(const TData &Data, const TUniqueContainer<size_t> &Timepoints,
+	TOLSGamma(size_t NumEpochs, const std::vector<TypeTime> &EpochStarts);
+	std::vector<double> estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints,
 	                                         size_t SpeciesID);
 };
 
@@ -79,7 +79,7 @@ protected:
 	size_t _numEpochs = 0;
 
 	// rho
-	coretools::TMatrix<size_t> _rho;
+	coretools::TMatrix<double> _rho;
 
 	// Jeffrey's prior
 	bool _noJP    = false;
@@ -91,17 +91,17 @@ protected:
 	size_t _counter = 0;
 
 	// initialization
-	void _fillRho(const TUniqueContainer<size_t> &Timepoints);
+	void _fillRho(const TUniqueContainer<TypeTime> &Timepoints);
 
 public:
 	TGamma(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 	~TGamma() = default;
 
-	void initialize(const TUniqueContainer<size_t> &Timepoints);
-	void estimateInitialGamma(const TData &Data, const TUniqueContainer<size_t> &Timepoints, size_t SpeciesID);
+	void initialize(const TUniqueContainer<TypeTime> &Timepoints);
+	void estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID);
 	void initializeJP(const TData &Data, const TModelBase &Model);
 
-	std::vector<size_t> getEpochStarts(const TUniqueContainer<size_t> &Timepoints) const;
+	std::vector<TypeTime> getEpochStarts(const TUniqueContainer<TypeTime> &Timepoints) const;
 
 	double getLogPriorRatio(const TData &Data, const TModelBase &Model);
 
@@ -117,7 +117,7 @@ public:
 	size_t numEpochs() const;
 	size_t numTimepoints() const;
 	TypeGamma gamma(size_t m) const;
-	size_t rho(size_t row, size_t col) const;
+	double rho(size_t row, size_t col) const;
 	std::vector<TypePhi> phi() const;
 	bool gammaIsUpdated() const;
 };
@@ -136,8 +136,8 @@ protected:
 	TGamma _gamma;
 
 	// rho
-	coretools::TMatrix<size_t> _stochasticRho;
-	std::vector<size_t> _deltaTimeVec;
+	coretools::TMatrix<double> _stochasticRho;
+	std::vector<double> _deltaTimeVec;
 
 	// temporary variable: sum of rho * gamma
 	std::vector<double> _newSumRhoGamma;
@@ -152,7 +152,7 @@ protected:
 	std::vector<TypePhi> _oldDeterministicPhi;
 
 	// fill rho and delta
-	void _fillStochasticRho(const TUniqueContainer<size_t> &Timepoints);
+	void _fillStochasticRho(const TUniqueContainer<TypeTime> &Timepoints);
 	void _initializeSumRhoGamma();
 	void _initializeTransitionProbabilities();
 
@@ -167,8 +167,8 @@ public:
 	                 stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
 	~TStochasticPrior() = default;
 
-	void initialize(const TUniqueContainer<size_t> &Timepoints);
-	void estimateInitialGamma(const TData &Data, const TUniqueContainer<size_t> &Timepoints, size_t SpeciesID);
+	void initialize(const TUniqueContainer<TypeTime> &Timepoints);
+	void estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID);
 	void initializeTempVariables(const TData &Data, const TModelBase &Model, bool CalculateJP);
 
 	// update gamma

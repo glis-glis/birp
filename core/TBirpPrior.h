@@ -28,7 +28,7 @@ protected:
 
 	// locations, timepoints, covNames: these are references to the objects that are stored in TBirpCore
 	const TUniqueContainer<std::string> &_locations;
-	const TUniqueContainer<size_t> &_timepoints;
+	const TUniqueContainer<TypeTime> &_timepoints;
 	const TUniqueContainer<std::string> &_covariateEffortNames;
 	const TUniqueContainer<std::string> &_covariateDetectionNames;
 
@@ -44,7 +44,7 @@ protected:
 public:
 	TBirpPrior() = default;
 	TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<std::size_t> &TimePoints,
+	           const TUniqueContainer<TypeTime> &TimePoints,
 	           const TUniqueContainer<std::string> &CovariateEffortNames,
 	           const TUniqueContainer<std::string> &CovariateDetectionNames, size_t numSpecies,
 	           TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
@@ -70,7 +70,7 @@ public:
 
 	// getters for locations, methods, timepoints, species for tests
 	const TUniqueContainer<std::string> &locations() const;
-	const TUniqueContainer<size_t> &timepoints() const;
+	const TUniqueContainer<TypeTime> &timepoints() const;
 	const TData &data() const;
 
 	stattools::TUpdateBase *getPtrToJointUpdater() { return _models[0]->getPtrToJointUpdater(); }

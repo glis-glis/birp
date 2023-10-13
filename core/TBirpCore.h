@@ -30,23 +30,23 @@ protected:
 	// locations, methods, timepoints
 	TUniqueContainer<std::string> _locations;
 	TData _data;
-	TUniqueContainer<size_t> _timepoints;
+	TUniqueContainer<TypeTime> _timepoints;
 	TUniqueContainer<std::string> _covariateEffortNames;
 	TUniqueContainer<std::string> _covariateDetectionNames;
 	TUniqueContainer<std::string> _speciesNames;
 
 	// read input files
-	[[nodiscard]] std::vector<std::string> _getHeader() const;
-	[[nodiscard]] bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index,
-	                                         const std::string &Title) const;
-	auto _getIndicesMethodFile(const coretools::TInputFile &Infile, bool hasCounts) const;
-	void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
-	                  const std::vector<size_t> &CovEffortIndices) const;
-	std::string _getDelim(const std::string &Filename) const;
-	std::vector<size_t> getColumnIndex(const coretools::TInputFile &infile, const std::string &string) const;
+	[[nodiscard]] static std::vector<std::string> _getHeader() ;
+	[[nodiscard]] static bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index,
+	                                         const std::string &Title) ;
+	static auto _getIndicesMethodFile(const coretools::TInputFile &Infile, bool hasCounts) ;
+	static void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
+	                  const std::vector<size_t> &CovEffortIndices) ;
+	static std::string _getDelim(const std::string &Filename) ;
+	static std::vector<size_t> getColumnIndex(const coretools::TInputFile &infile, const std::string &string) ;
 	auto _keepLocations(const std::string &Filename, bool hasCounts) const;
-	bool _allEffortsAreZero(const std::vector<std::string> &Row, const std::vector<size_t> &CovEffortIndices,
-							const std::string &Filename) const;
+	static bool _allEffortsAreZero(const std::vector<std::string> &Row, const std::vector<size_t> &CovEffortIndices,
+							const std::string &Filename) ;
 	void _readFile(const std::string &Filename, bool hasCounts);
 
 	void _sortTimepoints();

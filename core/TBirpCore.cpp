@@ -10,7 +10,6 @@
 #include "coretools/Types/strongTypes.h"
 #include "stattools/MCMC/TMCMC.h"
 #include "stattools/Priors/TPriorDirichlet.h"
-#include "stattools/Priors/TPriorExponential.h"
 #include "stattools/Priors/TPriorNormal.h"
 #include "coretools/devtools.h"
 
@@ -24,8 +23,8 @@ using namespace stattools::prior;
 
 TBirpCore::TBirpCore() {
 	using namespace coretools::instances;
-	if (parameters().parameterExists("out")) {
-		_outname = parameters().getParameter<std::string>("out");
+	if (parameters().exists("out")) {
+		_outname = parameters().get<std::string>("out");
 		logfile().list("Will write files with prefix '", _outname, "'. (parameter 'out')");
 	} else {
 		_outname = "birp";
@@ -38,15 +37,15 @@ TBirpCore::TBirpCore() {
 // Infer
 
 bool TBirpCore::_checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index,
-                                      const std::string &Title) const {
+                                      const std::string &Title) {
 	return Infile.headerAt(index) == Title;
 }
 
-std::vector<std::string> TBirpCore::_getHeader() const { return {"location", "timepoint"}; }
+std::vector<std::string> TBirpCore::_getHeader() { return {"location", "timepoint"}; }
 
 void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts,
                              const std::vector<size_t> &countIndices,
-                             const std::vector<size_t> &CovEffortIndices) const {
+                             const std::vector<size_t> &CovEffortIndices) {
 	std::vector<std::string> headerVec = _getHeader();
 	// check whether first two columns are correct
 	for (size_t i = 0; i < headerVec.size(); i++) {
@@ -72,7 +71,7 @@ void TBirpCore::_checkHeader(const coretools::TInputFile &Infile, bool hasCounts
 	}
 }
 
-std::string TBirpCore::_getDelim(const std::string &Filename) const {
+std::string TBirpCore::_getDelim(const std::string &Filename) {
 	std::string delim       = "\t";
 	std::string_view ending = coretools::str::readAfterLast(Filename, '.');
 	if (ending == "csv") { delim = ","; }
@@ -80,7 +79,7 @@ std::string TBirpCore::_getDelim(const std::string &Filename) const {
 }
 
 void TBirpCore::_readForInference(bool hasCounts) {
-	std::string input = parameters().getParameterFilename("data");
+	std::string input = parameters().get("data");
 	bool dataIsFile =
 	    std::filesystem::exists(input); // if multiple files are supplied separated by commas, then this will be false
 	std::vector<std::string> filenames;
@@ -89,7 +88,7 @@ void TBirpCore::_readForInference(bool hasCounts) {
 		// first check if maybe the file is the actual counts file and not a list of files
 		if (tryFile.numCols() != 1) {
 			filenames.push_back(input);
-		} else { // if not, then its a list of files (methods), so we fill them in
+		} else { // if not, then it's a list of files (methods), so we fill them in
 			coretools::TInputFile infile(input, coretools::TFile_Filetype::fixed, _getDelim(input)); // fixed: no header
 			std::vector<std::string> row;
 			while (infile.read(row)) { filenames.push_back(row[0]); }
@@ -105,7 +104,7 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	_writeFile("filtered");
 }
 
-std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infile, const std::string &string) const {
+std::vector<size_t> TBirpCore::getColumnIndex(const coretools::TInputFile &infile, const std::string &string) {
 	std::vector<size_t> countIndices;
 	for (size_t i = 0; i < infile.numCols(); i++) {
 		if (coretools::str::stringStartsWith(infile.headerAt(i), string)) { countIndices.push_back(i); }
@@ -142,7 +141,7 @@ std::string getMethodName(const std::string &Filename) {
 	return methodName;
 }
 
-auto TBirpCore::_getIndicesMethodFile(const coretools::TInputFile &Infile, bool hasCounts) const {
+auto TBirpCore::_getIndicesMethodFile(const coretools::TInputFile &Infile, bool hasCounts) {
 	// get position of columns that contain counts: might be an empty vector in case the file has no counts
 	std::vector<size_t> countIndices = getColumnIndex(Infile, "counts");
 
@@ -157,7 +156,7 @@ auto TBirpCore::_getIndicesMethodFile(const coretools::TInputFile &Infile, bool 
 }
 
 bool TBirpCore::_allEffortsAreZero(const std::vector<std::string> &Row, const std::vector<size_t> &CovEffortIndices,
-                                   const std::string &Filename) const {
+                                   const std::string &Filename) {
 	std::set<TypeCovariateEffort> covEffort;
 	for (auto c : CovEffortIndices) { covEffort.insert((TypeCovariateEffort)Row[c]); }
 
@@ -252,7 +251,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		if (_allEffortsAreZero(row, covEffortIndices, Filename)) { continue; } // skip this timepoint: effort = 0
 
 		size_t location_id  = _locations.add(location);
-		size_t timepoint_id = _timepoints.add(coretools::str::fromStringCheck<size_t>(row[1]));
+		size_t timepoint_id = _timepoints.add(coretools::str::fromStringCheck<TypeTime>(row[1]));
 
 		// boot one vector together (stiflä) of all species counts, and one of all covariates
 		std::vector<TypeCounts> countVec(species_ids.size(), 0);
@@ -272,7 +271,6 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		// add timepoint to data, either in existing object or create new one
 		_data.back().add(pt, location_id); // back: goes to last element
 	}
-	WINK();
 	// standardize covariates
 	_data.back().standardizeCovariates();
 
@@ -306,7 +304,7 @@ void TBirpCore::infer() {
 	// read data
 	_readForInference(true);
 
-	if (parameters().parameterExists("stochastic")) {
+	if (parameters().exists("stochastic")) {
 		// run MCMC (deterministic)
 		logfile().startIndent("Running MCMC with deterministic model for initialization:");
 		_runMCMC(false);
@@ -360,16 +358,16 @@ void TBirpCore::_writeFile(const std::string &Name) {
 
 // todo Liam mach no ds me der abstand cha aagäh
 void TBirpCore::_fillTimepointsFromCommandLine() {
-	std::vector<size_t> timepoints;
-	std::vector<size_t> timepointsDefault = {1, 2, 3};
-	if (parameters().parameterExists("timepoints")) {
-		auto timepointName = parameters().getParameter<std::string>("timepoints");
+	std::vector<TypeTime> timepoints;
+	std::vector<TypeTime> timepointsDefault = {1.0, 2.0, 3.0};
+	if (parameters().exists("timepoints")) {
+		auto timepointName = parameters().get<std::string>("timepoints");
 		if (coretools::str::stringIsProbablyANumber(timepointName)) {
-			size_t timepointNumber = coretools::str::fromString<size_t>(timepointName);
-			for (size_t i = 1; i <= timepointNumber; i++) { timepoints.push_back(i); }
+			auto timepointNumber = coretools::str::fromString<size_t>(timepointName);
+			for (size_t i = 1; i <= timepointNumber; i++) { timepoints.emplace_back((double)i); }
 			if (timepoints.size() == 1) { UERROR("Please provide more than one timepoint"); }
 		} else {
-			parameters().fillParameterIntoContainer("timepoints", timepoints, ',');
+			parameters().fill("timepoints", timepoints);
 			if (timepoints.size() == 1) { UERROR("Please provide more than one timepoint"); }
 		}
 	} else {
@@ -380,12 +378,12 @@ void TBirpCore::_fillTimepointsFromCommandLine() {
 }
 
 void TBirpCore::_fillLocationsFromCommandLine() {
-	size_t numLocations = parameters().getParameterWithDefault("numLocations", 2);
+	size_t numLocations = parameters().get("numLocations", 2);
 	for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l)); }
 }
 
 std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
-	size_t numSpecies = parameters().getParameterWithDefault("numSpecies", 1);
+	size_t numSpecies = parameters().get("numSpecies", 1);
 	std::vector<size_t> species_ids(numSpecies);
 	for (size_t n = 0; n < numSpecies; n++) {
 		species_ids[n] = _speciesNames.add("species_" + coretools::str::toString(n + 1));
@@ -394,7 +392,7 @@ std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
 }
 
 std::vector<size_t> TBirpCore::_simulateCovEffortNames() {
-	size_t numCovs = parameters().getParameterWithDefault("numCovariatesEffort", 1);
+	size_t numCovs = parameters().get("numCovariatesEffort", 1);
 	if (numCovs == 0) { UERROR("Argument 'numCovariatesEffort' must be at least 1!"); }
 	// fill names and ids
 	std::vector<size_t> covariates_ids(numCovs);
@@ -405,7 +403,7 @@ std::vector<size_t> TBirpCore::_simulateCovEffortNames() {
 }
 
 std::vector<size_t> TBirpCore::_simulateCovDetectionNames() {
-	size_t numCovs = parameters().getParameterWithDefault("numCovariatesDetection", 0);
+	size_t numCovs = parameters().get("numCovariatesDetection", 0);
 	// fill names and ids
 	std::vector<size_t> covariates_ids(numCovs);
 	for (size_t n = 0; n < numCovs; n++) {
@@ -416,14 +414,14 @@ std::vector<size_t> TBirpCore::_simulateCovDetectionNames() {
 
 void TBirpCore::simulate() {
 	// read incomplete counts file (if provided)
-	if (parameters().parameterExists("simulationFile")) {
-		std::string filename = parameters().getParameterFilename("simulationFile");
+	if (parameters().exists("simulationFile")) {
+		std::string filename = parameters().get("simulationFile");
 		_readFile(filename, false);
 	} else {
 		// else read main dimensions from command line
 		_fillTimepointsFromCommandLine();
 		_fillLocationsFromCommandLine();
-		size_t numMethods           = parameters().getParameterWithDefault("numMethods", 1);
+		size_t numMethods           = parameters().get("numMethods", 1);
 		// create vector of speciesnames species_1, species_2 ... as many as there are. currently only supports one
 		// species
 		auto species_ids            = _simulateSpeciesNames();
@@ -440,7 +438,7 @@ void TBirpCore::simulate() {
 	_data.fillMethLocIndices(_speciesNames.size(), _locations);
 
 	// create model
-	const bool stochastic = parameters().parameterExists("stochastic");
+	const bool stochastic = parameters().exists("stochastic");
 	stattools::TDAGBuilder dagBuilder;
 	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
 	                 _outname, dagBuilder, stochastic, true);

@@ -52,8 +52,8 @@ public:
 	virtual ~TModelBase() = default;
 
 	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-	                        const TUniqueContainer<std::size_t> &TimePoints)                      = 0;
-	virtual void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints)   = 0;
+	                        const TUniqueContainer<TypeTime> &TimePoints)                      = 0;
+	virtual void estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints)   = 0;
 	virtual void initializeTempVariables(const TData &Data)                                       = 0;
 	virtual void update(const TData &Data)                                                        = 0;
 	virtual void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) = 0;
@@ -112,8 +112,8 @@ public:
 	~TDeterministic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-	                const TUniqueContainer<std::size_t> &TimePoints) override;
-	void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints) override;
+	                const TUniqueContainer<TypeTime> &TimePoints) override;
+	void estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) override;
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
@@ -169,8 +169,8 @@ public:
 	~TStochastic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-	                const TUniqueContainer<std::size_t> &TimePoints) override;
-	void estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints) override;
+	                const TUniqueContainer<TypeTime> &TimePoints) override;
+	void estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) override;
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 

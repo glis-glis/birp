@@ -86,7 +86,7 @@ protected:
 	std::vector<double> _getNuPerIJ(const TData &Data);
 
 	// simulate
-	std::vector<double> _readAFromCommandLine(const TData &Data);
+	static std::vector<double> _readAFromCommandLine(const TData &Data);
 
 public:
 	TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMuOrN, 1> *MuOrN,

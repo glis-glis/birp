@@ -84,7 +84,7 @@ private:
 
 public:
 	TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<std::size_t> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
+	           const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
 	           const TUniqueContainer<std::string> &CovariateEffortNames,
 	           const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
 	           stattools::TDAGBuilder &DAGBuilder, bool Stochastic, bool Simulate);

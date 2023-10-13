@@ -32,7 +32,7 @@ void TModelBase::_initializeDistribution(const TData &Data, const TUniqueContain
 
 void TModelBase::_estimateInitialParameters(const TData &Data) { _distr->estimateInitialParameters(Data); }
 
-void TModelBase::_updateDistributionParameters(const TData &Data) { _distr->update(Data, *this); };
+void TModelBase::_updateDistributionParameters(const TData &Data) { _distr->update(Data, *this); }
 
 void TModelBase::_simulateDistributionParameters(TData &Data, const std::vector<double> &n_bar,
                                                  bool SimulateCovariates) {
@@ -68,8 +68,7 @@ arma::mat TModelBase::_calcFisherInfo(const TGamma &Gamma, const std::vector<dou
 			double rhoSumSigma = 0.0;
 			for (size_t l = 0; l < p.size(); l++) {
 				denom += sigma[l];
-				const auto diffRho =
-				    (double)Gamma.rho(loc[k].timepoint_id(), m) - (double)Gamma.rho(loc[l].timepoint_id(), m);
+				const auto diffRho = Gamma.rho(loc[k].timepoint_id(), m) - Gamma.rho(loc[l].timepoint_id(), m);
 				rhoSumSigma += diffRho * sigma[l];
 			}
 			denom     = denom * denom;
@@ -122,7 +121,7 @@ void TModelBase::_initializeLL(const TData &Data) {
 			}
 		}
 	}
-};
+}
 
 double TModelBase::calculateLLRatio(const TData &Data) {
 	// loop over all datapoints (methods - locations - timepoints) of a single species
@@ -144,7 +143,7 @@ double TModelBase::calculateLLRatio(const TData &Data) {
 		}
 	}
 	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
-};
+}
 
 double TModelBase::calculateLLRatio_perLocation(size_t j, const TData &Data) {
 	// loop over all methods and timepoints of a particular location of a single species
@@ -163,7 +162,7 @@ double TModelBase::calculateLLRatio_perLocation(size_t j, const TData &Data) {
 		}
 	}
 	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
-};
+}
 
 double TModelBase::calculateLLRatio_perMethod(size_t i, const TData &Data) {
 	// loop over all locations and timepoints of a particular method of a single species
@@ -236,8 +235,8 @@ void TModelBase::setCurLLPerMethod(const std::vector<double> &Values, size_t i, 
 	const auto &method = Data[i];
 	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
 	for (size_t j = 0; j < method.size(); ++j) { // loop over locations
-		size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
-		_curLL[ix_linNumMethLoc]               = Values[j];
+		size_t ix_linNumMethLoc  = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
+		_curLL[ix_linNumMethLoc] = Values[j];
 	}
 }
 
@@ -252,7 +251,7 @@ TDeterministic::TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &D
     : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _gamma(Gamma, TimesOfChange) {}
 
 void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-                                const TUniqueContainer<std::size_t> &TimePoints) {
+                                const TUniqueContainer<TypeTime> &TimePoints) {
 	_initializeDistribution(Data, Locations);
 	_gamma.initialize(TimePoints);
 
@@ -260,7 +259,7 @@ void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::s
 	_oldPhi = _newPhi;
 }
 
-void TDeterministic::estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints) {
+void TDeterministic::estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) {
 	_estimateInitialParameters(Data);
 	_gamma.estimateInitialGamma(Data, Timepoints, _speciesIDinUniqueContainer);
 	_fillPhi();
@@ -309,7 +308,7 @@ void TDeterministic::simulate(TData &Data, const std::vector<double> &n_bar, boo
 	_gamma.setSimulatedGammaToZero();
 	_fillPhi();
 	_simulateDistributionParameters(Data, n_bar, SimulateCovariates);
-};
+}
 
 // write posterior summaries of gamma's
 void TDeterministic::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPosterior(); }
@@ -337,7 +336,7 @@ TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, s
 }
 
 void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-                             const TUniqueContainer<std::size_t> &TimePoints) {
+                             const TUniqueContainer<TypeTime> &TimePoints) {
 	_initializeDistribution(Data, Locations);
 	_prior.initialize(TimePoints);
 
@@ -362,7 +361,7 @@ void TStochastic::_setPhiFromDeterministic() {
 	}
 }
 
-void TStochastic::estimateInitial(const TData &Data, const TUniqueContainer<size_t> &Timepoints) {
+void TStochastic::estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) {
 	_estimateInitialParameters(Data);
 	_prior.estimateInitialGamma(Data, Timepoints, _speciesIDinUniqueContainer);
 
@@ -531,7 +530,7 @@ void TStochastic::simulate(TData &Data, const std::vector<double> &n_bar, bool S
 	}
 
 	_simulateDistributionParameters(Data, n_bar, SimulateCovariates);
-};
+}
 
 coretools::StrictlyPositive<double> TStochastic::phi(size_t j, size_t k) const {
 	const double phi = exp(_logPhi->value(_logPhi->getIndex({j, k})));
