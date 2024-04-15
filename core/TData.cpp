@@ -337,7 +337,7 @@ void TMethods::addAlphaBeta(const std::shared_ptr<stattools::TParameterTyped<Typ
 
 auto getCovNames(const TUniqueContainer<std::string> &CovariateNames, const std::vector<size_t> &ID) {
 	auto covNames = std::make_shared<coretools::TNamesStrings>();
-	for (size_t c = 0; c < CovariateNames.size(); ++c) {
+	for (size_t c = 0; c < ID.size(); ++c) {
 		const size_t id = ID[c];
 		covNames->addName({CovariateNames[id]});
 	}
