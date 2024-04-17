@@ -14,10 +14,6 @@
 #include "coretools/Main/TParameters.h"
 #include "coretools/Main/TTask.h"
 #include "stattools/DAG/TDAGBuilder.h"
-#include "stattools/ParametersObservations/TObservationTyped.h"
-#include "stattools/ParametersObservations/TParameterTyped.h"
-#include "stattools/Priors/TPriorExponential.h"
-#include "stattools/Priors/TPriorUniform.h"
 
 //--------------------------------------
 // TBirpCore
@@ -35,18 +31,11 @@ protected:
 	TUniqueContainer<std::string> _covariateDetectionNames;
 	TUniqueContainer<std::string> _speciesNames;
 
+	// open files
+	static std::vector<std::string> _getAllFilenames();
+
 	// read input files
-	[[nodiscard]] static std::vector<std::string> _getHeader() ;
-	[[nodiscard]] static bool _checkHeaderPlacement(const coretools::TInputFile &Infile, size_t index,
-	                                         const std::string &Title) ;
-	static auto _getIndicesMethodFile(const coretools::TInputFile &Infile, bool hasCounts) ;
-	static void _checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
-	                  const std::vector<size_t> &CovEffortIndices) ;
-	static std::string _getDelim(const std::string &Filename) ;
-	static std::vector<size_t> getColumnIndex(const coretools::TInputFile &infile, const std::string &string) ;
 	auto _keepLocations(const std::string &Filename, bool hasCounts) const;
-	static bool _allEffortsAreZero(const std::vector<std::string> &Row, const std::vector<size_t> &CovEffortIndices,
-							const std::string &Filename) ;
 	void _readFile(const std::string &Filename, bool hasCounts);
 
 	void _sortTimepoints();

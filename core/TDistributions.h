@@ -8,8 +8,8 @@
 #include "BirpTypes.h"
 #include "TData.h"
 #include "coretools/Math/TMatrix.h"
-#include "stattools/ParametersObservations/TObservationTyped.h"
-#include "stattools/ParametersObservations/TParameterTyped.h"
+#include "stattools/ParametersObservations/TObservation.h"
+#include "stattools/ParametersObservations/TParameter.h"
 #include <armadillo>
 #include <vector>
 
@@ -27,9 +27,10 @@ public:
 	TDistributionBase(size_t SpeciesIDinUniqueContainer);
 	virtual ~TDistributionBase() = default;
 
-	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations) = 0;
-	virtual void update(const TData &Data, TModelBase &Model)                                  = 0;
-	virtual void estimateInitialParameters(const TData &Data)                                  = 0;
+	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
+	                        TBirpPrior *BirpPrior)            = 0;
+	virtual void update(const TData &Data, TModelBase &Model) = 0;
+	virtual void estimateInitialParameters(const TData &Data) = 0;
 
 	virtual double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                           size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const = 0;
@@ -46,9 +47,9 @@ public:
 	TPoissonDistribution(size_t SpeciesIDinUniqueContainer);
 	~TPoissonDistribution() override = default;
 
-	void initialize(const TData &, const TUniqueContainer<std::string> &) override{};
-	void update(const TData &, TModelBase &) override{};
-	void estimateInitialParameters(const TData &) override{};
+	void initialize(const TData &, const TUniqueContainer<std::string> &, TBirpPrior *) override {};
+	void update(const TData &, TModelBase &) override {};
+	void estimateInitialParameters(const TData &) override {};
 
 	double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
 	                   size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const override;
@@ -65,8 +66,8 @@ public:
 class TNegBinDistribution : public TDistributionBase {
 protected:
 	// parameters: mu (or N) and b
-	stattools::TParameterTyped<TypeMuOrN, 1> *_muOrN = nullptr;
-	stattools::TParameterTyped<TypeB, 1> *_b         = nullptr;
+	TypeParamMuOrN *_muOrN = nullptr;
+	TypeParamB *_b         = nullptr;
 	bool _isMu;
 
 	double _getMuOrN(size_t j, size_t ij) const;
@@ -79,8 +80,8 @@ protected:
 	void _updateN(const TData &Data, TModelBase &Model);
 
 	// initialization
-	void _initializeN(const TUniqueContainer<std::string> &Locations);
-	void _initializeMu(const TData &Data, const TUniqueContainer<std::string> &Locations);
+	void _initializeN(const TUniqueContainer<std::string> &Locations, TBirpPrior *BirpPrior);
+	void _initializeMu(const TData &Data, const TUniqueContainer<std::string> &Locations, TBirpPrior *BirpPrior);
 	void _estimateInitialMu(const TData &Data);
 	void _estimateInitialN(const TData &Data);
 	std::vector<double> _getNuPerIJ(const TData &Data);
@@ -89,12 +90,10 @@ protected:
 	static std::vector<double> _readAFromCommandLine(const TData &Data);
 
 public:
-	TNegBinDistribution(size_t SpeciesIDinUniqueContainer, stattools::TParameterTyped<TypeMuOrN, 1> *MuOrN,
-	                    stattools::TParameterTyped<TypeB, 1> *B);
-
+	TNegBinDistribution(size_t SpeciesIDinUniqueContainer, TypeParamMuOrN *MuOrN, TypeParamB *B);
 	~TNegBinDistribution() override = default;
 
-	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations) override;
+	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations, TBirpPrior *BirpPrior) override;
 	void update(const TData &Data, TModelBase &Model) override;
 	void estimateInitialParameters(const TData &Data) override;
 

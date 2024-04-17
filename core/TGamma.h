@@ -5,11 +5,10 @@
 #ifndef BIRP_TGAMMA_H
 #define BIRP_TGAMMA_H
 
+#include "BirpDAG.h"
 #include "BirpTypes.h"
 #include "TUniqueContainer.h"
 #include "coretools/Math/TMatrix.h"
-#include "stattools/ParametersObservations/TObservationTyped.h"
-#include "stattools/ParametersObservations/TParameterTyped.h"
 #include <armadillo>
 #include <vector>
 
@@ -36,7 +35,7 @@ private:
 	                                 const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
 	auto _get_Y_m(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t m, size_t SpeciesID) const;
 	static arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
-	                 const std::vector<size_t> &DataSeriesIndex, size_t L) ;
+	                        const std::vector<size_t> &DataSeriesIndex, size_t L);
 	void _augmentYWithOLSEstimatesStart(size_t curEpoch, const arma::vec &Beta, std::vector<std::vector<double>> &y,
 	                                    std::vector<std::vector<TypeTime>> &t,
 	                                    std::vector<std::vector<size_t>> &dataSeriesIndex,
@@ -45,18 +44,18 @@ private:
 	                                  std::vector<std::vector<TypeTime>> &t,
 	                                  std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
-	static void _augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij, size_t l,
-	                                             std::vector<std::vector<size_t>> &dataSeriesIndex, size_t curEpoch,
-	                                             size_t otherEpoch) ;
+	static void _augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+	                                                    size_t l, std::vector<std::vector<size_t>> &dataSeriesIndex,
+	                                                    size_t curEpoch, size_t otherEpoch);
 	static bool _dontAugmentDataSeries(const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-	                            const std::vector<std::vector<size_t>> &dataSeriesIndex,
-	                            const std::vector<std::vector<TypeTime>> &t, size_t l, size_t curEpoch,
-	                            size_t otherEpoch, TypeTime EpochBorder) ;
+	                                   const std::vector<std::vector<size_t>> &dataSeriesIndex,
+	                                   const std::vector<std::vector<TypeTime>> &t, size_t l, size_t curEpoch,
+	                                   size_t otherEpoch, TypeTime EpochBorder);
 	static bool _epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
-	                          const std::vector<size_t> &dataSeriesIndex) ;
+	                                 const std::vector<size_t> &dataSeriesIndex);
 	static bool _epochIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
-	                                                const std::vector<size_t> &dataSeriesIndex,
-	                                                const std::vector<size_t> &numDataPointsWithZeroCounts) ;
+	                                                       const std::vector<size_t> &dataSeriesIndex,
+	                                                       const std::vector<size_t> &numDataPointsWithZeroCounts);
 
 public:
 	TOLSGamma(size_t NumEpochs, const std::vector<TypeTime> &EpochStarts);
@@ -72,8 +71,8 @@ class TGamma {
 	// wraps parameters gamma and timesOfChange
 protected:
 	// stattools parameters
-	stattools::TParameterTyped<TypeGamma, 1> *_gamma        = nullptr;
-	stattools::TParameterTyped<TypeTime, 1> *_timesOfChange = nullptr;
+	TypeParamGamma *_gamma       = nullptr;
+	TypeParamTOC *_timesOfChange = nullptr;
 
 	// number of epochs
 	size_t _numEpochs = 0;
@@ -94,10 +93,10 @@ protected:
 	void _fillRho(const TUniqueContainer<TypeTime> &Timepoints);
 
 public:
-	TGamma(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
+	TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange);
 	~TGamma() = default;
 
-	void initialize(const TUniqueContainer<TypeTime> &Timepoints);
+	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);
 	void estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID);
 	void initializeJP(const TData &Data, const TModelBase &Model);
 
@@ -129,8 +128,8 @@ public:
 class TStochasticPrior {
 	// yellow box
 protected:
-	stattools::TParameterTyped<TypeLogPhi, 2> *_logPhi     = nullptr;
-	stattools::TParameterTyped<TypeLogSigma, 1> *_logSigma = nullptr;
+	TypeParamLogPhi *_logPhi     = nullptr;
+	TypeParamLogSigma *_logSigma = nullptr;
 
 	// TGamma
 	TGamma _gamma;
@@ -161,13 +160,11 @@ protected:
 	coretools::probdist::TNormalDistr _getMeanSdTransitionProbability(size_t j, size_t k) const;
 
 public:
-	TStochasticPrior(stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
-	                 stattools::TParameterTyped<TypeLogSigma, 1> *LogSigma,
-	                 stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	                 stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
+	TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
+	                 TypeParamTOC *TimesOfChange);
 	~TStochasticPrior() = default;
 
-	void initialize(const TUniqueContainer<TypeTime> &Timepoints);
+	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);
 	void estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID);
 	void initializeTempVariables(const TData &Data, const TModelBase &Model, bool CalculateJP);
 

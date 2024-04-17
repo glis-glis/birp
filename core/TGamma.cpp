@@ -6,8 +6,8 @@
 
 #include "TData.h"
 #include "TModels.h"
+#include "coretools/Distributions/TNormalDistr.h"
 #include "coretools/Main/TParameters.h"
-#include "coretools/Math/TProbabilityDistributions.h"
 #include "coretools/devtools.h"
 
 using namespace coretools::instances;
@@ -134,9 +134,9 @@ bool TOLSGamma::_dontAugmentDataSeries(const std::vector<std::vector<std::pair<s
 	// loop over all timepoints of other epoch
 	for (size_t r = 0; r < t[otherEpoch].size(); ++r) {
 		// check if other epoch contains this method (i) and location (j) and the timepoint corresponding to EpochBorder
-		const size_t other_l = dataSeriesIndex[otherEpoch][r];
-		const size_t other_i = l_to_ij[otherEpoch][other_l].first;
-		const size_t other_j = l_to_ij[otherEpoch][other_l].second;
+		const size_t other_l   = dataSeriesIndex[otherEpoch][r];
+		const size_t other_i   = l_to_ij[otherEpoch][other_l].first;
+		const size_t other_j   = l_to_ij[otherEpoch][other_l].second;
 		const TypeTime other_t = t[otherEpoch][r];
 		if (other_i == i && other_j == j && other_t == EpochBorder) { return true; }
 	}
@@ -200,9 +200,9 @@ bool TOLSGamma::_epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
 	return false;
 }
 
-bool TOLSGamma::_epochIsNotIdentifiableBecauseOfZeroCounts(
-    size_t L, const std::vector<TypeTime> &t, const std::vector<size_t> &dataSeriesIndex,
-    const std::vector<size_t> &numDataPointsWithZeroCounts) {
+bool TOLSGamma::_epochIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
+                                                           const std::vector<size_t> &dataSeriesIndex,
+                                                           const std::vector<size_t> &numDataPointsWithZeroCounts) {
 	for (size_t l = 0; l < L; ++l) { // loop over all possible data series
 		// count the number of occurrences of that particular data series (method/location combination) in the current
 		// epoch
@@ -214,7 +214,7 @@ bool TOLSGamma::_epochIsNotIdentifiableBecauseOfZeroCounts(
 		counter_l += numDataPointsWithZeroCounts[l];
 		if (counter_l >= 2) { return true; } // together with zero counts, we would have enough data!
 	}
-	return false;                            // we still don't have enough data
+	return false; // we still don't have enough data
 }
 
 size_t TOLSGamma::_getNextEpochInitialGamma(const std::vector<bool> &EpochInitialized,
@@ -290,8 +290,7 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 // TGamma
 //------------------------------------------
 
-TGamma::TGamma(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
-    : _gamma(Gamma), _timesOfChange(TimesOfChange) {
+TGamma::TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange) : _gamma(Gamma), _timesOfChange(TimesOfChange) {
 	// find out how many epochs there are
 	if (parameters().exists("timesOfChange")) {
 		std::vector<std::string> tmp;
@@ -307,9 +306,9 @@ TGamma::TGamma(stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TPara
 	_noJP = parameters().exists("noJP");
 }
 
-void TGamma::initialize(const TUniqueContainer<TypeTime> &Timepoints) {
-	_timesOfChange->initStorage({_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
-	_gamma->initStorage({_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
+void TGamma::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior) {
+	_timesOfChange->initStorage(BirpPrior, {_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
+	_gamma->initStorage(BirpPrior, {_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
 
 	_summaryGammaPosterior.resize(_numEpochs, std::vector<size_t>(_numEpochs, 0));
 
@@ -323,7 +322,7 @@ void TGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<Type
 	TOLSGamma ols(_numEpochs, epochStarts);
 	auto gamma = ols.estimateInitialGamma(Data, Timepoints, SpeciesID);
 	assert(gamma.size() == _numEpochs);
-	for (size_t m = 0; m < _numEpochs; ++m) { _gamma->setInitial(m, gamma[m]); }
+	for (size_t m = 0; m < _numEpochs; ++m) { _gamma->set(m, gamma[m]); }
 }
 
 void TGamma::initializeJP(const TData &Data, const TModelBase &Model) {
@@ -336,12 +335,12 @@ std::vector<TypeTime> TGamma::getEpochStarts(const TUniqueContainer<TypeTime> &T
 	// return start of each epoch, including for a hypothetical epoch after the last epoch
 	assert(!Timepoints.empty());
 
-	auto minTime                  = *std::min(Timepoints.cbegin(), Timepoints.cend());
+	auto minTime                      = *std::min(Timepoints.cbegin(), Timepoints.cend());
 	std::vector<TypeTime> epochStarts = {minTime};
-	if (_timesOfChange->totalSize() != 0) {
+	if (_timesOfChange->size() != 0) {
 		TypeTime maxTimeOfChange = _timesOfChange->max_value();
 		TypeTime maxTime         = std::max((double)Timepoints.back(), maxTimeOfChange + 1.0);
-		for (size_t i = 0; i < _timesOfChange->totalSize(); i++) { epochStarts.push_back(_timesOfChange->value(i)); }
+		for (size_t i = 0; i < _timesOfChange->size(); i++) { epochStarts.push_back(_timesOfChange->value(i)); }
 		epochStarts.push_back(maxTime);
 	} else {
 		epochStarts.push_back(*max_element(Timepoints.cbegin(), Timepoints.cend()));
@@ -367,12 +366,18 @@ void TGamma::_fillRho(const TUniqueContainer<TypeTime> &Timepoints) {
 }
 
 void TGamma::setSimulatedGammaToZero() {
-	for (size_t g = 0; g < _gamma->totalSize(); ++g) { _gamma->setInitial(g, 0.0); }
+	for (size_t g = 0; g < _gamma->size(); ++g) { _gamma->set(g, 0.0); }
 }
 
 // functions to update gamma
 
-bool TGamma::updateSpecificIndex(size_t m) { return _gamma->updateSpecificIndex(m); }
+bool TGamma::updateSpecificIndex(size_t m) {
+	if (_gamma->isUpdated()) {
+		_gamma->propose(coretools::TRange(m));
+		return true;
+	}
+	return false;
+}
 
 double TGamma::getLogPriorRatio(const TData &Data, const TModelBase &Model) {
 	// -> prior on gamma: Jeffrey prior
@@ -382,7 +387,7 @@ double TGamma::getLogPriorRatio(const TData &Data, const TModelBase &Model) {
 }
 
 bool TGamma::acceptOrReject(double logH, size_t m) {
-	if (_gamma->acceptOrReject(logH, m)) {
+	if (_gamma->acceptOrReject(logH, coretools::TRange(m))) {
 		_curJP = _tryJP;
 		return true;
 	}
@@ -449,15 +454,13 @@ bool TGamma::gammaIsUpdated() const { return _gamma->isUpdated(); }
 // TStochasticPrior
 //------------------------------------------
 
-TStochasticPrior::TStochasticPrior(stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
-                                   stattools::TParameterTyped<TypeLogSigma, 1> *LogSigma,
-                                   stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-                                   stattools::TParameterTyped<TypeTime, 1> *TimesOfChange)
+TStochasticPrior::TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
+                                   TypeParamTOC *TimesOfChange)
     : _logPhi(LogPhi), _logSigma(LogSigma), _gamma(Gamma, TimesOfChange) {}
 
-void TStochasticPrior::initialize(const TUniqueContainer<TypeTime> &Timepoints) {
+void TStochasticPrior::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior) {
 	// initialize gamma and times of change
-	_gamma.initialize(Timepoints);
+	_gamma.initialize(Timepoints, BirpPrior);
 
 	// pre-calculate deltaTime
 	_deltaTimeVec.resize(_gamma.numTimepoints(), 0);

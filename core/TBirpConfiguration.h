@@ -9,13 +9,8 @@
 #include "TData.h"
 #include "coretools/Main/TParameters.h"
 #include "stattools/DAG/TDAGBuilder.h"
-#include "stattools/ParametersObservations/TObservationTyped.h"
-#include "stattools/ParametersObservations/TParameterTyped.h"
-#include "stattools/Priors/TPriorExponential.h"
-#include "stattools/Priors/TPriorUniform.h"
-
-// forward declarations
-class TBirpPrior;
+#include "stattools/ParametersObservations/TObservation.h"
+#include "stattools/ParametersObservations/TParameter.h"
 
 //------------------------------------------
 // TBirpCommonModel
@@ -28,18 +23,24 @@ private:
 	void _createBeta(size_t i, TData &Data, const std::string &Filename);
 	void _createBeta0(size_t i, TData &Data, const std::string &Filename);
 
+	BoxOnGamma _boxOnGamma;
+	BoxOnTOC _boxOnTOC;
+	BoxOnAlpha _boxOnAlpha;
+	BoxOnBeta _boxOnBeta;
+	BoxOnBeta _boxOnBeta0;
+
 public:
 	// all parameters of model (including prior parameters)
-	stattools::TParameterTyped<TypeGamma, 1> gamma;
-	stattools::TParameterTyped<TypeTime, 1> timesOfChange;
+	TypeParamGamma gamma;
+	TypeParamTOC timesOfChange;
 
 	// covariates: regression coefficients
-	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>>> alpha;
-	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> beta;
-	std::vector<std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>>> beta0;
+	std::vector<std::shared_ptr<TypeParamAlpha>> alpha;
+	std::vector<std::shared_ptr<TypeParamBeta>> beta;
+	std::vector<std::shared_ptr<TypeParamBeta>> beta0;
 
 	TBirpCommonModel(TData &Data, const TUniqueContainer<std::string> &CovariateEffortNames,
-	                 const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);
+	                 const std::string &Filename);
 };
 
 //------------------------------------------
@@ -47,12 +48,16 @@ public:
 //------------------------------------------
 
 class TBirpNegBinomAddOn {
+private:
+	BoxOnMuOrN _boxOnMuOrN;
+	BoxOnB _boxOnB;
+
 public:
 	// only relevant for negative binomial model
-	stattools::TParameterTyped<TypeMuOrN, 1> muOrN;
-	stattools::TParameterTyped<TypeB, 1> b;
+	TypeParamMuOrN muOrN;
+	TypeParamB b;
 
-	TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);
+	TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::string &Filename);
 };
 
 //------------------------------------------
@@ -60,12 +65,16 @@ public:
 //------------------------------------------
 
 class TBirpStochasticAddOn {
+private:
+	BoxOnLogPhi _boxOnLogPhi;
+	BoxOnLogSigma _boxOnLogSigma;
+
 public:
 	// only relevant for stochastic model
-	stattools::TParameterTyped<TypeLogPhi, 2> logPhi;
-	stattools::TParameterTyped<TypeLogSigma, 1> logSigma;
+	TypeParamLogPhi logPhi;
+	TypeParamLogSigma logSigma;
 
-	TBirpStochasticAddOn(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder);
+	TBirpStochasticAddOn(const std::string &Filename);
 };
 
 //------------------------------------------
@@ -78,16 +87,18 @@ private:
 	std::unique_ptr<TBirpNegBinomAddOn> _negBinomAddOn;
 	std::unique_ptr<TBirpStochasticAddOn> _stochasticAddOn;
 
-	std::shared_ptr<TBirpPrior> _birpPrior;
+	std::shared_ptr<BirpBox> _birpPrior;
 
-	std::unique_ptr<stattools::TObservationTyped<TypeCounts, 2>> _data;
+	std::unique_ptr<stattools::TObservation<TypeCounts, NumDimCounts, BirpBox>> _data;
+
+	void (TBirpPrior::*_funUpdate)();
 
 public:
 	TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,
 	           const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
 	           const TUniqueContainer<std::string> &CovariateEffortNames,
 	           const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
-	           stattools::TDAGBuilder &DAGBuilder, bool Stochastic, bool Simulate);
+	           bool Stochastic, bool Simulate);
 
 	void writeSummaryGammaPosterior(const std::string &Prefix);
 };

@@ -5,9 +5,10 @@
 #ifndef BIRP_TDATA_H
 #define BIRP_TDATA_H
 
+#include "BirpDAG.h"
 #include "BirpTypes.h"
 #include "TUniqueContainer.h"
-#include "stattools/ParametersObservations/TParameterTyped.h"
+#include "stattools/ParametersObservations/TParameter.h"
 #include <string>
 #include <vector>
 
@@ -43,9 +44,9 @@ private:
 	void _standardizeCovariatesDetection(const std::vector<coretools::TMeanVar<double>> &MeanVar,
 	                                     bool AssumeTrueDetectionProbability);
 	void _standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate);
-	double _calculateEffortTerm(const std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>> &Alpha);
-	double _calculateDetectionTerm(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta0,
-	                               const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	double _calculateEffortTerm(const std::shared_ptr<TypeParamAlpha> &Alpha);
+	double _calculateDetectionTerm(const std::shared_ptr<TypeParamBeta> &Beta0,
+	                               const std::shared_ptr<TypeParamBeta> &Beta);
 
 public:
 	TTimepoints() = default;
@@ -67,23 +68,21 @@ public:
 	void write(coretools::TOutputFile &File, std::string location, const TUniqueContainer<TypeTime> &Timepoints) const;
 
 	// getters
-	const std::vector<TypeCovariateEffort> &covariatesEffort() const;
-	const std::vector<TypeCovariateDetection> &covariatesDetection() const;
-	size_t numSpecies() const;
-	TypeCounts counts_per_species(size_t species_id) const;
-	TypeEffort effort() const;
-	size_t timepoint_id() const;
-	bool inferAlpha() const;
-	bool inferBeta() const;
+	[[nodiscard]] const std::vector<TypeCovariateEffort> &covariatesEffort() const;
+	[[nodiscard]] const std::vector<TypeCovariateDetection> &covariatesDetection() const;
+	[[nodiscard]] size_t numSpecies() const;
+	[[nodiscard]] TypeCounts counts_per_species(size_t species_id) const;
+	[[nodiscard]] TypeEffort effort() const;
+	[[nodiscard]] size_t timepoint_id() const;
+	[[nodiscard]] bool inferAlpha() const;
+	[[nodiscard]] bool inferBeta() const;
 
 	// update effort
-	void initializeEffort(const std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>> &Alpha,
-	                      const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta0,
-	                      const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void initializeEffort(const std::shared_ptr<TypeParamAlpha> &Alpha, const std::shared_ptr<TypeParamBeta> &Beta0,
+	                      const std::shared_ptr<TypeParamBeta> &Beta);
 	void updateAlphaEffort(TypeAlpha NewAlpha_c1, TypeAlpha OldAlpha_c1, TypeAlpha NewAlpha_c2, TypeAlpha OldAlpha_c2,
 	                       size_t c1, size_t c2);
-	void updateBetaEffort(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta0,
-	                      const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void updateBetaEffort(const std::shared_ptr<TypeParamBeta> &Beta0, const std::shared_ptr<TypeParamBeta> &Beta);
 	void resetAlphaEffort();
 	void resetBetaEffort();
 
@@ -129,33 +128,26 @@ public:
 	void sorttimes(const std::vector<size_t> &index);
 
 	// getters
-	size_t size() const;
-
-	TypeNu nu(size_t species_id) const;
-
-	size_t location_id() const;
-
-	const TTimepoints &operator[](const size_t index) const;
+	[[nodiscard]] size_t size() const;
+	[[nodiscard]] TypeNu nu(size_t species_id) const;
+	[[nodiscard]] size_t location_id() const;
+	[[nodiscard]] const TTimepoints &operator[](size_t index) const;
 
 	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
 	           const TUniqueContainer<TypeTime> &Timepoints) const;
 
-	std::vector<TTimepoints>::const_iterator cbegin() const;
-
+	// iterators
+	[[nodiscard]] std::vector<TTimepoints>::const_iterator cbegin() const;
 	std::vector<TTimepoints>::iterator begin();
-
-	std::vector<TTimepoints>::const_iterator cend() const;
-
+	[[nodiscard]] std::vector<TTimepoints>::const_iterator cend() const;
 	std::vector<TTimepoints>::iterator end();
 
 	// update effort
-	void initializeEffort(const std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>> &Alpha,
-	                      const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta0,
-	                      const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void initializeEffort(const std::shared_ptr<TypeParamAlpha> &Alpha, const std::shared_ptr<TypeParamBeta> &Beta0,
+	                      const std::shared_ptr<TypeParamBeta> &Beta);
 	void updateAlphaEffort(TypeAlpha NewAlpha_c1, TypeAlpha OldAlpha_c1, TypeAlpha NewAlpha_c2, TypeAlpha OldAlpha_c2,
 	                       size_t c1, size_t c2);
-	void updateBetaEffort(const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta0,
-	                      const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void updateBetaEffort(const std::shared_ptr<TypeParamBeta> &Beta0, const std::shared_ptr<TypeParamBeta> &Beta);
 	void resetAlphaEffort();
 	void resetBetaEffort();
 
@@ -178,7 +170,7 @@ public:
 class TMethods {
 private:
 	std::string _methodName;
-	size_t _i;
+	size_t _i = 0;
 
 	std::vector<TLocations> _locations;
 
@@ -191,15 +183,15 @@ private:
 	std::vector<size_t> _indexInCounts;
 
 	// alpha and beta (regression coefficients of covariates)
-	std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>> _alpha;
-	std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> _beta;
-	std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> _beta0;
+	std::shared_ptr<TypeParamAlpha> _alpha;
+	std::shared_ptr<TypeParamBeta> _beta;
+	std::shared_ptr<TypeParamBeta> _beta0;
 
 	// update functions for alpha and beta
 	void _updateAlpha(size_t c1, size_t c2, const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 	void _updateAlpha(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 	void _updateBeta(size_t d, const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models,
-	                 const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	                 const std::shared_ptr<TypeParamBeta> &Beta);
 	void _updateBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 	void _setValuesForSingleCovariate();
 
@@ -210,7 +202,7 @@ private:
 	// simulate
 	void _simulateOneCovariateEffort(size_t c, const std::string &Cov);
 	void _simulateOneCovariateDetection(size_t c, const std::string &Cov);
-	std::pair<std::string, std::string> _getParamsAndDistr(const std::string &Cov);
+	static std::pair<std::string, std::string> _getParamsAndDistr(const std::string &Cov);
 	template<class Distribution, bool SimulateCovEffort>
 	void _simulateCovariateFromDistribution(size_t c, const std::string &Params) {
 		Distribution distr(Params);
@@ -230,7 +222,7 @@ public:
 	                  const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
 	                  const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer);
 
-	TMethods(const std::string &methodName, size_t locationSize, size_t TimepointSize, size_t index,
+	TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index,
 	         const std::vector<size_t> &speciesIDsinUniqueContainer,
 	         const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
 	         const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer);
@@ -238,11 +230,10 @@ public:
 	TMethods() = default;
 
 	// add parameters alpha and beta
-	void addAlphaBeta(const std::shared_ptr<stattools::TParameterTyped<TypeAlpha, 1>> &Alpha,
-	                  const std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta0,
-	                  std::shared_ptr<stattools::TParameterTyped<TypeBeta, 1>> &Beta);
+	void addAlphaBeta(const std::shared_ptr<TypeParamAlpha> &Alpha, const std::shared_ptr<TypeParamBeta> &Beta0,
+	                  std::shared_ptr<TypeParamBeta> &Beta);
 	void initialize(const TUniqueContainer<std::string> &CovariateEffortNames,
-	                const TUniqueContainer<std::string> &CovariateDetectionNames);
+	                const TUniqueContainer<std::string> &CovariateDetectionNames, TBirpPrior *BirpPrior);
 
 	// add data
 	void add(const TTimepoints &pt, size_t location_id);
@@ -254,27 +245,25 @@ public:
 	void initializeEffort();
 
 	// getters
-	size_t size() const;
-	const std::string &name() const;
-	size_t numCovariatesEffort() const;
-	size_t numCovariatesDetection() const;
-	bool inferAlpha() const;
-	bool inferBeta() const;
+	[[nodiscard]] size_t size() const;
+	[[nodiscard]] const std::string &name() const;
+	[[nodiscard]] size_t numCovariatesEffort() const;
+	[[nodiscard]] size_t numCovariatesDetection() const;
+	[[nodiscard]] bool inferAlpha() const;
+	[[nodiscard]] bool inferBeta() const;
 
 	// access counts and covariates
-	const std::vector<size_t> &speciesIDsinUniqueContainer() const;
-	const std::vector<size_t> &covariateEffortIDsinUniqueContainer() const;
-	size_t covariateEffortIDinUniqueContainer(size_t c) const;
-	const std::vector<size_t> &covariateDetectionIDsinUniqueContainer() const;
-	size_t covariateDetectionIDinUniqueContainer(size_t c) const;
-	bool hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const;
-	size_t getIndexInCounts(size_t speciesIDinUniqueContainer) const;
+	[[nodiscard]] const std::vector<size_t> &speciesIDsinUniqueContainer() const;
+	[[nodiscard]] const std::vector<size_t> &covariateEffortIDsinUniqueContainer() const;
+	[[nodiscard]] const std::vector<size_t> &covariateDetectionIDsinUniqueContainer() const;
+	[[nodiscard]] bool hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const;
+	[[nodiscard]] size_t getIndexInCounts(size_t speciesIDinUniqueContainer) const;
 
 	// iterators
 	const TLocations &operator[](const size_t index) const { return _locations[index]; }
-	std::vector<TLocations>::const_iterator cbegin() const;
+	[[nodiscard]] std::vector<TLocations>::const_iterator cbegin() const;
 	std::vector<TLocations>::iterator begin();
-	std::vector<TLocations>::const_iterator cend() const;
+	[[nodiscard]] std::vector<TLocations>::const_iterator cend() const;
 	std::vector<TLocations>::iterator end();
 
 	// update effort
@@ -310,7 +299,7 @@ private:
 
 	// fill indices
 	void _fillNumMethLocs();
-	std::pair<size_t, size_t> _getMethAndLocIndex(size_t ij_index, size_t speciesID) const;
+	[[nodiscard]] std::pair<size_t, size_t> _getMethAndLocIndex(size_t ij_index, size_t speciesID) const;
 
 public:
 	TData();
@@ -321,20 +310,22 @@ public:
 	void fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::string> &Locations);
 
 	// iterators
-	size_t size() const;
-	const TMethods &operator[](const size_t index) const;
-	TMethods &operator[](const size_t index);
-	std::vector<TMethods>::const_iterator cbegin() const;
+	[[nodiscard]] size_t size() const;
+	[[nodiscard]] const TMethods &operator[](size_t index) const;
+	TMethods &operator[](size_t index);
+	[[nodiscard]] std::vector<TMethods>::const_iterator cbegin() const;
 	std::vector<TMethods>::iterator begin();
-	std::vector<TMethods>::const_iterator cend() const;
+	[[nodiscard]] std::vector<TMethods>::const_iterator cend() const;
 	std::vector<TMethods>::iterator end();
 	TMethods &back();
 
 	// getters
-	size_t numMethLoc(size_t SpeciesIDInUniqueContainer) const;
-	size_t i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t j) const;
-	const std::pair<size_t, size_t> &linear_to_i_j(size_t SpeciesIDInUniqueContainer, size_t linear) const;
-	const std::vector<size_t> &locationId_to_ij(size_t SpeciesIDInUniqueContainer, size_t location_id) const;
+	[[nodiscard]] size_t numMethLoc(size_t SpeciesIDInUniqueContainer) const;
+	[[nodiscard]] size_t i_j_to_linear(size_t SpeciesIDInUniqueContainer, size_t i, size_t j) const;
+	[[nodiscard]] const std::pair<size_t, size_t> &linear_to_i_j(size_t SpeciesIDInUniqueContainer,
+	                                                             size_t linear) const;
+	[[nodiscard]] const std::vector<size_t> &locationId_to_ij(size_t SpeciesIDInUniqueContainer,
+	                                                          size_t location_id) const;
 };
 
 #endif // BIRP_TDATA_H

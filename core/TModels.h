@@ -5,14 +5,13 @@
 #ifndef BIRP_TMODELS_H
 #define BIRP_TMODELS_H
 
+#include "BirpDAG.h"
 #include "BirpTypes.h"
 #include "TBirpConfiguration.h"
 #include "TData.h"
 #include "TDistributions.h"
 #include "TGamma.h"
 #include "coretools/Math/TMatrix.h"
-#include "stattools/ParametersObservations/TObservationTyped.h"
-#include "stattools/ParametersObservations/TParameterTyped.h"
 #include <armadillo>
 #include <vector>
 
@@ -40,7 +39,8 @@ private:
 protected:
 	size_t _speciesIDinUniqueContainer = 0;
 
-	void _initializeDistribution(const TData &Data, const TUniqueContainer<std::string> &Locations);
+	void _initializeDistribution(const TData &Data, const TUniqueContainer<std::string> &Locations,
+	                             TBirpPrior *BirpPrior);
 	void _estimateInitialParameters(const TData &Data);
 	void _updateDistributionParameters(const TData &Data);
 	void _simulateDistributionParameters(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates);
@@ -52,21 +52,21 @@ public:
 	virtual ~TModelBase() = default;
 
 	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-	                        const TUniqueContainer<TypeTime> &TimePoints)                      = 0;
-	virtual void estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints)   = 0;
+	                        const TUniqueContainer<TypeTime> &TimePoints, TBirpPrior *BirpPrior)  = 0;
+	virtual void estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) = 0;
 	virtual void initializeTempVariables(const TData &Data)                                       = 0;
 	virtual void update(const TData &Data)                                                        = 0;
 	virtual void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) = 0;
 
 	// calculate sigma
-	std::vector<double> calculateSigma(const TLocations &loc) const;
-	std::vector<double> calculateSigmaFromDeterministicPhi(const TLocations &loc) const;
+	[[nodiscard]] std::vector<double> calculateSigma(const TLocations &loc) const;
+	[[nodiscard]] std::vector<double> calculateSigmaFromDeterministicPhi(const TLocations &loc) const;
 
 	// abstract function for phi
-	virtual TypePhi phi(size_t location_id, size_t timepoint_k) const = 0;
-	virtual TypePhi deterministicPhi(size_t timepoint_k) const        = 0;
+	[[nodiscard]] virtual TypePhi phi(size_t location_id, size_t timepoint_k) const = 0;
+	[[nodiscard]] virtual TypePhi deterministicPhi(size_t timepoint_k) const        = 0;
 
-	double calculateJeffreyPrior(const TData &Data, const TGamma &Gamma) const;
+	[[nodiscard]] double calculateJeffreyPrior(const TData &Data, const TGamma &Gamma) const;
 	double calculateLLRatio(const TData &Data);
 	double calculateLLRatio_perLocation(size_t j, const TData &Data);
 
@@ -76,9 +76,9 @@ public:
 	void swapTryCur_perLocation(size_t j, const TData &Data);
 	void swapTryCur_perMethod(size_t i, const TData &Data);
 
-	double curLL(size_t ij) const;
+	[[nodiscard]] double curLL(size_t ij) const;
 	double curLLPerMethod(size_t i, const TData &Data);
-	double sumCurLL() const;
+	[[nodiscard]] double sumCurLL() const;
 	void setCurLL(size_t ij, double Value);
 	void setCurLLPerMethod(const std::vector<double> &Values, size_t i, const TData &Data);
 
@@ -106,21 +106,20 @@ protected:
 
 public:
 	TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,
-	               const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
-	               stattools::TParameterTyped<TypeGamma, 1> *Gamma,
-	               stattools::TParameterTyped<TypeTime, 1> *TimesOfChange);
+	               const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
+	               TypeParamTOC *TimesOfChange);
 	~TDeterministic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-	                const TUniqueContainer<TypeTime> &TimePoints) override;
+	                const TUniqueContainer<TypeTime> &TimePoints, TBirpPrior *BirpPrior) override;
 	void estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) override;
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
 	void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) override;
 
-	TypePhi phi(size_t location_id, size_t timepoint_id) const override;
-	TypePhi deterministicPhi(size_t timepoint_k) const override;
+	[[nodiscard]] TypePhi phi(size_t location_id, size_t timepoint_id) const override;
+	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k) const override;
 
 	// write posterior summaries of gamma's
 	void resetSummaryGammaPosterior() override;
@@ -137,10 +136,10 @@ protected:
 	TStochasticPrior _prior;
 
 	// parameters: non-owning
-	stattools::TParameterTyped<TypeLogPhi, 2> *_logPhi     = nullptr;
-	stattools::TParameterTyped<TypeLogSigma, 1> *_logSigma = nullptr;
+	TypeParamLogPhi *_logPhi     = nullptr;
+	TypeParamLogSigma *_logSigma = nullptr;
 
-	std::unique_ptr<stattools::TUpdateUniqueIrregular<TypeLogPhi>> _jointUpdater;
+	std::unique_ptr<stattools::TUpdateUnique<TypeLogPhi, false>> _jointUpdater;
 
 	// initialization
 	void _setPhiFromDeterministic();
@@ -162,22 +161,20 @@ protected:
 
 public:
 	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations, size_t NumTimePoint,
-	            const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
-	            stattools::TParameterTyped<TypeGamma, 1> *Gamma, stattools::TParameterTyped<TypeTime, 1> *TimesOfChange,
-	            stattools::TParameterTyped<TypeLogPhi, 2> *LogPhi,
-	            stattools::TParameterTyped<TypeLogSigma, 1> *Logigma);
+	            const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
+	            TypeParamTOC *TimesOfChange, TypeParamLogPhi *LogPhi, TypeParamLogSigma *Logigma);
 	~TStochastic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
-	                const TUniqueContainer<TypeTime> &TimePoints) override;
+	                const TUniqueContainer<TypeTime> &TimePoints, TBirpPrior *BirpPrior) override;
 	void estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) override;
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
 	void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) override;
 
-	TypePhi phi(size_t location_id, size_t timepoint_k) const override;
-	TypePhi deterministicPhi(size_t timepoint_k) const override;
+	[[nodiscard]] TypePhi phi(size_t location_id, size_t timepoint_k) const override;
+	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k) const override;
 
 	// write posterior summaries of gamma's
 	void resetSummaryGammaPosterior() override;

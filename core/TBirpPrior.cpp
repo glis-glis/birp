@@ -49,13 +49,13 @@ std::string TBirpPrior::name() const { return "birp"; }
 //------------------------------------
 // Initialization
 
-void TBirpPrior::initializeInferred() {
+void TBirpPrior::initialize() {
 	// set size of parameters etc.
-	for (auto &_method : _data) { _method.initialize(_covariateEffortNames, _covariateDetectionNames); }
-	for (size_t s = 0; s < _numSpecies; s++) { _models[s]->initialize(_data, _locations, _timepoints); }
+	for (auto &_method : _data) { _method.initialize(_covariateEffortNames, _covariateDetectionNames, this); }
+	for (size_t s = 0; s < _numSpecies; s++) { _models[s]->initialize(_data, _locations, _timepoints, this); }
 }
 
-void TBirpPrior::estimateInitialPriorParameters() {
+void TBirpPrior::guessInitialValues() {
 	// set initial values of parameters
 	for (auto &_method : _data) { _method.estimateInitialAlphaBeta(); }
 	for (size_t s = 0; s < _numSpecies; ++s) { _models[s]->estimateInitial(_data, _timepoints); }
@@ -113,7 +113,7 @@ void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called w
 	// do we need to simulate covariates?
 	bool simulateCovariates = !parameters().exists("simulationFile");
 
-	for (const auto & model : _models) { model->simulate(_data, n_bar, simulateCovariates); }
+	for (const auto &model : _models) { model->simulate(_data, n_bar, simulateCovariates); }
 }
 
 //------------------------------------

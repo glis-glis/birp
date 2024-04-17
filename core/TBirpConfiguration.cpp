@@ -3,23 +3,20 @@
 //
 
 #include "TBirpConfiguration.h"
-
 #include "TBirpPrior.h"
 #include "TData.h"
+#include "coretools/Strings/repeatString.h"
 #include "coretools/Types/strongTypes.h"
 #include "coretools/devtools.h"
 #include "stattools/MCMC/TMCMC.h"
-#include "stattools/Priors/TPriorDirichlet.h"
-#include "stattools/Priors/TPriorExponential.h"
-#include "stattools/Priors/TPriorNormal.h"
 
 using namespace coretools::instances;
 using namespace stattools;
 using namespace stattools::prior;
 
-std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretools::StrictlyPositive<double> Default) {
+std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretools::StrictlyPositive Default) {
 	// read values of alpha from command line
-	std::vector<coretools::StrictlyPositive<double>> alphas;
+	std::vector<coretools::StrictlyPositive> alphas;
 	if (parameters().exists(ArgName)) {
 		parameters().fill(ArgName, alphas);
 	} else {
@@ -40,37 +37,39 @@ std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretool
 void TBirpCommonModel::_createAlpha(size_t i, TData &Data, const TUniqueContainer<std::string> &CovariateEffortNames,
                                     const std::string &Filename) {
 	// create alpha
-	auto name  = "alpha_" + Data[i].name();
-	auto prior = std::make_shared<stattools::prior::TDirichletFixed<stattools::TParameterBase, TypeAlpha, 1>>();
+	auto name = "alpha_" + Data[i].name();
 	TParameterDefinition def(Filename, readAlphaDirichlet("dirichlet_alpha", CovariateEffortNames.size(),
 	                                                      10.0)); // alpha = 10 is quite arbitrary choice
-	alpha[i] = std::make_shared<stattools::TParameterTyped<TypeAlpha, 1>>(name, prior, def);
+	def.excludeFromDAGUpdates(true);
+	alpha[i] = std::make_shared<stattools::TParameter<SpecAlpha, BirpBox>>(name, &_boxOnAlpha, def);
 }
 
 void TBirpCommonModel::_createBeta0(size_t i, TData &Data, const std::string &Filename) {
 	// create beta
-	auto name  = "beta0_" + Data[i].name();
-	auto prior = std::make_shared<stattools::prior::TNormalFixed<stattools::TParameterBase, TypeBeta, 1>>();
+	auto name = "beta0_" + Data[i].name();
 	TParameterDefinition def(Filename, "0,1");
-	beta0[i] = std::make_shared<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
+	def.excludeFromDAGUpdates(true);
+	beta0[i] = std::make_shared<stattools::TParameter<SpecBeta, BirpBox>>(name, &_boxOnBeta0, def);
 }
 
 void TBirpCommonModel::_createBeta(size_t i, TData &Data, const std::string &Filename) {
 	// create beta
-	auto name  = "beta_" + Data[i].name();
-	auto prior = std::make_shared<stattools::prior::TNormalFixed<stattools::TParameterBase, TypeBeta, 1>>();
+	auto name = "beta_" + Data[i].name();
 	TParameterDefinition def(Filename, "0,1");
-	beta[i] = std::make_shared<stattools::TParameterTyped<TypeBeta, 1>>(name, prior, def);
+	def.excludeFromDAGUpdates(true);
+	beta[i] = std::make_shared<stattools::TParameter<SpecBeta, BirpBox>>(name, &_boxOnBeta, def);
 }
 
 TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::string> &CovariateEffortNames,
-                                   const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
-    // TODO: change to improper prior!
-    : gamma("gamma", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeGamma, 1>>(),
-            {Filename}),
-      timesOfChange("timesOfChange",
-                    std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeTime, 1>>(),
-                    {Filename}) {
+                                   const std::string &Filename)
+    : _boxOnGamma(), _boxOnTOC(), _boxOnAlpha(), _boxOnBeta(), _boxOnBeta0(), gamma("gamma", &_boxOnGamma, {Filename}),
+      timesOfChange("timesOfChange", &_boxOnTOC, {Filename}) {
+
+	// don't update gamma and TOC via DAG
+	gamma.getDefinition().excludeFromDAGUpdates(true);
+	timesOfChange.getDefinition().excludeFromDAGUpdates(true);
+
+	gamma.getDefinition().setJumpSizeForAll(false);
 
 	// create alpha and beta
 	const size_t numMethods = Data.size();
@@ -82,14 +81,6 @@ TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::stri
 		_createBeta0(i, Data, Filename);
 		_createBeta(i, Data, Filename);
 	}
-
-	gamma.getDefinition().setJumpSizeForAll(false);
-
-	// add to DAG
-	DAGBuilder.addToDAG({&gamma, &timesOfChange});
-	for (auto &a : alpha) { DAGBuilder.addToDAG(a.get()); }
-	for (auto &b : beta0) { DAGBuilder.addToDAG(b.get()); }
-	for (auto &b : beta) { DAGBuilder.addToDAG(b.get()); }
 }
 
 //------------------------------------------
@@ -105,35 +96,31 @@ std::string getNameMuOrN(bool HasDetectionCovariates) {
 
 std::string getLambdaB() { return parameters().get("lambda_b", "1.0"); }
 
-TBirpNegBinomAddOn::TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::string &Filename,
-                                       stattools::TDAGBuilder &DAGBuilder)
-    : muOrN(getNameMuOrN(HasDetectionCovariates),
-            std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeMuOrN, 1>>(), {Filename}),
-      b("b", std::make_shared<stattools::prior::TExponentialFixed<stattools::TParameterBase, TypeB, 1>>(),
-        {Filename, getLambdaB()}) {
+TBirpNegBinomAddOn::TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::string &Filename)
+    : _boxOnMuOrN(), _boxOnB(), muOrN(getNameMuOrN(HasDetectionCovariates), &_boxOnMuOrN, {Filename}),
+      b("b", &_boxOnB, {Filename, getLambdaB()}) {
 
-	// add to DAG
-	DAGBuilder.addToDAG({&muOrN, &b});
+	// don't update muOrN and b via DAG
+	muOrN.getDefinition().excludeFromDAGUpdates(true);
+	b.getDefinition().excludeFromDAGUpdates(true);
 }
 
 //------------------------------------------
 // TBirpStochasticAddOn
 //------------------------------------------
 
-TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename, stattools::TDAGBuilder &DAGBuilder)
-    : logPhi("logPhi", std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogPhi, 2>>(),
-             {Filename}),
-      logSigma("logSigma",
-               std::make_shared<stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogSigma, 1>>(),
-               {Filename}) {
+TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename)
+    : _boxOnLogPhi(), _boxOnLogSigma(), logPhi("logPhi", &_boxOnLogPhi, {Filename}),
+      logSigma("logSigma", &_boxOnLogSigma, {Filename}) {
+
+	// don't update muOrN and b via DAG
+	logPhi.getDefinition().excludeFromDAGUpdates(true);
+	logSigma.getDefinition().excludeFromDAGUpdates(true);
 
 	logPhi.getDefinition().setJumpSizeForAll(false);
-	logPhi.getDefinition().setEqualNumberOfUpdates(false); // first logPhi is not updated
+	logPhi.getDefinition().setUnequalNumberOfUpdates(true); // first logPhi is not updated
 
 	TypeLogSigma ::setMin(-10.); // prevent numeric issues with very small sigma: 1/sigma can result in nan
-
-	// add to DAG
-	DAGBuilder.addToDAG({&logPhi, &logSigma});
 }
 
 //------------------------------------------
@@ -141,29 +128,28 @@ TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename, stattool
 //------------------------------------------
 
 TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,
-                       const TUniqueContainer<TypeTime> &TimePoints,
-                       const TUniqueContainer<std::string> &SpeciesNames,
+                       const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
-                       stattools::TDAGBuilder &DAGBuilder, bool Stochastic, bool Simulate)
-    : _commonModel(Data, CovariateEffortNames, Filename, DAGBuilder) {
+                       bool Stochastic, bool Simulate)
+    : _commonModel(Data, CovariateEffortNames, Filename) {
 
 	// do negative binomial?
 	const bool hasDetectionCovariates = !CovariateDetectionNames.empty();
 	if (parameters().exists("negativeBinomial")) {
-		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(hasDetectionCovariates, Filename, DAGBuilder);
+		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(hasDetectionCovariates, Filename);
 	}
 
 	// do stochastic?
 	if (Stochastic) {
 		// set initial values of all non-stochastic parameters from deterministic MCMC
 		if (!Simulate) {
-			for (const auto &p : DAGBuilder.getAllParameters()) {
+			for (const auto &p : stattools::instances::dagBuilder().getAllParameters()) {
 				p->getDefinition().setInitVal(Filename + "_meanVar.txt");
 			}
 		}
 		// create stochastic add-on
-		_stochasticAddOn = std::make_unique<TBirpStochasticAddOn>(Filename, DAGBuilder);
+		_stochasticAddOn = std::make_unique<TBirpStochasticAddOn>(Filename);
 	}
 
 	// create birp prior (Poisson or Negative Binomial)
@@ -172,16 +158,16 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 	                                 SpeciesNames.size(), _commonModel, _negBinomAddOn, _stochasticAddOn, Filename);
 
 	// add updater for joint logPhi update
-	if (Stochastic) { DAGBuilder.addExtraUpdater(_birpPrior->getPtrToJointUpdater()); }
+	if (Stochastic) { stattools::instances::dagBuilder().addExtraUpdater(_birpPrior->getPtrToJointUpdater()); }
 
 	// create fake storage: data are stored in TSpecies, but stattools requires TMultiDimensionalStorage
 	coretools::TMultiDimensionalStorage<TypeCounts, 2> fakeData;
-	_data = std::make_unique<stattools::TObservationTyped<TypeCounts, 2>>("likelihood", _birpPrior, fakeData,
-	                                                                      stattools::TObservationDefinition(Filename));
+	_data = std::make_unique<stattools::TObservation<TypeCounts, NumDimCounts, BirpBox>>(
+	    "likelihood", _birpPrior.get(), fakeData, stattools::TObservationDefinition(Filename));
 
-	// add to DAG
-	DAGBuilder.addToDAG(_data.get());
-	DAGBuilder.buildDAG();
+	// define function that is called when updating
+	_funUpdate = &TBirpPrior::updateParams;
+	stattools::instances::dagBuilder().addFuncToUpdate(*_birpPrior, _funUpdate);
 }
 
 void TBirpModel::writeSummaryGammaPosterior(const std::string &Prefix) {

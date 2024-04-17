@@ -9,15 +9,14 @@
 #include "TBirpConfiguration.h"
 #include "TData.h"
 #include "TModels.h"
-#include "coretools/Files/TFile.h"
 #include "coretools/Files/TOutputFile.h"
-#include "stattools/ParametersObservations/TObservationTyped.h"
-#include "stattools/ParametersObservations/TParameterTyped.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:
 	using typename stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2>::Storage;
 	using typename stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2>::UpdatedStorage;
+
+	using BoxType = TBirpPrior;
 
 protected:
 	// data
@@ -44,25 +43,24 @@ protected:
 public:
 	TBirpPrior() = default;
 	TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<TypeTime> &TimePoints,
-	           const TUniqueContainer<std::string> &CovariateEffortNames,
+	           const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &CovariateEffortNames,
 	           const TUniqueContainer<std::string> &CovariateDetectionNames, size_t numSpecies,
 	           TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
 	           std::unique_ptr<TBirpStochasticAddOn> &StochasticAddOn, std::string Prefix);
 	~TBirpPrior() override = default;
 
-	void initializeInferred() override;
+	void initialize() override;
 
 	[[nodiscard]] std::string name() const override;
 
 	// estimate initial values
-	void estimateInitialPriorParameters() override;
+	void guessInitialValues() override;
 
 	// full log densities
 	double getSumLogPriorDensity(const Storage &) const override;
 
 	// update all parameters
-	void updateParams() override;
+	void updateParams();
 
 	// write summaries of gamma posterior
 	void burninHasFinished() override;
