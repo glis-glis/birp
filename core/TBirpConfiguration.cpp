@@ -34,11 +34,10 @@ std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretool
 // TBirpCommonModel
 //------------------------------------------
 
-void TBirpCommonModel::_createAlpha(size_t i, TData &Data, const TUniqueContainer<std::string> &CovariateEffortNames,
-                                    const std::string &Filename) {
+void TBirpCommonModel::_createAlpha(size_t i, TData &Data, const std::string &Filename) {
 	// create alpha
 	auto name = "alpha_" + Data[i].name();
-	TParameterDefinition def(Filename, readAlphaDirichlet("dirichlet_alpha", CovariateEffortNames.size(),
+	TParameterDefinition def(Filename, readAlphaDirichlet("dirichlet_alpha", Data[i].numCovariatesEffort(),
 	                                                      10.0)); // alpha = 10 is quite arbitrary choice
 	def.excludeFromDAGUpdates(true);
 	alpha[i] = std::make_shared<stattools::TParameter<SpecAlpha, BirpBox>>(name, &_boxOnAlpha, def);
@@ -60,8 +59,7 @@ void TBirpCommonModel::_createBeta(size_t i, TData &Data, const std::string &Fil
 	beta[i] = std::make_shared<stattools::TParameter<SpecBeta, BirpBox>>(name, &_boxOnBeta, def);
 }
 
-TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::string> &CovariateEffortNames,
-                                   const std::string &Filename)
+TBirpCommonModel::TBirpCommonModel(TData &Data, const std::string &Filename)
     : _boxOnGamma(), _boxOnTOC(), _boxOnAlpha(), _boxOnBeta(), _boxOnBeta0(), gamma("gamma", &_boxOnGamma, {Filename}),
       timesOfChange("timesOfChange", &_boxOnTOC, {Filename}) {
 
@@ -77,7 +75,7 @@ TBirpCommonModel::TBirpCommonModel(TData &Data, const TUniqueContainer<std::stri
 	beta.resize(numMethods);
 	beta0.resize(numMethods);
 	for (size_t i = 0; i < numMethods; ++i) {
-		_createAlpha(i, Data, CovariateEffortNames, Filename);
+		_createAlpha(i, Data, Filename);
 		_createBeta0(i, Data, Filename);
 		_createBeta(i, Data, Filename);
 	}
@@ -132,7 +130,7 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
                        bool Stochastic, bool Simulate)
-    : _commonModel(Data, CovariateEffortNames, Filename) {
+    : _commonModel(Data, Filename) {
 
 	// do negative binomial?
 	const bool hasDetectionCovariates = !CovariateDetectionNames.empty();

@@ -18,8 +18,7 @@
 
 class TBirpCommonModel {
 private:
-	void _createAlpha(size_t i, TData &Data, const TUniqueContainer<std::string> &CovariateNames,
-	                  const std::string &Filename);
+	void _createAlpha(size_t i, TData &Data, const std::string &Filename);
 	void _createBeta(size_t i, TData &Data, const std::string &Filename);
 	void _createBeta0(size_t i, TData &Data, const std::string &Filename);
 
@@ -39,8 +38,7 @@ public:
 	std::vector<std::shared_ptr<TypeParamBeta>> beta;
 	std::vector<std::shared_ptr<TypeParamBeta>> beta0;
 
-	TBirpCommonModel(TData &Data, const TUniqueContainer<std::string> &CovariateEffortNames,
-	                 const std::string &Filename);
+	TBirpCommonModel(TData &Data, const std::string &Filename);
 };
 
 //------------------------------------------

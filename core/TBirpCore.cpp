@@ -149,8 +149,7 @@ std::string getMethodName(const std::string &Filename) {
 	if (coretools::str::stringContains(Filename, '/')) {
 		methodNameFull = coretools::str::readAfterLast(Filename, '/');
 	}
-	std::string_view methodNameCropped = coretools::str::readAfter(methodNameFull, '_');
-	std::string methodName             = (std::string)coretools::str::readBeforeLast(methodNameCropped, '.');
+	std::string methodName             = (std::string)coretools::str::readBeforeLast(methodNameFull, '.');
 	coretools::str::eraseAllOccurences(methodName, "_simulatedCounts");
 	return methodName;
 }
@@ -181,11 +180,11 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = getIndicesMethodFile(file, hasCounts);
 
 	// map: per location, how many timepoints with non-zero effort are there?
-	std::map<std::string_view, size_t> numTimePointsPerLocation;
+	std::map<std::string, size_t> numTimePointsPerLocation;
 	for (; !file.empty(); file.popFront()) {
 		// read location and timepoint
-		std::string_view location  = file.get("location");
-		std::string_view timepoint = file.get("timepoint");
+		std::string location  = (std::string)file.get("location");
+		std::string timepoint = (std::string)file.get("timepoint");
 
 		// read effort(s)
 		if (allEffortsAreZero(file.front(), covEffortIndices)) {
@@ -204,7 +203,7 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 	}
 
 	// parsed entire file: now check for each location if there are enough timepoints
-	std::map<std::string_view, bool> keepLocations;
+	std::map<std::string, bool> keepLocations;
 	size_t numLocationsToKeep = 0;
 	for (const auto &loc : numTimePointsPerLocation) {
 		if (loc.second == 1) {
@@ -252,7 +251,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	_data.addMethod(method); // the index of the method is the current size of the _methods vector
 
 	for (; !file.empty(); file.popFront()) {
-		std::string_view location = file.get("location");
+		std::string location = (std::string)file.get("location");
 		if (!keepLocations[location]) { continue; }                          // skip this location
 		if (allEffortsAreZero(file.front(), covEffortIndices)) { continue; } // skip timepoint: effort = 0
 
