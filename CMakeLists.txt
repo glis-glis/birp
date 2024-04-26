@@ -40,9 +40,6 @@ FetchContent_Declare(stattools
         )
 FetchContent_MakeAvailable(stattools)
 
-# Check if we're using Rcpp
-option(RCPP "Using Rcpp" OFF)
-
 #######################
 # Create core library
 #######################
