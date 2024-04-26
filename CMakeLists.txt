@@ -43,6 +43,13 @@ FetchContent_MakeAvailable(stattools)
 #######################
 # Create core library
 #######################
+
+# Rcpp
+option(RCPP "Using Rcpp" OFF)
+if (RCPP)
+    add_definitions(-DRCPP)
+endif ()
+
 # assemble list of cpp and h files in core folder
 file(GLOB_RECURSE CORE_SOURCES core/*.h core/*.cpp)
 
