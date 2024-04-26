@@ -47,7 +47,10 @@ FetchContent_MakeAvailable(stattools)
 # Rcpp
 option(RCPP "Using Rcpp" OFF)
 if (RCPP)
+    message("Birp: Compiling in Rcpp mode!")
     add_definitions(-DRCPP)
+else ()
+    message("Birp: Not compiling in Rcpp mode!")
 endif ()
 
 # assemble list of cpp and h files in core folder
