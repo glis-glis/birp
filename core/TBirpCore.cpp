@@ -25,11 +25,10 @@ TBirpCore::TBirpCore() {
 	using namespace coretools::instances;
 	if (parameters().exists("out")) {
 		_outname = parameters().get<std::string>("out");
-		logfile().list("Will write files with prefix '", _outname, "'. (parameter 'out')");
+		logfile().list("Will write files with prefix '", _outname, "'. (argument 'out')");
 	} else {
 		_outname = "birp";
-		logfile().list("Will write files with default prefix '", _outname,
-		               "'. (You can change this using the parameter 'out')");
+		logfile().list("Will write files with default prefix '", _outname, "' (use argument 'out' to change).");
 	}
 }
 
@@ -81,6 +80,7 @@ std::vector<std::string> TBirpCore::_getAllFilenames() {
 	// 2) a file containing all filenames for multiple methods
 	// 3) a comma-separated list of filenames for multiple methods
 	std::string input = parameters().get("data");
+	logfile().list("Will read input data from file ", input, " (argument 'data').");
 
 	std::vector<std::string> filenames;
 	if (std::filesystem::exists(input)) { // is a file
@@ -149,7 +149,7 @@ std::string getMethodName(const std::string &Filename) {
 	if (coretools::str::stringContains(Filename, '/')) {
 		methodNameFull = coretools::str::readAfterLast(Filename, '/');
 	}
-	std::string methodName             = (std::string)coretools::str::readBeforeLast(methodNameFull, '.');
+	std::string methodName = (std::string)coretools::str::readBeforeLast(methodNameFull, '.');
 	coretools::str::eraseAllOccurences(methodName, "_simulatedCounts");
 	return methodName;
 }
@@ -313,6 +313,7 @@ void TBirpCore::infer() {
 	_readForInference(true);
 
 	if (parameters().exists("stochastic")) {
+		logfile().list("Will model stochastic trends (argument 'stochastic').");
 		// run MCMC (deterministic)
 		logfile().startIndent("Running MCMC with deterministic model for initialization:");
 		_runMCMC(false);
@@ -323,6 +324,7 @@ void TBirpCore::infer() {
 		logfile().endIndent();
 	} else {
 		// run MCMC (deterministic)
+		logfile().list("Will model deterministic trends (use 'stochastic' to change).");
 		_runMCMC(false);
 	}
 }
@@ -381,17 +383,20 @@ void TBirpCore::_fillTimepointsFromCommandLine() {
 	} else {
 		timepoints = timepointsDefault;
 	}
+	logfile().list("Timepoints: ", timepoints, " (argument 'timepoints').");
 	// fill into unique container
 	for (const auto &timepoint : timepoints) { _timepoints.add(timepoint); }
 }
 
 void TBirpCore::_fillLocationsFromCommandLine() {
 	size_t numLocations = parameters().get("numLocations", 2);
+	logfile().list("Number of locations: ", numLocations, " (argument 'numLocations').");
 	for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l)); }
 }
 
 std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
 	size_t numSpecies = parameters().get("numSpecies", 1);
+	logfile().list("Number of species: ", numSpecies, " (argument 'numSpecies').");
 	std::vector<size_t> species_ids(numSpecies);
 	for (size_t n = 0; n < numSpecies; n++) {
 		species_ids[n] = _speciesNames.add("species_" + coretools::str::toString(n + 1));
@@ -402,6 +407,8 @@ std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
 std::vector<size_t> TBirpCore::_simulateCovEffortNames() {
 	size_t numCovs = parameters().get("numCovariatesEffort", 1);
 	if (numCovs == 0) { UERROR("Argument 'numCovariatesEffort' must be at least 1!"); }
+	logfile().list("Number of effort covariates: ", numCovs, " (argument 'numCovariatesEffort').");
+
 	// fill names and ids
 	std::vector<size_t> covariates_ids(numCovs);
 	for (size_t n = 0; n < numCovs; n++) {
@@ -412,6 +419,7 @@ std::vector<size_t> TBirpCore::_simulateCovEffortNames() {
 
 std::vector<size_t> TBirpCore::_simulateCovDetectionNames() {
 	size_t numCovs = parameters().get("numCovariatesDetection", 0);
+	logfile().list("Number of detection probability covariates: ", numCovs, " (argument 'numCovariatesDetection').");
 	// fill names and ids
 	std::vector<size_t> covariates_ids(numCovs);
 	for (size_t n = 0; n < numCovs; n++) {
@@ -424,12 +432,14 @@ void TBirpCore::simulate() {
 	// read incomplete counts file (if provided)
 	if (parameters().exists("simulationFile")) {
 		std::string filename = parameters().get("simulationFile");
+		logfile().list("Will use simulation file '", filename, "' to simulate counts (argument 'simulationFile').");
 		_readFile(filename, false);
 	} else {
 		// else read main dimensions from command line
 		_fillTimepointsFromCommandLine();
 		_fillLocationsFromCommandLine();
-		size_t numMethods           = parameters().get("numMethods", 1);
+		size_t numMethods = parameters().get("numMethods", 1);
+		logfile().list("Number of methods: ", numMethods, " (argument 'numMethods').");
 		// create vector of speciesnames species_1, species_2 ... as many as there are. currently only supports one
 		// species
 		auto species_ids            = _simulateSpeciesNames();
@@ -447,6 +457,12 @@ void TBirpCore::simulate() {
 
 	// create model
 	const bool stochastic = parameters().exists("stochastic");
+	if (stochastic) {
+		logfile().list("Will simulate stochastic trends (argument 'stochastic').");
+	} else {
+		logfile().list("Will simulate deterministic trends (use 'stochastic' to change).");
+	}
+
 	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
 	                 _outname, stochastic, true);
 

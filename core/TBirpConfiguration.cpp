@@ -135,7 +135,10 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 	// do negative binomial?
 	const bool hasDetectionCovariates = !CovariateDetectionNames.empty();
 	if (parameters().exists("negativeBinomial")) {
+		logfile().list("Will use a negative binomial distribution to model counts (argument 'negativeBinomial').");
 		_negBinomAddOn = std::make_unique<TBirpNegBinomAddOn>(hasDetectionCovariates, Filename);
+	} else {
+		logfile().list("Will use a Poisson distribution to model counts (use argument 'negativeBinomial' to change).");
 	}
 
 	// do stochastic?

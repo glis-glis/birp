@@ -101,6 +101,7 @@ std::vector<double> TBirpPrior::_readNBarFromCommandLine() const {
 	if (n_bar.size() != _data.size()) {
 		UERROR("Size of n_bar (", n_bar.size(), ") does not match the number of methods (", _data.size(), ")!");
 	}
+	logfile().list("N_bar = ", n_bar, " (argument 'n_bar').");
 	return n_bar;
 }
 

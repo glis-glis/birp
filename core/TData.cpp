@@ -13,6 +13,8 @@
 #include <set>
 #include <utility>
 
+using namespace coretools::instances;
+
 //-------------------------------------------
 // TTimepoints
 //-------------------------------------------
@@ -185,7 +187,7 @@ void TTimepoints::simulatePoisson(double u, double phi) {
 	if (lambda == 0.0) {
 		_counts_per_species[0] = 0;
 	} else {
-		_counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom((double)lambda);
+		_counts_per_species[0] = randomGenerator().getPoissonRandom((double)lambda);
 	}
 }
 
@@ -193,8 +195,8 @@ void TTimepoints::simulateNB(double phi, double a, double u) {
 	// first draw lambda from a Gamma distr and then from there draw counts from Pois
 	double alpha           = u * phi * _effort / a;
 	double beta            = 1.0 / a;
-	double lambda          = coretools::instances::randomGenerator().getGammaRand(alpha, beta);
-	_counts_per_species[0] = coretools::instances::randomGenerator().getPoissonRandom(lambda);
+	double lambda          = randomGenerator().getGammaRand(alpha, beta);
+	_counts_per_species[0] = randomGenerator().getPoissonRandom(lambda);
 }
 
 //-------------------------------------------
@@ -416,15 +418,14 @@ auto TMethods::_getSumEffortCovariates() {
 	return sum;
 }
 
-bool assumeTrueDetectionProbability() {
-	return coretools::instances::parameters().exists("assumeTrueDetectionProbability");
-}
+bool assumeTrueDetectionProbability() { return parameters().exists("assumeTrueDetectionProbability"); }
 
 void TMethods::standardizeCovariates() {
 	auto meanVar = _getMeanVarDetectionCovariates();
 	auto sum     = _getSumEffortCovariates();
-
 	if (assumeTrueDetectionProbability()) {
+		logfile().list("Will assume that the provided detection probabilities are true, meaning that they will be "
+		               "transform to logit and not standardized (argument 'assumeTrueDetectionProbability').");
 		// user has provided true detection probabilities -> transform to logit and do not standardize!
 		if (_covariateDetectionIDsinUniqueContainer.size() > 1) {
 			UERROR("Argument 'assumeTrueDetectionProbability' can only be used if a single detection probability is "
@@ -441,6 +442,11 @@ void TMethods::standardizeCovariates() {
 					}
 				}
 			}
+		}
+	} else {
+		if (!_covariateDetectionIDsinUniqueContainer.empty()) {
+			logfile().list("Will assume that the provided detection probabilities are covariates (use argument "
+			               "'assumeTrueDetectionProbability' to change).");
 		}
 	}
 
@@ -546,14 +552,17 @@ void TMethods::_simulateOneCovariateEffort(size_t c, const std::string &Cov) {
 }
 
 void TMethods::_simulateCovariatesEffort() {
-	using namespace coretools;
 	std::string effortString = "gamma(1, 2)";
-	if (instances::parameters().exists("covariatesEffort_" + _methodName)) {
-		effortString = instances::parameters().get("covariatesEffort_" + _methodName);
-	} else if (instances::parameters().exists("covariatesEffort")) {
-		effortString = instances::parameters().get("covariatesEffort");
+	if (parameters().exists("covariatesEffort_" + _methodName)) {
+		effortString = parameters().get("covariatesEffort_" + _methodName);
+	} else if (parameters().exists("covariatesEffort")) {
+		effortString = parameters().get("covariatesEffort");
 	}
-	if (str::stringIsProbablyANumber(effortString)) {
+
+	logfile().list("Covariates for effort = ", effortString, " (arguments 'covariatesEffort' and '",
+	               "covariatesEffort_" + _methodName, "').");
+
+	if (coretools::str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
 		for (size_t c = 0; c < numCovariatesEffort(); ++c) { _simulateOneCovariateEffort(c, effortString); }
 	} else if (hasCommasOutsideBracket(effortString)) {
@@ -592,14 +601,17 @@ void TMethods::_simulateOneCovariateDetection(size_t c, const std::string &Cov) 
 }
 
 void TMethods::_simulateCovariatesDetection() {
-	using namespace coretools;
 	std::string effortString = "normal(0, 1)";
-	if (instances::parameters().exists("covariatesDetection_" + _methodName)) {
-		effortString = instances::parameters().get("covariatesDetection_" + _methodName);
-	} else if (instances::parameters().exists("covariatesDetection")) {
-		effortString = instances::parameters().get("covariatesDetection");
+	if (parameters().exists("covariatesDetection_" + _methodName)) {
+		effortString = parameters().get("covariatesDetection_" + _methodName);
+	} else if (parameters().exists("covariatesDetection")) {
+		effortString = parameters().get("covariatesDetection");
 	}
-	if (str::stringIsProbablyANumber(effortString)) {
+
+	logfile().list("Covariates for detection probabilities = ", effortString, " (arguments 'covariatesDetection' and '",
+	               "covariatesDetection_" + _methodName, "').");
+
+	if (coretools::str::stringIsProbablyANumber(effortString)) {
 		// case 1: is a number: use it for all covariates
 		for (size_t c = 0; c < numCovariatesDetection(); ++c) { _simulateOneCovariateDetection(c, effortString); }
 	} else if (hasCommasOutsideBracket(effortString)) {
@@ -617,18 +629,21 @@ void TMethods::_simulateCovariatesDetection() {
 }
 
 void TMethods::_simulateZeroCovariates() {
-	using namespace coretools;
 	auto pi = coretools::Probability(0.0);
-	if (instances::parameters().exists("proportionZeroEffort_" + _methodName)) {
-		pi = instances::parameters().get<coretools::Probability>("proportionZeroEffort_" + _methodName);
-	} else if (instances::parameters().exists("proportionZeroEffort")) {
-		pi = instances::parameters().get<coretools::Probability>("proportionZeroEffort");
+	if (parameters().exists("proportionZeroEffort_" + _methodName)) {
+		pi = parameters().get<coretools::Probability>("proportionZeroEffort_" + _methodName);
+	} else if (parameters().exists("proportionZeroEffort")) {
+		pi = parameters().get<coretools::Probability>("proportionZeroEffort");
 	}
+
+	logfile().list("Proportion of zero-valued covariates = ", pi, " (arguments 'proportionZeroEffort' and '",
+	               "proportionZeroEffort_" + _methodName, "').");
+
 	if (pi > 0.0) {
 		// go over data again and set to zero, if needed
 		for (auto &_location : _locations) {
 			for (auto &t : _location) {
-				if (instances::randomGenerator().pickOneOfTwo(pi) == 1) { // set it to zero!
+				if (randomGenerator().pickOneOfTwo(pi) == 1) { // set it to zero!
 					for (size_t c = 0; c < t.covariatesEffort().size(); ++c) { t.setCovariateEffort(c, 0.0); }
 				}
 			}

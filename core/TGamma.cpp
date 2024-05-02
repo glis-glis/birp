@@ -293,17 +293,22 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 TGamma::TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange) : _gamma(Gamma), _timesOfChange(TimesOfChange) {
 	// find out how many epochs there are
 	if (parameters().exists("timesOfChange")) {
+		// Note: actual value of _timesOfChange will be set via stattools (name of parameter _timesOfChange is
+		// "timesOfChange" -> parsed from command line)
 		std::vector<std::string> tmp;
 		parameters().fill("timesOfChange", tmp);
+		logfile().list("Times of change = ", tmp, " (argument 'timesOfChange').");
 		_numEpochs = tmp.size() + 1;
 	} else {
-		_numEpochs = parameters().get("numEpochs", 1);
+		logfile().list("Will assume a single epoch (use argument 'timesOfChange' to change).");
+		_numEpochs = 1;
 	}
 	// default: do not infer times of change
 	if (!parameters().exists("inferTimesOfChange")) { _timesOfChange->getDefinition().update(false); }
 
 	// calculate Jeffrey's prior?
 	_noJP = parameters().exists("noJP");
+	if (_noJP) { logfile().list("Will not use Jeffrey's prior on gamma (argument 'noJP')."); }
 }
 
 void TGamma::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior) {
@@ -646,7 +651,7 @@ bool TStochasticPrior::evaluateGamma_forLogPhiJointUpdate(size_t m, double LLRat
                                                           const TModelBase &Model) {
 	const double logPriorRatio = _gamma.getLogPriorRatio(Data, Model); // Jeffrey prior
 	const double logH          = LLRatio + logPriorRatio;
-	if (_gamma.acceptOrReject(logH, m)) {                              // already swaps JP (if necessary)
+	if (_gamma.acceptOrReject(logH, m)) { // already swaps JP (if necessary)
 		// no need to swap transition probabilities: these didn't change!
 		return true;
 	}

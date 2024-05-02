@@ -303,6 +303,7 @@ std::vector<double> TNegBinDistribution::_readAFromCommandLine(const TData &Data
 	if (a.size() != Data.size()) {
 		UERROR("Size of a (", a.size(), ") does not match the number of methods (", Data.size(), ")!");
 	}
+	logfile().list("a for negative binomial distribution = ", a, " (argument 'a').");
 	return a;
 }
 
