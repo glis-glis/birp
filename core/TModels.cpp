@@ -329,7 +329,8 @@ TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, s
       _logPhi(LogPhi), _logSigma(LogSigma) {
 
 	_jointUpdater = std::make_unique<stattools::TUpdateUnique<TypeLogPhi, false>>(
-	    NumLocations * NumTimePoints, true, stattools::ProposalKernel::normal, "jointLogPhi");
+	    NumLocations * NumTimePoints, true, std::make_unique<stattools::TPropKernelNormal<TypeLogPhi, double>>(),
+	    "jointLogPhi");
 	_jointUpdater->setProposalWidth("0.1");
 }
 
