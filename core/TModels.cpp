@@ -151,16 +151,20 @@ double TModelBase::calculateLLRatio_perLocation(size_t j, const TData &Data) {
 	// used in update of phi in stochastic model
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
-		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
-			size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
-			size_t index_in_counts  = method.getIndexInCounts(_speciesIDinUniqueContainer);
-			std::vector sigma       = calculateSigma(method[j]);
-			std::vector<double> p   = sigma;
-			// now normalize by row sum!
-			coretools::normalize(p);
-			// add to Likelihood
-			_tryLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[j], p, index_in_counts, ix_linNumMethLoc, i);
-		}
+		// check if method has data for this species and the location with index j
+		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
+		if (!method.hasDataForLocation(j)) { continue; }
+		size_t j_in_method = method.getLocationIndexInMethod(j);
+
+		size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j_in_method);
+		size_t index_in_counts  = method.getIndexInCounts(_speciesIDinUniqueContainer);
+		std::vector sigma       = calculateSigma(method[j_in_method]);
+		std::vector<double> p   = sigma;
+		// now normalize by row sum!
+		coretools::normalize(p);
+		// add to Likelihood
+		_tryLL[ix_linNumMethLoc] =
+		    _distr->calculateLL(sigma, method[j_in_method], p, index_in_counts, ix_linNumMethLoc, i);
 	}
 	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
 }
@@ -196,8 +200,9 @@ void TModelBase::swapTryCur_perLocation(size_t j, const TData &Data) {
 	// used when a location has changed
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
-		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
-			size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
+		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer) && method.hasDataForLocation(j)) {
+			size_t j_in_method = method.getLocationIndexInMethod(j);
+			size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j_in_method);
 			std::swap(_tryLL[ix_linNumMethLoc], _curLL[ix_linNumMethLoc]);
 		}
 	}
@@ -457,8 +462,8 @@ void TStochastic::_jointUpdateLogPhi(size_t j, size_t k, const TData &Data) {
 	// and k)
 	const auto LLRatio  = calculateLLRatio_perLocation(j, Data);
 	const double logH   = LLRatio + logPriorRatio;
-	const size_t ixLast = _logPhi->getIndex({j, _logPhi->dimensions()[1]});
-	coretools::TRange range(ix, ixLast, 1);
+	const size_t ixLast = _logPhi->getIndex({j, _logPhi->dimensions()[1] - 1});
+	coretools::TRange range(ix, ixLast + 1, 1);
 	if (_logPhi->acceptOrReject(logH, range, coretools::TRange())) { // don't count rejection
 		_prior.swapTryCur(j, k);
 		swapTryCur_perLocation(j, Data);

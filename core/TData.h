@@ -182,6 +182,10 @@ private:
 	std::vector<bool> _hasDataForSpeciesID;
 	std::vector<size_t> _indexInCounts;
 
+	// variables to identify correct locations
+	std::vector<bool> _hasDataForLocationID;
+	std::vector<size_t> _map_j_location;
+
 	// alpha and beta (regression coefficients of covariates)
 	std::shared_ptr<TypeParamAlpha> _alpha;
 	std::shared_ptr<TypeParamBeta> _beta;
@@ -243,6 +247,7 @@ public:
 	void standardizeCovariates();
 	void fillIDVectors(size_t totalSizeOfUniqueContainer);
 	void initializeEffort();
+	void fillLocationIDs(const TUniqueContainer<std::string> &Locations);
 
 	// getters
 	[[nodiscard]] size_t size() const;
@@ -258,6 +263,8 @@ public:
 	[[nodiscard]] const std::vector<size_t> &covariateDetectionIDsinUniqueContainer() const;
 	[[nodiscard]] bool hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const;
 	[[nodiscard]] size_t getIndexInCounts(size_t speciesIDinUniqueContainer) const;
+	[[nodiscard]] bool hasDataForLocation(size_t j) const;
+	[[nodiscard]] size_t getLocationIndexInMethod(size_t j) const;
 
 	// iterators
 	const TLocations &operator[](const size_t index) const { return _locations[index]; }

@@ -465,6 +465,19 @@ void TMethods::fillIDVectors(size_t totalSizeOfUniqueContainer) {
 	}
 }
 
+void TMethods::fillLocationIDs(const TUniqueContainer<std::string> &Locations) {
+	_hasDataForLocationID.resize(Locations.size(), false);
+	_map_j_location.resize(Locations.size(), 0);
+	for (size_t j = 0; j < Locations.size(); ++j) {         // loop over unique container
+		for (size_t ix = 0; ix < _locations.size(); ++ix) { // loop over locations of this method
+			if (j == _locations[ix].location_id()) {        // check if this j exists
+				_hasDataForLocationID[j] = true;
+				_map_j_location[j]       = ix;
+			}
+		}
+	}
+}
+
 void TMethods::sorttimes(const std::vector<size_t> &sortingIndex) {
 	for (auto &loc : _locations) { loc.sorttimes(sortingIndex); }
 }
@@ -491,6 +504,9 @@ bool TMethods::hasDataForSpeciesID(size_t speciesIDinUniqueContainer) const {
 size_t TMethods::getIndexInCounts(size_t speciesIDinUniqueContainer) const {
 	return _indexInCounts[speciesIDinUniqueContainer];
 }
+
+bool TMethods::hasDataForLocation(size_t j) const { return _hasDataForLocationID[j]; }
+size_t TMethods::getLocationIndexInMethod(size_t j) const { return _map_j_location[j]; }
 
 const std::vector<size_t> &TMethods::speciesIDsinUniqueContainer() const { return _speciesIDsinUniqueContainer; }
 const std::vector<size_t> &TMethods::covariateEffortIDsinUniqueContainer() const {
@@ -856,6 +872,8 @@ std::pair<size_t, size_t> TData::_getMethAndLocIndex(size_t ij_index, size_t spe
 void TData::fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::string> &Locations) {
 	_numSpecies = NumSpecies;
 
+	for (auto &m : _methods) { m.fillLocationIDs(Locations); }
+
 	_fillNumMethLocs();
 
 	// fill linear to i_j
@@ -876,6 +894,9 @@ void TData::fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::st
 			for (size_t j = 0; j < _methods[i].size(); ++j) {
 				auto it =
 				    std::find(_linear_to_i_j[species].begin(), _linear_to_i_j[species].end(), std::make_pair(i, j));
+				if (it == _linear_to_i_j[species].end()) {
+					DEVERROR("Something went wrong - could not find ", i, ", ", j, " in _linear_to_i_j!");
+				}
 				_i_j_to_linear[species][i][j] = std::distance(_linear_to_i_j[species].begin(), it);
 			}
 		}
