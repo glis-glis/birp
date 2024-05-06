@@ -45,6 +45,7 @@ void TBirpCore::_readForInference(bool hasCounts) {
 
 	// write filtered counts
 	_writeFile("filtered");
+	_writeTimePoints();
 }
 
 //-----------------------------------
@@ -364,6 +365,11 @@ void TBirpCore::_writeFile(const std::string &Name) {
 		coretools::TOutputFile outfile(Filename, header);
 		method.write(outfile, _locations, _timepoints);
 	}
+}
+
+void TBirpCore::_writeTimePoints() {
+	coretools::TOutputFile file(_outname + "_timepoints.txt", {"timepoints"});
+	for (auto it : _timepoints) { file << it << coretools::endl; }
 }
 
 // todo Liam mach no ds me der abstand cha aagäh

@@ -53,6 +53,7 @@ protected:
 	// write
 	std::vector<std::string> _getMethodspecificHeader(const TMethods &method);
 	void _writeFile(const std::string &Name);
+	void _writeTimePoints();
 
 public:
 	TBirpCore();
