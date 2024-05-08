@@ -92,8 +92,6 @@ std::vector<std::string> TBirpCore::_getAllFilenames() {
 		coretools::str::fillContainerFromString(input, filenames, ',');
 	}
 
-	logfile().list("All filenames: ", filenames);
-
 	if (filenames.empty()) { UERROR("Provided filenames are empty (argument 'data')."); }
 
 	return filenames;
@@ -188,11 +186,8 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 	std::map<std::string, size_t> numTimePointsPerLocation;
 	for (; !file.empty(); file.popFront()) {
 		// read location and timepoint
-		logfile().list(file.curLine());
 		std::string location  = file.get<std::string>("location");
-		logfile().list("location = ", location);
 		std::string timepoint = file.get<std::string>("timepoint");
-		logfile().list("timepoint = ", timepoint);
 
 		// read effort(s)
 		if (allEffortsAreZero(file, covEffortIndices)) {
@@ -209,7 +204,6 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 			it->second++; // location already exists
 		}
 	}
-	logfile().list("Done!");
 
 	// parsed entire file: now check for each location if there are enough timepoints
 	std::map<std::string, bool> keepLocations;
@@ -260,17 +254,13 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	TMethods method(methodName, _data.size(), species_ids, covariateEffort_ids, covariateDetection_ids);
 	_data.addMethod(method); // the index of the method is the current size of the _methods vector
 
-	logfile().list("Parsing file!");
 	for (; !file.empty(); file.popFront()) {
 		std::string location = (std::string)file.get("location");
-		logfile().list("location = ", location);
 		if (!keepLocations[location]) { continue; }                  // skip this location
 		if (allEffortsAreZero(file, covEffortIndices)) { continue; } // skip timepoint: effort = 0
 
 		size_t location_id  = _locations.add((std::string)location);
-		const auto tp = file.get<TypeTime>("timepoint");
-		logfile().list("timepoint = ", tp);
-		size_t timepoint_id = _timepoints.add(tp);
+		size_t timepoint_id = _timepoints.add(file.get<TypeTime>("timepoint"));
 		const auto &row     = file.front();
 
 		// boot one vector together (stiflä) of all species counts, and one of all covariates
