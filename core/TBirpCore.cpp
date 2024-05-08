@@ -258,13 +258,17 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	TMethods method(methodName, _data.size(), species_ids, covariateEffort_ids, covariateDetection_ids);
 	_data.addMethod(method); // the index of the method is the current size of the _methods vector
 
+	logfile().list("Parsing file!");
 	for (; !file.empty(); file.popFront()) {
 		std::string location = (std::string)file.get("location");
+		logfile().list("location = ", location);
 		if (!keepLocations[location]) { continue; }                  // skip this location
 		if (allEffortsAreZero(file, covEffortIndices)) { continue; } // skip timepoint: effort = 0
 
 		size_t location_id  = _locations.add((std::string)location);
-		size_t timepoint_id = _timepoints.add(file.get<TypeTime>("timepoint"));
+		const auto tp = file.get<TypeTime>("timepoint");
+		logfile().list("timepoint = ", tp);
+		size_t timepoint_id = _timepoints.add(tp);
 		const auto &row     = file.front();
 
 		// boot one vector together (stiflä) of all species counts, and one of all covariates
