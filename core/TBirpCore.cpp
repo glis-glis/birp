@@ -188,6 +188,7 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 	std::map<std::string, size_t> numTimePointsPerLocation;
 	for (; !file.empty(); file.popFront()) {
 		// read location and timepoint
+		logfile().list(file.curLine());
 		std::string location  = file.get<std::string>("location");
 		logfile().list("location = ", location);
 		std::string timepoint = file.get<std::string>("timepoint");
@@ -208,6 +209,7 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 			it->second++; // location already exists
 		}
 	}
+	logfile().list("Done!");
 
 	// parsed entire file: now check for each location if there are enough timepoints
 	std::map<std::string, bool> keepLocations;
