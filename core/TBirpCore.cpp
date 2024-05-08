@@ -62,14 +62,14 @@ std::vector<std::string> readFilenamesFromFile(std::string_view Filename) {
 	// open file. Can be either:
 	// 1) the file containing the counts for a single method
 	// 2) a file containing all filenames for multiple methods
-	coretools::TInputFile file(Filename, coretools::FileType::Header, getDelim(Filename));
+	coretools::TInputMaybeRcppFile file(Filename, coretools::FileType::Header, getDelim(Filename));
 
 	if (file.header().size() != 1) { // case 1: directly counts file
 		return {(std::string)Filename};
 	}
 	// case 2: all filenames
 	// open again without header
-	coretools::TInputFile file2(Filename, coretools::FileType::NoHeader, getDelim(Filename));
+	coretools::TInputMaybeRcppFile file2(Filename, coretools::FileType::NoHeader, getDelim(Filename));
 	std::vector<std::string> filenames;
 	for (; !file2.empty(); file2.popFront()) { filenames.emplace_back(file2.get(0)); }
 	return filenames;
@@ -100,7 +100,7 @@ std::vector<std::string> TBirpCore::_getAllFilenames() {
 
 std::vector<std::string> getHeader() { return {"location", "timepoint"}; }
 
-void checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
+void checkHeader(const coretools::TInputMaybeRcppFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
                  const std::vector<size_t> &CovEffortIndices) {
 	std::vector<std::string> headerVec = getHeader();
 
@@ -120,7 +120,7 @@ void checkHeader(const coretools::TInputFile &Infile, bool hasCounts, const std:
 	}
 }
 
-std::vector<size_t> getColumnIndex(const coretools::TInputFile &infile, const std::string &string) {
+std::vector<size_t> getColumnIndex(const coretools::TInputMaybeRcppFile &infile, const std::string &string) {
 	std::vector<size_t> ix;
 	for (size_t i = 0; i < infile.numCols(); i++) {
 		if (coretools::str::stringStartsWith(infile.header()[i], string)) { ix.push_back(i); }
@@ -128,7 +128,7 @@ std::vector<size_t> getColumnIndex(const coretools::TInputFile &infile, const st
 	return ix;
 }
 
-std::vector<std::string> getSpeciesOrCovariateNames(const coretools::TInputFile &infile,
+std::vector<std::string> getSpeciesOrCovariateNames(const coretools::TInputMaybeRcppFile &infile,
                                                     const std::vector<size_t> &Indices) {
 	std::vector<std::string> names(Indices.size());
 	for (size_t s = 0; s < Indices.size(); s++) {
@@ -137,7 +137,7 @@ std::vector<std::string> getSpeciesOrCovariateNames(const coretools::TInputFile 
 	return names;
 }
 
-std::vector<size_t> fillCovNames(coretools::TInputFile &infile, const std::vector<size_t> &Indices,
+std::vector<size_t> fillCovNames(coretools::TInputMaybeRcppFile &infile, const std::vector<size_t> &Indices,
                                  TUniqueContainer<std::string> &UniqueContainer) {
 	std::vector<std::string> covNames = getSpeciesOrCovariateNames(infile, Indices);
 	std::vector<size_t> cov_ids(covNames.size());
@@ -155,7 +155,7 @@ std::string getMethodName(const std::string &Filename) {
 	return methodName;
 }
 
-auto getIndicesMethodFile(const coretools::TInputFile &Infile, bool hasCounts) {
+auto getIndicesMethodFile(const coretools::TInputMaybeRcppFile &Infile, bool hasCounts) {
 	// get position of columns that contain counts: might be an empty vector in case the file has no counts
 	std::vector<size_t> countIndices = getColumnIndex(Infile, "counts");
 
@@ -177,7 +177,7 @@ bool allEffortsAreZero(const std::vector<std::string_view> &Row, const std::vect
 
 auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) const {
 	// open file and get relevant column indices
-	coretools::TInputFile file(Filename, coretools::FileType::Header, getDelim(Filename));
+	coretools::TInputMaybeRcppFile file(Filename, coretools::FileType::Header, getDelim(Filename));
 	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = getIndicesMethodFile(file, hasCounts);
 
 	// map: per location, how many timepoints with non-zero effort are there?
@@ -231,7 +231,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	if (!keepMethod) { return; } // chasch gd hei gah
 
 	// open file and get relevant column indices
-	coretools::TInputFile file(Filename, coretools::FileType::Header, getDelim(Filename));
+	coretools::TInputMaybeRcppFile file(Filename, coretools::FileType::Header, getDelim(Filename));
 	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = getIndicesMethodFile(file, hasCounts);
 
 	// assemble species names and id's
