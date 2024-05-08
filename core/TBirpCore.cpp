@@ -46,6 +46,8 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	// write filtered counts
 	_writeFile("filtered");
 	_writeTimePoints();
+
+	logfile().endIndent();
 }
 
 //-----------------------------------
@@ -81,7 +83,7 @@ std::vector<std::string> TBirpCore::_getAllFilenames() {
 	// 2) a file containing all filenames for multiple methods
 	// 3) a comma-separated list of filenames for multiple methods
 	std::string input = parameters().get("data");
-	logfile().list("Will read input data from ", input, " (argument 'data').");
+	logfile().startIndent("Will read input data from ", input, " (argument 'data').");
 
 	std::vector<std::string> filenames;
 	if (std::filesystem::exists(input)) { // is a file
@@ -89,6 +91,8 @@ std::vector<std::string> TBirpCore::_getAllFilenames() {
 	} else {
 		coretools::str::fillContainerFromString(input, filenames, ',');
 	}
+
+	logfile().list("All filenames: ", filenames);
 
 	if (filenames.empty()) { UERROR("Provided filenames are empty (argument 'data')."); }
 
@@ -184,8 +188,10 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 	std::map<std::string, size_t> numTimePointsPerLocation;
 	for (; !file.empty(); file.popFront()) {
 		// read location and timepoint
-		std::string location  = (std::string)file.get("location");
-		std::string timepoint = (std::string)file.get("timepoint");
+		std::string location  = file.get<std::string>("location");
+		logfile().list("location = ", location);
+		std::string timepoint = file.get<std::string>("timepoint");
+		logfile().list("timepoint = ", timepoint);
 
 		// read effort(s)
 		if (allEffortsAreZero(file, covEffortIndices)) {
@@ -226,6 +232,7 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 }
 
 void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
+	logfile().listFlushDots("Parsing ", Filename);
 	// check which locations should be kept
 	auto [keepMethod, keepLocations] = _keepLocations(Filename, hasCounts);
 	if (!keepMethod) { return; } // chasch gd hei gah
@@ -284,6 +291,8 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	_data.back().standardizeCovariates();
 
 	_data.back().fillIDVectors(_speciesNames.size());
+
+	logfile().done();
 }
 
 void TBirpCore::_sortTimepoints() {
