@@ -81,7 +81,7 @@ std::vector<std::string> TBirpCore::_getAllFilenames() {
 	// 2) a file containing all filenames for multiple methods
 	// 3) a comma-separated list of filenames for multiple methods
 	std::string input = parameters().get("data");
-	logfile().list("Will read input data from file ", input, " (argument 'data').");
+	logfile().list("Will read input data from ", input, " (argument 'data').");
 
 	std::vector<std::string> filenames;
 	if (std::filesystem::exists(input)) { // is a file
