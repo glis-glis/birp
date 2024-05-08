@@ -169,9 +169,9 @@ auto getIndicesMethodFile(const coretools::TInputMaybeRcppFile &Infile, bool has
 	return std::make_tuple(countIndices, covEffortIndices, covDetectionIndices, methodName);
 }
 
-bool allEffortsAreZero(const std::vector<std::string_view> &Row, const std::vector<size_t> &CovEffortIndices) {
+bool allEffortsAreZero(coretools::TInputMaybeRcppFile &InputFile, const std::vector<size_t> &CovEffortIndices) {
 	std::set<TypeCovariateEffort> covEffort;
-	for (auto c : CovEffortIndices) { covEffort.insert((TypeCovariateEffort)Row[c]); }
+	for (auto c : CovEffortIndices) { covEffort.insert(InputFile.get<TypeCovariateEffort>(c)); }
 	return covEffort.size() == 1 && *covEffort.begin() == 0.0; // returns true if all covariates of effort are zero
 }
 
@@ -188,7 +188,7 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 		std::string timepoint = (std::string)file.get("timepoint");
 
 		// read effort(s)
-		if (allEffortsAreZero(file.front(), covEffortIndices)) {
+		if (allEffortsAreZero(file, covEffortIndices)) {
 			// all effort covariates are zero
 			logfile().warning("Method ", methodName, ": Ignoring location ", location, " at timepoint ", timepoint,
 			                  " because of zero effort.");
@@ -253,8 +253,8 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
 	for (; !file.empty(); file.popFront()) {
 		std::string location = (std::string)file.get("location");
-		if (!keepLocations[location]) { continue; }                          // skip this location
-		if (allEffortsAreZero(file.front(), covEffortIndices)) { continue; } // skip timepoint: effort = 0
+		if (!keepLocations[location]) { continue; }                  // skip this location
+		if (allEffortsAreZero(file, covEffortIndices)) { continue; } // skip timepoint: effort = 0
 
 		size_t location_id  = _locations.add((std::string)location);
 		size_t timepoint_id = _timepoints.add(file.get<TypeTime>("timepoint"));
