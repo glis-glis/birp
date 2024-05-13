@@ -426,7 +426,7 @@ void TGamma::writeSummaryGammaPosterior(const std::string &Prefix) {
 	for (size_t m = 0; m < _numEpochs; ++m) { rowNames[m] = "gamma_" + coretools::str::toString(m + 1); }
 	auto header = rowNames;
 	header.insert(header.begin(), "row_bigger_than_column");
-	coretools::TOutputFile file(Prefix + "_gammaSummaries.txt", header);
+	coretools::TOutputMaybeRcppFile file(Prefix + "_gammaSummaries.txt", header);
 	for (size_t m = 0; m < _numEpochs; ++m) {
 		file << rowNames[m];
 		for (size_t n = 0; n < _numEpochs; ++n) { file << (double)_summaryGammaPosterior[m][n] / (double)_counter; }

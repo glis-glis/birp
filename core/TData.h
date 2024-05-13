@@ -65,7 +65,8 @@ public:
 	void standardizeCovariates(const std::vector<coretools::TMeanVar<double>> &MeanVar,
 	                           const std::vector<double> &SumsPerCovariate, bool AssumeTrueDetectionProbability);
 
-	void write(coretools::TOutputFile &File, std::string location, const TUniqueContainer<TypeTime> &Timepoints) const;
+	void write(coretools::TOutputMaybeRcppFile &File, std::string location,
+	           const TUniqueContainer<TypeTime> &Timepoints) const;
 
 	// getters
 	[[nodiscard]] const std::vector<TypeCovariateEffort> &covariatesEffort() const;
@@ -133,7 +134,7 @@ public:
 	[[nodiscard]] size_t location_id() const;
 	[[nodiscard]] const TTimepoints &operator[](size_t index) const;
 
-	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+	void write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,
 	           const TUniqueContainer<TypeTime> &Timepoints) const;
 
 	// iterators
@@ -283,7 +284,7 @@ public:
 	double simulateNB(double n_bar, const TModelBase &Model, double A, bool SimulateCovariates);
 
 	// writing
-	void write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+	void write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,
 	           const TUniqueContainer<TypeTime> &Timepoints) const;
 };
 

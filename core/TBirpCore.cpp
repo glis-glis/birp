@@ -357,7 +357,7 @@ std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &met
 
 void TBirpCore::_writeFile(const std::string &Name) {
 	// make second file that stores names of all methodFiles generated during the simulation
-	coretools::TOutputFile fileList(_outname + "_" + Name + "_allFilesGenerated");
+	coretools::TOutputMaybeRcppFile fileList(_outname + "_" + Name + "_allFilesGenerated");
 	// write file line by line
 	for (auto &method : _data) {
 		// get filename here.
@@ -367,13 +367,13 @@ void TBirpCore::_writeFile(const std::string &Name) {
 		// append to fileList
 		fileList << Filename << coretools::endl;
 		// now create actual file with data and write
-		coretools::TOutputFile outfile(Filename, header);
+		coretools::TOutputMaybeRcppFile outfile(Filename, header);
 		method.write(outfile, _locations, _timepoints);
 	}
 }
 
 void TBirpCore::_writeTimePoints() {
-	coretools::TOutputFile file(_outname + "_timepoints.txt", {"timepoints"});
+	coretools::TOutputMaybeRcppFile file(_outname + "_timepoints.txt", {"timepoints"});
 	for (auto it : _timepoints) { file << it << coretools::endl; }
 }
 

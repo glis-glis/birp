@@ -165,7 +165,7 @@ void TTimepoints::resetBetaEffort() {
 	_effort        = _effort_old;
 }
 
-void TTimepoints::write(coretools::TOutputFile &File, std::string location,
+void TTimepoints::write(coretools::TOutputMaybeRcppFile &File, std::string location,
                         const TUniqueContainer<TypeTime> &Timepoints) const {
 	File << location << Timepoints[_timepoint_id] << _counts_per_species;
 
@@ -254,7 +254,7 @@ void TLocations::sorttimes(const std::vector<size_t> &index) {
 	for (size_t i = 0; i < _timepoints.size(); i++) { _timepoints[i].setTimepoint(positionOfTimepointIds[i]); }
 }
 
-void TLocations::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+void TLocations::write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,
                        const TUniqueContainer<TypeTime> &Timepoints) const {
 	const std::string &location = Locations[_location_id];
 	for (const auto &timepoint : _timepoints) { timepoint.write(File, location, Timepoints); }
@@ -738,7 +738,7 @@ double TMethods::simulateNB(double n_i_bar, const TModelBase &Model, double a, b
 	return u_i;
 }
 
-void TMethods::write(coretools::TOutputFile &File, const TUniqueContainer<std::string> &Locations,
+void TMethods::write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,
                      const TUniqueContainer<TypeTime> &Timepoints) const {
 	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
 }
