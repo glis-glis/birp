@@ -440,6 +440,8 @@ std::vector<size_t> TBirpCore::_simulateCovDetectionNames() {
 }
 
 void TBirpCore::simulate() {
+	stattools::instances::dagBuilder().clear();
+
 	// read incomplete counts file (if provided)
 	if (parameters().exists("simulationFile")) {
 		std::string filename = parameters().get("simulationFile");
