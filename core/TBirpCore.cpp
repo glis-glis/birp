@@ -373,7 +373,7 @@ void TBirpCore::_writeFile(const std::string &Name) {
 }
 
 void TBirpCore::_writeTimePoints() {
-	coretools::TOutputFile file(_outname + "_timepoints.txt", {"timepoints"});
+	coretools::TOutputMaybeRcppFile file(_outname + "_timepoints.txt", {"timepoints"});
 	for (auto it : _timepoints) { file << it << coretools::endl; }
 }
 
