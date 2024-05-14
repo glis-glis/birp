@@ -168,9 +168,10 @@ void TTimepoints::resetBetaEffort() {
 void TTimepoints::write(coretools::TOutputMaybeRcppFile &File, std::string location,
                         const TUniqueContainer<TypeTime> &Timepoints) const {
 	//File.write(location, Timepoints[_timepoint_id], _counts_per_species);
-	//File << location << Timepoints[_timepoint_id] << _counts_per_species;
+	logfile().list("Using stream");
+	File << location << Timepoints[_timepoint_id] << _counts_per_species;
 
-	File.write(location).write(Timepoints[_timepoint_id]).write(_counts_per_species);
+	//File.write(location).write(Timepoints[_timepoint_id]).write(_counts_per_species);
 	// write covariate(s)
 	for (const auto &it : _covariatesEffort) { File.write(it); }
 	for (const auto &it : _covariatesDetection) { File.write(it); }
