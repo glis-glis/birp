@@ -203,6 +203,8 @@ bool TOLSGamma::_epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
 bool TOLSGamma::_epochIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
                                                            const std::vector<size_t> &dataSeriesIndex,
                                                            const std::vector<size_t> &numDataPointsWithZeroCounts) {
+	if (numDataPointsWithZeroCounts.empty()) { return false; } // no data points at all!
+
 	for (size_t l = 0; l < L; ++l) { // loop over all possible data series
 		// count the number of occurrences of that particular data series (method/location combination) in the current
 		// epoch
@@ -345,9 +347,6 @@ std::vector<TypeTime> TGamma::getEpochStarts(const TUniqueContainer<TypeTime> &T
 	if (_timesOfChange->size() != 0) {
 		TypeTime maxTimeOfChange = _timesOfChange->max_value();
 		TypeTime maxTime         = std::max((double)Timepoints.back(), maxTimeOfChange + 1.0);
-		if (maxTimeOfChange > maxTime) {
-			UERROR("Time of change ", maxTimeOfChange, " occurs after last timepoint (", maxTime, ")!");
-		}
 		for (size_t i = 0; i < _timesOfChange->size(); i++) { epochStarts.push_back(_timesOfChange->value(i)); }
 		epochStarts.push_back(maxTime);
 	} else {
