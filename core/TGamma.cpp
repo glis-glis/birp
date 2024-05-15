@@ -345,6 +345,9 @@ std::vector<TypeTime> TGamma::getEpochStarts(const TUniqueContainer<TypeTime> &T
 	if (_timesOfChange->size() != 0) {
 		TypeTime maxTimeOfChange = _timesOfChange->max_value();
 		TypeTime maxTime         = std::max((double)Timepoints.back(), maxTimeOfChange + 1.0);
+		if (maxTimeOfChange > maxTime) {
+			UERROR("Time of change ", maxTimeOfChange, " occurs after last timepoint (", maxTime, ")!");
+		}
 		for (size_t i = 0; i < _timesOfChange->size(); i++) { epochStarts.push_back(_timesOfChange->value(i)); }
 		epochStarts.push_back(maxTime);
 	} else {
