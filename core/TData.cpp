@@ -9,7 +9,6 @@
 #include "coretools/Distributions/TUniformDistr.h"
 #include "coretools/devtools.h"
 #include "stattools/Updates/TPairIndexSampler.h"
-#include <regex>
 #include <set>
 #include <utility>
 
@@ -525,17 +524,18 @@ std::vector<TLocations>::const_iterator TMethods::cend() const { return _locatio
 std::vector<TLocations>::iterator TMethods::end() { return _locations.end(); }
 
 std::vector<std::string> splitVecWithDistributions(const std::string &Input) {
-	WINK();
 	std::vector<std::string> output;
-	WINK();
-	std::regex regex(",(?![^()]*\\))"); // matches comma not inside brackets
-	WINK();
-	std::sregex_token_iterator it(Input.begin(), Input.end(), regex, -1);
-	WINK();
-	std::sregex_token_iterator end;
-	WINK();
-	for (; it != end; ++it) { output.push_back(*it); }
-	WINK();
+
+	std::string pattern;
+	if (coretools::str::stringContains(Input, "(") && coretools::str::stringContains(Input, ")")) {
+		// is a distribution -> split after ),
+		pattern = "),";
+	} else {
+		// is a comma-separated list of numbers -> split after ,
+		pattern = ",";
+	}
+	for (auto si : coretools::str::TSplitter(Input, pattern)) { output.push_back((std::string)si); }
+
 	return output;
 }
 
@@ -552,27 +552,18 @@ std::pair<std::string, std::string> TMethods::_getParamsAndDistr(const std::stri
 
 void TMethods::_simulateOneCovariateEffort(size_t c, const std::string &Cov) {
 	if (coretools::str::stringIsProbablyANumber(Cov)) {
-		WINK();
 		// case 1: is a number: use it for all covariates
 		auto value = coretools::str::fromString<double>(Cov);
-		WINK();
 		for (auto &_location : _locations) {
 			for (auto &t : _location) { t.setCovariateEffort(c, value); }
 		}
-		WINK();
 	} else {
-		WINK();
 		// case 2: parse distribution
 		const auto [distr, params] = _getParamsAndDistr(Cov);
-		WINK();
 		if (distr == "gamma") {
-			WINK();
 			_simulateCovariateFromDistribution<coretools::probdist::TGammaDistr, true>(c, params);
-			WINK();
 		} else if (distr == "uniform") {
-			WINK();
 			_simulateCovariateFromDistribution<coretools::probdist::TUniformDistr, true>(c, params);
-			WINK();
 		} else {
 			UERROR("Unknown distribution '", distr,
 			       "' (argument 'covariatesEffort'). Supported distributions are: gamma and uniform.");
@@ -591,28 +582,20 @@ void TMethods::_simulateCovariatesEffort() {
 	logfile().list("Covariates for effort = ", effortString, " (arguments 'covariatesEffort' and '",
 	               "covariatesEffort_" + _methodName, "').");
 
-	WINK();
 	if (coretools::str::stringIsProbablyANumber(effortString)) {
-		WINK();
 		// case 1: is a number: use it for all covariates
 		for (size_t c = 0; c < numCovariatesEffort(); ++c) { _simulateOneCovariateEffort(c, effortString); }
 	} else if (hasCommasOutsideBracket(effortString)) {
-		WINK();
 		// cases 2 and 4: comma-separated string of numbers (case 2) or distributions (case 4) or both
 		std::vector<std::string> vec = splitVecWithDistributions(effortString);
-		WINK();
 		if (vec.size() != numCovariatesEffort()) {
 			UERROR("The size of covariates provided with argument 'covariatesEffort' (", vec.size(),
 			       ") does not match the number of covariates (", numCovariatesEffort(), ").");
 		}
-		WINK();
 		for (size_t c = 0; c < vec.size(); ++c) { _simulateOneCovariateEffort(c, vec[c]); }
-		WINK();
 	} else {
 		// case 3: use the same distribution for all covariates
-		WINK();
 		for (size_t c = 0; c < numCovariatesEffort(); ++c) { _simulateOneCovariateEffort(c, effortString); }
-		WINK();
 	}
 }
 
