@@ -115,10 +115,10 @@ void checkHeader(const coretools::TInputMaybeRcppFile &Infile, bool hasCounts, c
 
 	// make sure there is at least one column starting with "covEffort" and counts
 	if (CovEffortIndices.empty()) {
-		UERROR("Error in header of file ", Infile.name(), ": Need at least one column starting with 'covEffort_'.");
+		UERROR("Error in header of file ", Infile.name(), ": Need at least one column starting with 'covEffort' or 'effort'.");
 	}
 	if (hasCounts && countIndices.empty()) {
-		UERROR("Error in header of file ", Infile.name(), ": Need at least one column starting with 'counts_'.");
+		UERROR("Error in header of file ", Infile.name(), ": Need at least one column starting with 'counts'.");
 	}
 }
 
@@ -159,11 +159,15 @@ std::string getMethodName(const std::string &Filename) {
 
 auto getIndicesMethodFile(const coretools::TInputMaybeRcppFile &Infile, bool hasCounts) {
 	// get position of columns that contain counts: might be an empty vector in case the file has no counts
-	std::vector<size_t> countIndices = getColumnIndex(Infile, "counts");
+	std::vector<size_t> countIndices = getColumnIndex(Infile, "count");
 
 	// get position of columns that contain covariates (efforts)
-	std::vector<size_t> covEffortIndices    = getColumnIndex(Infile, "covEffort");
+	std::vector<size_t> covEffortIndices = getColumnIndex(Infile, "covEffort");
+	if (covEffortIndices.empty()) { // try again with other name
+		covEffortIndices = getColumnIndex(Infile, "effort");
+	}
 	std::vector<size_t> covDetectionIndices = getColumnIndex(Infile, "covDetection");
+	if (covDetectionIndices.empty()) { covDetectionIndices = getColumnIndex(Infile, "detection"); }
 
 	checkHeader(Infile, hasCounts, countIndices, covEffortIndices);
 
