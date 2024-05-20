@@ -39,6 +39,8 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	// read files (one per method)
 	for (const auto &name : filenames) { _readFile(name, hasCounts); }
 
+	if (_data.size() == 0) { UERROR("No method passes filters!"); }
+
 	// sort and finalize
 	_sortTimepoints();
 	_data.fillMethLocIndices(_speciesNames.size(), _locations);
@@ -115,7 +117,8 @@ void checkHeader(const coretools::TInputMaybeRcppFile &Infile, bool hasCounts, c
 
 	// make sure there is at least one column starting with "covEffort" and counts
 	if (CovEffortIndices.empty()) {
-		UERROR("Error in header of file ", Infile.name(), ": Need at least one column starting with 'covEffort' or 'effort'.");
+		UERROR("Error in header of file ", Infile.name(),
+		       ": Need at least one column starting with 'covEffort' or 'effort'.");
 	}
 	if (hasCounts && countIndices.empty()) {
 		UERROR("Error in header of file ", Infile.name(), ": Need at least one column starting with 'counts'.");
