@@ -34,6 +34,7 @@ auto TOLSGamma::_get_Y_m(const TData &Data, const TUniqueContainer<TypeTime> &Ti
 	std::vector<size_t> dataSeriesIndex; // index indicating which method-location-combi was used, same size as y_m
 	std::vector<std::pair<size_t, size_t>> l_to_ij;  // map that indicates i-j for each linear l
 	std::vector<size_t> numDataPointsWithZeroCounts; // count number of counts=0 for each linear l
+	std::vector<bool> allDataPointsAreZero;          // count number of counts=0 for each linear l
 
 	size_t L = 0;
 	for (size_t i = 0; i < Data.size(); ++i) {        // loop over methods
@@ -68,14 +69,15 @@ auto TOLSGamma::_get_Y_m(const TData &Data, const TUniqueContainer<TypeTime> &Ti
 			// check if method-location combination l had any data that falls within epoch
 			// if all counts are zero for this combination l: can not do OLS, ignore
 			// -> else: add entry to map l_to_ij that indicates i-j for a specific l
-			if (dataSeries_has_Timepoint_within_epoch && numDataPointsWithZeroCounts_this_ij != Data[i][j].size()) {
+			if (dataSeries_has_Timepoint_within_epoch) {
 				++L;
 				l_to_ij.emplace_back(i, j);
 				numDataPointsWithZeroCounts.emplace_back(numDataPointsWithZeroCounts_this_ij);
+				allDataPointsAreZero.emplace_back(numDataPointsWithZeroCounts_this_ij == Data[i][j].size());
 			}
 		}
 	}
-	return std::make_tuple(y_m, t_m, dataSeriesIndex, l_to_ij, numDataPointsWithZeroCounts);
+	return std::make_tuple(y_m, t_m, dataSeriesIndex, l_to_ij, numDataPointsWithZeroCounts, allDataPointsAreZero);
 }
 
 arma::vec TOLSGamma::_doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
@@ -187,7 +189,8 @@ void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curEpoch, const arma::vec &B
 }
 
 bool TOLSGamma::_epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
-                                     const std::vector<size_t> &dataSeriesIndex) {
+                                     const std::vector<size_t> &dataSeriesIndex,
+                                     const std::vector<bool> &AllDataPointsAreZero) {
 	for (size_t l = 0; l < L; ++l) { // loop over all possible data series
 		// count the number of occurrences of that particular data series (method/location combination) in the current
 		// epoch
@@ -195,7 +198,7 @@ bool TOLSGamma::_epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
 		for (size_t r = 0; r < t.size(); ++r) { // loop over all data of current epoch
 			if (dataSeriesIndex[r] == l) { ++counter_l; }
 		}
-		if (counter_l >= 2) { return true; }
+		if (counter_l >= 2 && !AllDataPointsAreZero[l]) { return true; }
 	}
 	return false;
 }
@@ -246,8 +249,10 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 	std::vector<std::vector<size_t>> dataSeriesIndex(_numEpochs);
 	std::vector<std::vector<std::pair<size_t, size_t>>> l_to_ij(_numEpochs);
 	std::vector<std::vector<size_t>> numDataPointsWithZeroCounts(_numEpochs);
+	std::vector<std::vector<bool>> allDataPointsAreZero(_numEpochs);
+
 	for (size_t m = 0; m < _numEpochs; ++m) {
-		std::tie(y[m], t[m], dataSeriesIndex[m], l_to_ij[m], numDataPointsWithZeroCounts[m]) =
+		std::tie(y[m], t[m], dataSeriesIndex[m], l_to_ij[m], numDataPointsWithZeroCounts[m], allDataPointsAreZero[m]) =
 		    _get_Y_m(Data, Timepoints, m, SpeciesID);
 	}
 	std::vector<bool> epochInitialized(_numEpochs, false);
@@ -259,7 +264,7 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 
 		// 2) we need at least one data series (method-location combination) with at least 2 timepoints
 		const size_t L = l_to_ij[curEpoch].size();
-		if (_epochIsIdentifiable(L, t[curEpoch], dataSeriesIndex[curEpoch])) {
+		if (_epochIsIdentifiable(L, t[curEpoch], dataSeriesIndex[curEpoch], allDataPointsAreZero[curEpoch])) {
 			// 3) estimate intercept and gamma with OLS
 			auto beta        = _doOLS(y[curEpoch], t[curEpoch], dataSeriesIndex[curEpoch], L);
 			_gamma[curEpoch] = beta(L);

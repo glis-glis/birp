@@ -100,7 +100,9 @@ double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma)
 			}
 		}
 	}
-	return log(arma::det(fisherInfo)); // sqrt drops out in hastings ratio
+	const auto det = arma::det(fisherInfo);
+	if (det == 0.0){ return 0.0; } // can happen if all counts are zero
+	return log(det); // sqrt drops out in hastings ratio
 }
 
 void TModelBase::_initializeLL(const TData &Data) {

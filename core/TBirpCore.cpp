@@ -41,6 +41,17 @@ void TBirpCore::_readForInference(bool hasCounts) {
 
 	if (_data.size() == 0) { UERROR("No method passes filters!"); }
 
+	// check if all counts are zero
+	size_t sumNonZero = 0;
+	for (size_t i = 0; i < _data.size(); ++i) {
+		for (size_t j = 0; j < _data[i].size(); ++j) {
+			for (size_t k = 0; k < _data[i][j].size(); ++k) {
+				if (_data[i][j][k].counts_per_species(0) > 0) { sumNonZero++; }
+			}
+		}
+	}
+	if (sumNonZero == 0) { UERROR("All counts are zero! Can not infer trends."); }
+
 	// sort and finalize
 	_sortTimepoints();
 	_data.fillMethLocIndices(_speciesNames.size(), _locations);

@@ -52,7 +52,8 @@ private:
 	                                   const std::vector<std::vector<TypeTime>> &t, size_t l, size_t curEpoch,
 	                                   size_t otherEpoch, TypeTime EpochBorder);
 	static bool _epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
-	                                 const std::vector<size_t> &dataSeriesIndex);
+	                                 const std::vector<size_t> &dataSeriesIndex,
+	                                 const std::vector<bool> &AllDataPointsAreZero);
 	static bool _epochIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
 	                                                       const std::vector<size_t> &dataSeriesIndex,
 	                                                       const std::vector<size_t> &numDataPointsWithZeroCounts);
