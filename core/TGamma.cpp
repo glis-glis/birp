@@ -263,7 +263,9 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 			// 3) estimate intercept and gamma with OLS
 			auto beta        = _doOLS(y[curEpoch], t[curEpoch], dataSeriesIndex[curEpoch], L);
 			_gamma[curEpoch] = beta(L);
-			if (_gamma[curEpoch] > 1.0) { _gamma[curEpoch] = 1.0; }
+			// make sure we don't get crazy gammas
+			_gamma[curEpoch] = std::min(_gamma[curEpoch], 1.0);
+			_gamma[curEpoch] = std::max(_gamma[curEpoch], -1.0);
 
 			// 4) calculate y_start and y_end and add it to existing data
 			_augmentYWithOLSEstimatesStart(curEpoch, beta, y, t, dataSeriesIndex, l_to_ij);
