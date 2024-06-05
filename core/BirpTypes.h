@@ -1,7 +1,3 @@
-//
-// Created by caduffm on 7/20/22.
-//
-
 #ifndef BIRPTYPES_H
 #define BIRPTYPES_H
 

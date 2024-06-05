@@ -1,7 +1,3 @@
-//
-// Created by caduffm on 4/18/23.
-//
-
 #ifndef BIRP_TBIRPCONFIGURATION_H
 #define BIRP_TBIRPCONFIGURATION_H
 

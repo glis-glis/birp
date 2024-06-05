@@ -1,7 +1,3 @@
-//
-// Created by madleina on 17.04.24.
-//
-
 #ifndef BIRP_BIRPDAG_H
 #define BIRP_BIRPDAG_H
 

@@ -1,7 +1,3 @@
-//
-// Created by caduffm on 4/13/23.
-//
-
 #include "TDistributions.h"
 #include "TModels.h"
 #include "coretools/devtools.h"

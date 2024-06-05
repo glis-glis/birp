@@ -1,7 +1,3 @@
-//
-// Created by caduffm on 4/18/23.
-//
-
 #include "TBirpConfiguration.h"
 #include "TBirpPrior.h"
 #include "TData.h"

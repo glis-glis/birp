@@ -1,10 +1,3 @@
-/*
- * TBirpCore.cpp
- *
- *  Created on: Jul 20, 2022
- *      Author: mcaduff
- */
-
 #include "TBirpCore.h"
 #include "TData.h"
 #include "coretools/Types/strongTypes.h"
@@ -395,7 +388,6 @@ void TBirpCore::_writeTimePoints() {
 	for (auto it : _timepoints) { file << it << coretools::endl; }
 }
 
-// todo Liam mach no ds me der abstand cha aagäh
 void TBirpCore::_fillTimepointsFromCommandLine() {
 	std::vector<TypeTime> timepoints;
 	std::vector<TypeTime> timepointsDefault = {1.0, 2.0, 3.0};

@@ -1,6 +1,3 @@
-//
-// Created by caduffm on 7/20/22.
-//
 
 #include "TBirpPrior.h"
 #include "TBirpCore.h"

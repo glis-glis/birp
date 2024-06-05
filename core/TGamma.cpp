@@ -1,7 +1,3 @@
-//
-// Created by caduffm on 4/17/23.
-//
-
 #include "TGamma.h"
 
 #include "TData.h"

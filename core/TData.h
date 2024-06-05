@@ -1,7 +1,3 @@
-//
-// Created by liam on 10.03.23.
-//
-
 #ifndef BIRP_TDATA_H
 #define BIRP_TDATA_H
 

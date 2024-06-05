@@ -1,7 +1,3 @@
-//
-// Created by caduffm on 4/13/23.
-//
-
 #ifndef BIRP_TMODELS_H
 #define BIRP_TMODELS_H
 

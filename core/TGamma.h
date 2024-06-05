@@ -1,7 +1,3 @@
-//
-// Created by caduffm on 4/17/23.
-//
-
 #ifndef BIRP_TGAMMA_H
 #define BIRP_TGAMMA_H
 

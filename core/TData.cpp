@@ -1,6 +1,3 @@
-//
-// Created by liam on 10.03.23.
-//
 
 #include "TData.h"
 #include "TModels.h"

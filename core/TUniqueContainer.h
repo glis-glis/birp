@@ -1,7 +1,3 @@
-//
-// Created by madleina on 03.03.23.
-//
-
 #ifndef BIRP_TUNIQUECONTAINER_H
 #define BIRP_TUNIQUECONTAINER_H
 

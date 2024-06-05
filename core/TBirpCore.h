@@ -1,10 +1,3 @@
-/*
- * TBirpCore.h
- *
- *  Created on: Jul 20, 2022
- *      Author: mcaduff
- */
-
 #ifndef TEXAMPLETASK_H_
 #define TEXAMPLETASK_H_
 
