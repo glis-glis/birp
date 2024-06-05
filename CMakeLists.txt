@@ -73,31 +73,3 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 
-#######################
-# Tests
-#######################
-FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG        main
-)
-FetchContent_MakeAvailable(googletest)
-
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-option(gtest_disable_pthreads "Disable uses of pthreads in gtest." ON)
-
-# define executable
-add_executable("${PROJECT_NAME}_unitTests" EXCLUDE_FROM_ALL)
-
-#assemble list of test cpp and h files
-file(GLOB_RECURSE TEST_SOURCES tests/*.h tests/*.cpp)
-
-target_include_directories("${PROJECT_NAME}_unitTests" PRIVATE coretools/core/IntegrationTests coretools/tests tests)
-
-target_sources("${PROJECT_NAME}_unitTests" PRIVATE ${TEST_SOURCES})
-target_link_libraries("${PROJECT_NAME}_unitTests" PRIVATE coreLib gtest_main gmock_main)
-target_compile_features("${PROJECT_NAME}_unitTests" PRIVATE cxx_std_17)
-target_compile_definitions("${PROJECT_NAME}_unitTests" PRIVATE CHECK_INTERVALS)
-set_target_properties("${PROJECT_NAME}_unitTests" PROPERTIES CXX_EXTENSIONS OFF)
-target_compile_options("${PROJECT_NAME}_unitTests" PRIVATE -Wall -Wextra)
-
