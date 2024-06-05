@@ -193,8 +193,8 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 	coretools::TInputMaybeRcppFile file(Filename, coretools::FileType::Header, getDelim(Filename));
 	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = getIndicesMethodFile(file, hasCounts);
 
-	// map: per location, how many timepoints with non-zero effort are there?
-	std::map<std::string, size_t> numTimePointsPerLocation;
+	// map: per location, how many timepoints with non-zero effort and non-zero counts are there?
+	std::map<std::string, std::pair<size_t, size_t>> numTimePointsAndCountsPerLocation;
 	for (; !file.empty(); file.popFront()) {
 		// read location and timepoint
 		std::string location  = file.get<std::string>("location");
@@ -208,31 +208,45 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 			continue;
 		}
 
-		auto it = numTimePointsPerLocation.find(location);
-		if (it == numTimePointsPerLocation.end()) { // new location
-			numTimePointsPerLocation[location] = 1;
+		// sum counts across all species
+		size_t sumCounts = 0;
+		if (hasCounts) {
+			for (size_t c = 0; c < countIndices.size(); c++) {
+				sumCounts += coretools::str::fromStringCheck<TypeCounts>(file.front()[countIndices[c]]);
+			}
+		}
+
+		auto it = numTimePointsAndCountsPerLocation.find(location);
+		if (it == numTimePointsAndCountsPerLocation.end()) { // new location
+			numTimePointsAndCountsPerLocation[location] = {1, sumCounts};
 		} else {
-			it->second++; // location already exists
+			// location already exists
+			it->second.first++;
+			it->second.second += sumCounts;
 		}
 	}
 
-	// parsed entire file: now check for each location if there are enough timepoints
+	// parsed entire file: now check for each location if there are enough timepoints and non-zero counts
 	std::map<std::string, bool> keepLocations;
 	size_t numLocationsToKeep = 0;
-	for (const auto &loc : numTimePointsPerLocation) {
-		if (loc.second == 1) {
+	for (const auto &loc : numTimePointsAndCountsPerLocation) {
+		if (loc.second.first == 1) {
 			logfile().warning("Method ", methodName, ": Ignoring location ", loc.first,
 			                  " because it only has a single timepoint with non-zero effort.");
+			keepLocations[loc.first] = false;
+		} else if (hasCounts && loc.second.second == 0) {
+			logfile().warning("Method ", methodName, ": Ignoring location ", loc.first,
+			                  " because it only has zero counts across all timepoints.");
 			keepLocations[loc.first] = false;
 		} else {
 			keepLocations[loc.first] = true;
 			++numLocationsToKeep;
 		}
 	}
+
 	bool keepMethod = true;
 	if (numLocationsToKeep == 0) {
-		logfile().warning("Ignoring method ", methodName,
-		                  " because it has no location with at least two timepoints with non-zero effort.");
+		logfile().warning("Ignoring method ", methodName, " because no location passed filters!");
 		keepMethod = false;
 	}
 	return std::pair(keepMethod, keepLocations);
