@@ -141,6 +141,7 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 	if (Stochastic) {
 		// set initial values of all non-stochastic parameters from deterministic MCMC
 		coretools::instances::rcppData().init(coretools::instances::rcppResults().getList(0));
+		//coretools::instances::rcppResults().clear();
 		if (!Simulate) {
 			for (const auto &p : stattools::instances::dagBuilder().getAllParameters()) {
 				p->getDefinition().setInitVal(Filename + "_meanVar.txt");
