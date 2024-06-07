@@ -34,7 +34,7 @@ protected:
 	void _sortTimepoints();
 
 	void _readForInference(bool hasCounts);
-	void _runMCMC(bool Stochastic);
+	std::map<std::string, std::string> _runMCMC(bool Stochastic, const std::map<std::string, std::string> &InitVals);
 
 	// simulate
 	void _fillTimepointsFromCommandLine();

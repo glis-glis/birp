@@ -92,9 +92,11 @@ public:
 	           const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
 	           const TUniqueContainer<std::string> &CovariateEffortNames,
 	           const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
-	           bool Stochastic, bool Simulate);
+	           bool Stochastic, bool Simulate, const std::map<std::string, std::string> &InitVals);
 
 	void writeSummaryGammaPosterior(const std::string &Prefix);
+
+	std::map<std::string, std::string> getFinalValues();
 };
 
 #endif // BIRP_TBIRPCONFIGURATION_H

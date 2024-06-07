@@ -125,7 +125,7 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
                        const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
-                       bool Stochastic, bool Simulate)
+                       bool Stochastic, bool Simulate, const std::map<std::string, std::string> &InitVals)
     : _commonModel(Data, Filename) {
 
 	// do negative binomial?
@@ -140,11 +140,13 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 	// do stochastic?
 	if (Stochastic) {
 		// set initial values of all non-stochastic parameters from deterministic MCMC
-		coretools::instances::rcppData().init(coretools::instances::rcppResults().getList(0));
+#ifdef USE_RCPP
 		coretools::instances::rcppResults().clear();
+#endif
 		if (!Simulate) {
 			for (const auto &p : stattools::instances::dagBuilder().getAllParameters()) {
-				p->getDefinition().setInitVal(Filename + "_meanVar.txt");
+				auto it = InitVals.find(p->name());
+				if (it != InitVals.end()) { p->getDefinition().setInitVal(it->second); }
 			}
 		}
 		// create stochastic add-on
@@ -171,4 +173,14 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 
 void TBirpModel::writeSummaryGammaPosterior(const std::string &Prefix) {
 	_birpPrior->writeSummaryGammaPosterior(Prefix);
+}
+
+std::map<std::string, std::string> TBirpModel::getFinalValues() {
+	std::map<std::string, std::string> map;
+
+	// get mean of all model parameters
+	for (const auto &p : stattools::instances::dagBuilder().getAllParameters()) {
+		map[p->name()] = p->getPosteriorMeans();
+	}
+	return map;
 }

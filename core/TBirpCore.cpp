@@ -325,11 +325,12 @@ void TBirpCore::_sortTimepoints() {
 	for (auto &method : _data) { method.sorttimes(sortingIndex); }
 }
 
-void TBirpCore::_runMCMC(bool Stochastic) {
+std::map<std::string, std::string> TBirpCore::_runMCMC(bool Stochastic,
+                                                       const std::map<std::string, std::string> &InitVals) {
 	// create model
 	stattools::instances::dagBuilder().clear();
 	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
-	                 _outname, Stochastic, false);
+	                 _outname, Stochastic, false, InitVals);
 
 	// run MCMC
 	stattools::TMCMC mcmc;
@@ -337,26 +338,30 @@ void TBirpCore::_runMCMC(bool Stochastic) {
 
 	// tell model to write gamma summaries to file
 	model.writeSummaryGammaPosterior(_outname);
+
+	// get initial values for stochastic, if needed
+	return model.getFinalValues();
 }
 
 void TBirpCore::infer() {
 	// read data
 	_readForInference(true);
 
+	std::map<std::string, std::string> initVals;
 	if (parameters().exists("stochastic")) {
 		logfile().list("Will model stochastic trends (argument 'stochastic').");
 		// run MCMC (deterministic)
 		logfile().startIndent("Running MCMC with deterministic model for initialization:");
-		_runMCMC(false);
+		initVals = _runMCMC(false, initVals);
 		logfile().endIndent();
 		// infer stochastic and use parameter estimates of deterministic to initialize
 		logfile().startIndent("Running MCMC with stochastic model:");
-		_runMCMC(true);
+		_runMCMC(true, initVals);
 		logfile().endIndent();
 	} else {
 		// run MCMC (deterministic)
 		logfile().list("Will model deterministic trends (use 'stochastic' to change).");
-		_runMCMC(false);
+		_runMCMC(false, initVals);
 	}
 }
 
@@ -500,8 +505,9 @@ void TBirpCore::simulate() {
 		logfile().list("Will simulate deterministic trends (use 'stochastic' to change).");
 	}
 
+	std::map<std::string, std::string> initVals; // empty
 	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
-	                 _outname, stochastic, true);
+	                 _outname, stochastic, true, initVals);
 
 	// run simulator
 	stattools::TSimulator simulator;
