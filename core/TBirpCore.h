@@ -65,7 +65,7 @@ public:
 
 class TTask_infer : public coretools::TTask {
 public:
-	TTask_infer() { _explanation = "Inferring rates of change in species densities from count data."; };
+	TTask_infer() : coretools::TTask("Inferring rates of change in species densities from count data.") {};
 
 	void run() override {
 		TBirpCore birp;
@@ -75,7 +75,7 @@ public:
 
 class TTask_simulate : public coretools::TTask {
 public:
-	TTask_simulate() { _explanation = "Simulating count data under Birp model."; };
+	TTask_simulate() : coretools::TTask("Simulating count data under Birp model.") {};
 
 	void run() override {
 		TBirpCore birp;
