@@ -947,3 +947,16 @@ const std::pair<size_t, size_t> &TData::linear_to_i_j(size_t SpeciesIDInUniqueCo
 const std::vector<size_t> &TData::locationId_to_ij(size_t SpeciesIDInUniqueContainer, size_t location_id) const {
 	return _ij_per_locationId[SpeciesIDInUniqueContainer][location_id];
 }
+
+void TData::clear(){
+	_methods.clear();
+
+	_numSpecies = 0;
+
+	_numMethLoc.clear();
+
+	// indices (per species)
+	_linear_to_i_j.clear();
+	_i_j_to_linear.clear();
+	_ij_per_locationId.clear();
+}

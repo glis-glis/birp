@@ -48,6 +48,8 @@ protected:
 	void _writeFile(const std::string &Name);
 	void _writeTimePoints();
 
+	void _clear();
+
 public:
 	TBirpCore();
 

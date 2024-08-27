@@ -43,6 +43,8 @@ public:
 
 	bool empty() const { return _names.size() == 0; }
 	T back() const { return _names.back(); }
+
+	void clear() { _names.clear(); }
 };
 
 #endif // BIRP_TUNIQUECONTAINER_H

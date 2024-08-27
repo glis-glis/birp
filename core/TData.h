@@ -330,6 +330,9 @@ public:
 	                                                             size_t linear) const;
 	[[nodiscard]] const std::vector<size_t> &locationId_to_ij(size_t SpeciesIDInUniqueContainer,
 	                                                          size_t location_id) const;
+
+	// clear
+	void clear();
 };
 
 #endif // BIRP_TDATA_H

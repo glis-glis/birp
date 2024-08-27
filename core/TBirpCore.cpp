@@ -56,6 +56,19 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	logfile().endIndent();
 }
 
+void TBirpCore::_clear(){
+	_outname = "";
+
+	// locations, methods, timepoints
+	_locations.clear();
+	_timepoints.clear();
+	_covariateEffortNames.clear();
+	_covariateDetectionNames.clear();
+	_speciesNames.clear();
+
+	_data.clear();
+}
+
 //-----------------------------------
 // Get all filenames
 
@@ -363,6 +376,9 @@ void TBirpCore::infer() {
 		logfile().list("Will model deterministic trends (use 'stochastic' to change).");
 		_runMCMC(false, initVals);
 	}
+
+	// clean all member variables (for Rcpp)
+	_clear();
 }
 
 //-----------------------------------
@@ -515,4 +531,7 @@ void TBirpCore::simulate() {
 
 	// write Birp file
 	_writeFile("simulated");
+
+	// clean all member variables (for Rcpp)
+	_clear();
 }
