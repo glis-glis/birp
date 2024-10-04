@@ -19,7 +19,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FetchContent)
 FetchContent_Declare(coretools
         GIT_REPOSITORY    https://bitbucket.org/wegmannlab/coretools.git
-        GIT_TAG           master
+        GIT_TAG           8b42bc0
         SOURCE_DIR        "${CMAKE_SOURCE_DIR}/coretools"
         )
 FetchContent_MakeAvailable(coretools)
