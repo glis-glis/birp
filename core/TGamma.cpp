@@ -152,7 +152,7 @@ void TOLSGamma::_augmentYWithOLSEstimatesStart(size_t curEpoch, const arma::vec 
 		// first epoch: no need to augment previous epoch since there is none
 		return;
 	}
-	for (size_t l = 0; l < l_to_ij[curEpoch].size() - 1; ++l) { // loop over all dataseries
+	for (size_t l = 0; l < l_to_ij[curEpoch].size(); ++l) { // loop over all dataseries
 		if (_dontAugmentDataSeries(l_to_ij, dataSeriesIndex, t, l, curEpoch, curEpoch - 1, epochStart)) { continue; }
 		const auto alpha_l = Beta(l);
 		const auto y_start = alpha_l + (double)epochStart * _gamma[curEpoch];
@@ -173,7 +173,7 @@ void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curEpoch, const arma::vec &B
 		// last epoch: no need to augment next epoch since there is none
 		return;
 	}
-	for (size_t l = 0; l < l_to_ij[curEpoch].size() - 1; ++l) { // loop over all dataseries
+	for (size_t l = 0; l < l_to_ij[curEpoch].size(); ++l) { // loop over all dataseries
 		if (_dontAugmentDataSeries(l_to_ij, dataSeriesIndex, t, l, curEpoch, curEpoch + 1, epochEnd)) { continue; }
 		const auto alpha_l = Beta(l);
 		const auto y_end   = alpha_l + (double)epochEnd * _gamma[curEpoch];
