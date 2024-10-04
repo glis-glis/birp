@@ -296,15 +296,13 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 // TGamma
 //------------------------------------------
 
-TGamma::TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange) : _gamma(Gamma), _timesOfChange(TimesOfChange) {
+TGamma::TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints)
+    : _gamma(Gamma), _timesOfChange(TimesOfChange) {
 	// find out how many epochs there are
 	if (parameters().exists("timesOfChange")) {
 		// Note: actual value of _timesOfChange will be set via stattools (name of parameter _timesOfChange is
 		// "timesOfChange" -> parsed from command line)
-		std::vector<std::string> tmp;
-		parameters().fill("timesOfChange", tmp);
-		logfile().list("Times of change = ", tmp, " (argument 'timesOfChange').");
-		_numEpochs = tmp.size() + 1;
+		_adjustTimesOfChange(Timepoints);
 	} else {
 		logfile().list("Will assume a single epoch (use argument 'timesOfChange' to change).");
 		_numEpochs = 1;
@@ -342,20 +340,58 @@ void TGamma::initializeJP(const TData &Data, const TModelBase &Model) {
 	_tryJP = _curJP;
 }
 
+void TGamma::_adjustTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints) {
+	// check if times of change, as provided by the user, are valid
+	// and adjust them if necessary
+	assert(!Timepoints.empty());
+
+	// read command-line argument
+	std::vector<TypeTime> vec;
+	parameters().fill("timesOfChange", vec);
+
+	// get first and last timepoint
+	TypeTime minTime = *std::min_element(Timepoints.cbegin(), Timepoints.cend());
+	TypeTime maxTime = *std::max_element(Timepoints.cbegin(), Timepoints.cend());
+
+	std::vector<TypeTime> timesOfChange;
+	for (auto toc : vec) {
+		if (toc <= minTime) {
+			logfile().warning("Time of change ", toc, " pre-dates or equals the first time point ", minTime,
+			                  ". Will ignore this time of change.");
+		} else if (toc >= maxTime) {
+			logfile().warning("Time of change ", toc, " post-dates or equals the last time point ", maxTime,
+			                  ". Will ignore this time of change.");
+		} else {
+			timesOfChange.push_back(toc);
+		}
+	}
+
+	// count number of epochs
+	_numEpochs = timesOfChange.size() + 1;
+
+	// overwrite timesOfChange in parameters()
+	parameters().add("timesOfChange", coretools::str::concatenateString(timesOfChange, ","));
+
+	// report
+	logfile().list("Times of change = ", timesOfChange, " (argument 'timesOfChange').");
+	logfile().list("Number of epochs = ", _numEpochs, ".");
+}
+
 std::vector<TypeTime> TGamma::getEpochStarts(const TUniqueContainer<TypeTime> &Timepoints) const {
 	// return start of each epoch, including for a hypothetical epoch after the last epoch
 	assert(!Timepoints.empty());
 
-	auto minTime                      = *std::min(Timepoints.cbegin(), Timepoints.cend());
+	// T_0 = t_1
+	auto minTime                      = *std::min_element(Timepoints.cbegin(), Timepoints.cend());
 	std::vector<TypeTime> epochStarts = {minTime};
+
+	// all intermediate T
 	if (_timesOfChange->size() != 0) {
-		TypeTime maxTimeOfChange = _timesOfChange->max_value();
-		TypeTime maxTime         = std::max((double)Timepoints.back(), maxTimeOfChange + 1.0);
 		for (size_t i = 0; i < _timesOfChange->size(); i++) { epochStarts.push_back(_timesOfChange->value(i)); }
-		epochStarts.push_back(maxTime);
-	} else {
-		epochStarts.push_back(*max_element(Timepoints.cbegin(), Timepoints.cend()));
 	}
+
+	// T_M = t_K
+	epochStarts.push_back(*max_element(Timepoints.cbegin(), Timepoints.cend()));
 	return epochStarts;
 }
 
@@ -466,8 +502,8 @@ bool TGamma::gammaIsUpdated() const { return _gamma->isUpdated(); }
 //------------------------------------------
 
 TStochasticPrior::TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
-                                   TypeParamTOC *TimesOfChange)
-    : _logPhi(LogPhi), _logSigma(LogSigma), _gamma(Gamma, TimesOfChange) {}
+                                   TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints)
+    : _logPhi(LogPhi), _logSigma(LogSigma), _gamma(Gamma, TimesOfChange, Timepoints) {}
 
 void TStochasticPrior::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior) {
 	// initialize gamma and times of change

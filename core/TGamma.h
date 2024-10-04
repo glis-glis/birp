@@ -87,10 +87,11 @@ protected:
 	size_t _counter = 0;
 
 	// initialization
+	void _adjustTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints);
 	void _fillRho(const TUniqueContainer<TypeTime> &Timepoints);
 
 public:
-	TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange);
+	TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints);
 	~TGamma() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);
@@ -158,7 +159,7 @@ protected:
 
 public:
 	TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
-	                 TypeParamTOC *TimesOfChange);
+	                 TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints);
 	~TStochasticPrior() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);

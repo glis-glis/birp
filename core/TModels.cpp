@@ -98,8 +98,8 @@ double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma)
 		}
 	}
 	const auto det = arma::det(fisherInfo);
-	if (det == 0.0){ return 0.0; } // can happen if all counts are zero
-	return log(det); // sqrt drops out in hastings ratio
+	if (det == 0.0) { return 0.0; } // can happen if all counts are zero
+	return log(det);                // sqrt drops out in hastings ratio
 }
 
 void TModelBase::_initializeLL(const TData &Data) {
@@ -200,7 +200,7 @@ void TModelBase::swapTryCur_perLocation(size_t j, const TData &Data) {
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
 		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer) && method.hasDataForLocation(j)) {
-			size_t j_in_method = method.getLocationIndexInMethod(j);
+			size_t j_in_method      = method.getLocationIndexInMethod(j);
 			size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j_in_method);
 			std::swap(_tryLL[ix_linNumMethLoc], _curLL[ix_linNumMethLoc]);
 		}
@@ -251,8 +251,8 @@ void TModelBase::setCurLLPerMethod(const std::vector<double> &Values, size_t i, 
 
 TDeterministic::TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,
                                const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
-                               TypeParamTOC *TimesOfChange)
-    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _gamma(Gamma, TimesOfChange) {}
+                               TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints)
+    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _gamma(Gamma, TimesOfChange, Timepoints) {}
 
 void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
                                 const TUniqueContainer<TypeTime> &TimePoints, TBirpPrior *BirpPrior) {
@@ -328,9 +328,9 @@ void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) {
 TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations,
                          size_t NumTimePoints, const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
                          TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange, TypeParamLogPhi *LogPhi,
-                         TypeParamLogSigma *LogSigma)
-    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _prior(LogPhi, LogSigma, Gamma, TimesOfChange),
-      _logPhi(LogPhi), _logSigma(LogSigma) {
+                         TypeParamLogSigma *LogSigma, const TUniqueContainer<TypeTime> &Timepoints)
+    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn),
+      _prior(LogPhi, LogSigma, Gamma, TimesOfChange, Timepoints), _logPhi(LogPhi), _logSigma(LogSigma) {
 
 	_jointUpdater = std::make_unique<stattools::TUpdateUnique<TypeLogPhi, false>>(
 	    NumLocations * NumTimePoints, true, std::make_unique<stattools::TPropKernelNormal<TypeLogPhi, double>>(),

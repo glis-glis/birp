@@ -103,7 +103,7 @@ protected:
 public:
 	TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,
 	               const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
-	               TypeParamTOC *TimesOfChange);
+	               TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints);
 	~TDeterministic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
@@ -158,7 +158,8 @@ protected:
 public:
 	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations, size_t NumTimePoint,
 	            const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
-	            TypeParamTOC *TimesOfChange, TypeParamLogPhi *LogPhi, TypeParamLogSigma *Logigma);
+	            TypeParamTOC *TimesOfChange, TypeParamLogPhi *LogPhi, TypeParamLogSigma *Logigma,
+	            const TUniqueContainer<TypeTime> &Timepoints);
 	~TStochastic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
