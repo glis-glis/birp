@@ -63,7 +63,7 @@ public:
 	[[nodiscard]] virtual TypePhi deterministicPhi(size_t timepoint_k) const        = 0;
 
 	[[nodiscard]] double calculateJeffreyPrior(const TData &Data, const TGamma &Gamma) const;
-	double calculateLLRatio(const TData &Data);
+	double calculateLLRatio(const TData &Data, size_t CI_index);
 	double calculateLLRatio_perLocation(size_t j, const TData &Data);
 
 	double calculateLLRatio_perMethod(size_t i, const TData &Data);
@@ -95,15 +95,19 @@ protected:
 	TGamma _gamma;
 
 	// store temporary phi
-	std::vector<TypePhi> _newPhi;
-	std::vector<TypePhi> _oldPhi;
+	std::vector<std::vector<TypePhi>> _newPhi;
+	std::vector<std::vector<TypePhi>> _oldPhi;
 
-	void _fillPhi();
+	// BACI stuff
+	const std::vector<size_t> &_CI_index_per_j;
+
+	void _fillPhi(size_t CI_ix);
 
 public:
 	TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,
 	               const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
-	               TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints);
+	               const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI,
+					 const std::vector<size_t> &CI_index_per_j);
 	~TDeterministic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
@@ -115,7 +119,6 @@ public:
 	void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) override;
 
 	[[nodiscard]] TypePhi phi(size_t location_id, size_t timepoint_id) const override;
-	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k) const override;
 
 	// write posterior summaries of gamma's
 	void resetSummaryGammaPosterior() override;
@@ -158,8 +161,8 @@ protected:
 public:
 	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations, size_t NumTimePoint,
 	            const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
-	            TypeParamTOC *TimesOfChange, TypeParamLogPhi *LogPhi, TypeParamLogSigma *Logigma,
-	            const TUniqueContainer<TypeTime> &Timepoints);
+	            TypeParamLogPhi *LogPhi, TypeParamLogSigma *Logigma, const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI,
+					 const std::vector<size_t> &CI_index_per_j);
 	~TStochastic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,

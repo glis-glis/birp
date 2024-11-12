@@ -13,12 +13,6 @@
 using BoxOnGamma = stattools::prior::TFlatFixed<stattools::TParameterBase, TypeGamma, NumDimGamma>;
 using SpecGamma  = stattools::ParamSpec<TypeGamma, stattools::Hash<coretools::toHash("gamma")>, BoxOnGamma,
                                         stattools::NumDim<NumDimGamma>>;
-
-// time of change (TOC)
-using BoxOnTOC = stattools::prior::TUniformFixed<stattools::TParameterBase, TypeTime, NumDimTimeOfChange>;
-using SpecTOC  = stattools::ParamSpec<TypeTime, stattools::Hash<coretools::toHash("toc")>, BoxOnTOC,
-                                      stattools::NumDim<NumDimTimeOfChange>>;
-
 // alpha
 using BoxOnAlpha = stattools::prior::TDirichletFixed<stattools::TParameterBase, TypeAlpha, NumDimAlpha>;
 using SpecAlpha  = stattools::ParamSpec<TypeAlpha, stattools::Hash<coretools::toHash("alpha")>, BoxOnAlpha,
@@ -54,7 +48,6 @@ using BirpBox = TBirpPrior;
 
 // Parameters
 using TypeParamGamma    = stattools::TParameter<SpecGamma, BirpBox>;
-using TypeParamTOC      = stattools::TParameter<SpecTOC, BirpBox>;
 using TypeParamAlpha    = stattools::TParameter<SpecAlpha, BirpBox>;
 using TypeParamBeta     = stattools::TParameter<SpecBeta, BirpBox>;
 using TypeParamMuOrN    = stattools::TParameter<SpecMuOrN, BirpBox>;

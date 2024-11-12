@@ -110,13 +110,14 @@ private:
 	size_t _location_id = 0;
 	std::vector<TTimepoints> _timepoints;
 	std::vector<TypeNu> _nu;
+	size_t _group_id;
 
 public:
 	TLocations() = default;
 
-	TLocations(const TTimepoints &pt, size_t location_id);
+	TLocations(const TTimepoints &pt, size_t location_id, size_t group_id);
 
-	TLocations(size_t location_id, size_t TimepointSize, size_t numSpecies, size_t numCovariatesEffort,
+	TLocations(size_t location_id, size_t group_id, size_t TimepointSize, size_t numSpecies, size_t numCovariatesEffort,
 	           size_t numCovariatesDetection);
 
 	// setters
@@ -128,6 +129,7 @@ public:
 	[[nodiscard]] size_t size() const;
 	[[nodiscard]] TypeNu nu(size_t species_id) const;
 	[[nodiscard]] size_t location_id() const;
+	[[nodiscard]] size_t group_id() const;
 	[[nodiscard]] const TTimepoints &operator[](size_t index) const;
 
 	void write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,

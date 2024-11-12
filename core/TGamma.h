@@ -68,10 +68,10 @@ class TGamma {
 	// wraps parameters gamma and timesOfChange
 protected:
 	// stattools parameters
-	TypeParamGamma *_gamma       = nullptr;
-	TypeParamTOC *_timesOfChange = nullptr;
+	TypeParamGamma *_gamma = nullptr;
 
-	// number of epochs
+	// times of change
+	std::vector<TypeTime> _timesOfChange;
 	size_t _numEpochs = 0;
 
 	// rho
@@ -82,16 +82,25 @@ protected:
 	double _tryJP = 0.0;
 	double _curJP = 0.0;
 
+	// BACI
+	std::vector<std::vector<size_t>> _gamma_ix_per_epoch_and_group;
+	TUniqueContainer<std::string> _gamma_names;
+	std::vector<std::vector<size_t>> _CI_indices_per_gamma;
+
 	// keep track of posterior summaries of gamma's
 	std::vector<std::vector<size_t>> _summaryGammaPosterior;
 	size_t _counter = 0;
 
 	// initialization
-	void _adjustTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints);
+	void _fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints);
 	void _fillRho(const TUniqueContainer<TypeTime> &Timepoints);
+	void _fillGammaIndicatorCI(size_t NumCI);
+	void _fillGammaIndicatorBA();
+	void _fillGammaIndicatorBACI(size_t NumCI);
+	void _readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI);
 
 public:
-	TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints);
+	TGamma(TypeParamGamma *Gamma, const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI);
 	~TGamma() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);
@@ -112,10 +121,13 @@ public:
 	void setSimulatedGammaToZero();
 
 	size_t numEpochs() const;
+	size_t numCIGroups() const;
 	size_t numTimepoints() const;
-	TypeGamma gamma(size_t m) const;
+	size_t size() const;
+	const std::vector<size_t> &getCIGroups(size_t gamma_ix) const;
+	TypeGamma gamma(size_t m, size_t CI_ix) const;
 	double rho(size_t row, size_t col) const;
-	std::vector<TypePhi> phi() const;
+	std::vector<TypePhi> phi(size_t CI_ix) const;
 	bool gammaIsUpdated() const;
 };
 
@@ -137,16 +149,19 @@ protected:
 	std::vector<double> _deltaTimeVec;
 
 	// temporary variable: sum of rho * gamma
-	std::vector<double> _newSumRhoGamma;
-	std::vector<double> _oldSumRhoGamma;
+	std::vector<std::vector<double>> _newSumRhoGamma;
+	std::vector<std::vector<double>> _oldSumRhoGamma;
 
 	// store log transition probabilities: per location and timepoint
 	std::vector<std::vector<double>> _tryLogTransitionProbs;
 	std::vector<std::vector<double>> _curLogTransitionProbs;
 
-	// store determinitic phi
-	std::vector<TypePhi> _newDeterministicPhi;
-	std::vector<TypePhi> _oldDeterministicPhi;
+	// store deterministic phi
+	std::vector<std::vector<TypePhi>> _newDeterministicPhi;
+	std::vector<std::vector<TypePhi>> _oldDeterministicPhi;
+
+	// BACI stuff
+	const std::vector<size_t> &_CI_index_per_j;
 
 	// fill rho and delta
 	void _fillStochasticRho(const TUniqueContainer<TypeTime> &Timepoints);
@@ -154,12 +169,13 @@ protected:
 	void _initializeTransitionProbabilities();
 
 	// transition probabilities
-	double _calculateLogTransitionProbability(size_t j, size_t k) const;
-	coretools::probdist::TNormalDistr _getMeanSdTransitionProbability(size_t j, size_t k) const;
+	double _calculateLogTransitionProbability(size_t j, size_t k, size_t CI_index) const;
+	coretools::probdist::TNormalDistr _getMeanSdTransitionProbability(size_t j, size_t k, size_t CI_index) const;
 
 public:
 	TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
-	                 TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints);
+	                 const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI,
+	                 const std::vector<size_t> &CI_index_per_j);
 	~TStochasticPrior() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);

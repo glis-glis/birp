@@ -19,7 +19,6 @@ private:
 	void _createBeta0(size_t i, TData &Data, const std::string &Filename);
 
 	BoxOnGamma _boxOnGamma;
-	BoxOnTOC _boxOnTOC;
 	BoxOnAlpha _boxOnAlpha;
 	BoxOnBeta _boxOnBeta;
 	BoxOnBeta _boxOnBeta0;
@@ -27,7 +26,6 @@ private:
 public:
 	// all parameters of model (including prior parameters)
 	TypeParamGamma gamma;
-	TypeParamTOC timesOfChange;
 
 	// covariates: regression coefficients
 	std::vector<std::shared_ptr<TypeParamAlpha>> alpha;

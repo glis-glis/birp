@@ -17,7 +17,7 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
       _covariateDetectionNames(CovariateDetectionNames), _numSpecies(numSpecies), _out(std::move(Prefix)) {
 
 	// stattools: tell which ones are prior parameters
-	addPriorParameter({&CommonModel.gamma, &CommonModel.timesOfChange});
+	addPriorParameter({&CommonModel.gamma});
 	for (auto &a : CommonModel.alpha) { addPriorParameter(a.get()); }
 	for (auto &b : CommonModel.beta0) { addPriorParameter(b.get()); }
 	for (auto &b : CommonModel.beta) { addPriorParameter(b.get()); }
@@ -30,10 +30,10 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 	if (StochasticAddOn) {
 		_models.emplace_back(std::make_unique<TStochastic>(
 		    speciesID, Data, Locations.size(), TimePoints.size(), NegBinomAddOn, &CommonModel.gamma,
-		    &CommonModel.timesOfChange, &StochasticAddOn->logPhi, &StochasticAddOn->logSigma, _timepoints));
+		    &StochasticAddOn->logPhi, &StochasticAddOn->logSigma, _timepoints));
 	} else {
 		_models.emplace_back(std::make_unique<TDeterministic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
-		                                                      &CommonModel.timesOfChange, _timepoints));
+		                                                      _timepoints));
 	}
 
 	for (size_t i = 0; i < Data.size(); ++i) {

@@ -13,10 +13,6 @@
 using TypeGamma                     = coretools::Unbounded;
 constexpr static size_t NumDimGamma = 1;
 
-// time of change
-using TypeTime                             = coretools::Positive;
-constexpr static size_t NumDimTimeOfChange = 1;
-
 // alpha
 using TypeAlpha                     = coretools::StrictlyPositiveWithMax<0>;
 constexpr static size_t NumDimAlpha = 1;
@@ -51,5 +47,6 @@ using TypeCovariateDetection = coretools::Unbounded;
 using TypeNu                 = coretools::UnsignedInt64;
 using TypeEffort             = coretools::Positive;
 using TypePhi                = coretools::StrictlyPositive;
+using TypeTime               = coretools::Positive;
 
 #endif // BIRPTYPES_H

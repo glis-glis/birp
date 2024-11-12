@@ -296,19 +296,9 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 // TGamma
 //------------------------------------------
 
-TGamma::TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints)
-    : _gamma(Gamma), _timesOfChange(TimesOfChange) {
-	// find out how many epochs there are
-	if (parameters().exists("timesOfChange")) {
-		// Note: actual value of _timesOfChange will be set via stattools (name of parameter _timesOfChange is
-		// "timesOfChange" -> parsed from command line)
-		_adjustTimesOfChange(Timepoints);
-	} else {
-		logfile().list("Will assume a single epoch (use argument 'timesOfChange' to change).");
-		_numEpochs = 1;
-	}
-	// default: do not infer times of change
-	if (!parameters().exists("inferTimesOfChange")) { _timesOfChange->getDefinition().update(false); }
+TGamma::TGamma(TypeParamGamma *Gamma, const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI) : _gamma(Gamma) {
+	// find out how many epochs there are and how many CI groups
+	_readGammaGrouping(Timepoints, NumCI);
 
 	// calculate Jeffrey's prior?
 	_noJP = parameters().exists("noJP");
@@ -316,33 +306,100 @@ TGamma::TGamma(TypeParamGamma *Gamma, TypeParamTOC *TimesOfChange, const TUnique
 }
 
 void TGamma::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior) {
-	_timesOfChange->initStorage(BirpPrior, {_numEpochs - 1}, {std::make_shared<coretools::TNamesIndices>()});
-	_gamma->initStorage(BirpPrior, {_numEpochs}, {std::make_shared<coretools::TNamesIndices>()});
+	_gamma->initStorage(BirpPrior, {_gamma_names.size()},
+	                    {std::make_shared<coretools::TNamesStrings>(_gamma_names.vec())});
 
-	_summaryGammaPosterior.resize(_numEpochs, std::vector<size_t>(_numEpochs, 0));
+	_summaryGammaPosterior.resize(_gamma_names.size(), std::vector<size_t>(_gamma_names.size(), 0));
 
 	_fillRho(Timepoints);
 }
 
-void TGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID) {
-	if (_gamma->hasFixedInitialValue()) { return; }
+void TGamma::_readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI) {
+	if (parameters().exists("timesOfChange")) {
+		_fillTimesOfChange(Timepoints);
+	} else {
+		logfile().list(
+		    "Will assume a single epoch without any times of change (use argument 'timesOfChange' to change).");
+		_numEpochs = 1;
+	}
 
-	std::vector<TypeTime> epochStarts = getEpochStarts(Timepoints);
-	TOLSGamma ols(_numEpochs, epochStarts);
-	auto gamma = ols.estimateInitialGamma(Data, Timepoints, SpeciesID);
-	assert(gamma.size() == _numEpochs);
-	for (size_t m = 0; m < _numEpochs; ++m) { _gamma->set(m, gamma[m]); }
+	// read gamma grouping BACI
+	if (NumCI > 1 && _numEpochs == 1) { // CI only
+		_fillGammaIndicatorCI(NumCI);
+	} else if (NumCI == 1) { // BA only
+		_fillGammaIndicatorBA();
+	} else { // BACI
+		_fillGammaIndicatorBACI(NumCI);
+	}
 }
 
-void TGamma::initializeJP(const TData &Data, const TModelBase &Model) {
-	// set _oldLL and _oldJP
-	_curJP = Model.calculateJeffreyPrior(Data, *this);
-	_tryJP = _curJP;
+void TGamma::_fillGammaIndicatorCI(size_t NumCI) {
+	// if only a single epoch and multiple groups -> we do CI -> no need to provide BACI-grouping file
+	logfile().list("Will perform control-intervention analysis (CI) without before-after grouping (use argument 'BACI' "
+	               "to change).");
+	for (size_t i = 0; i < NumCI; i++) {
+		size_t ix = _gamma_names.add(coretools::str::toString(i + 1));
+		_gamma_ix_per_epoch_and_group.emplace_back(1, ix);
+		_CI_indices_per_gamma.emplace_back(1, ix);
+	}
 }
 
-void TGamma::_adjustTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints) {
-	// check if times of change, as provided by the user, are valid
-	// and adjust them if necessary
+void TGamma::_fillGammaIndicatorBA() {
+	// if only a single group -> we do BA -> no need to provide BACI-grouping file
+	logfile().list("Will perform before-after analysis (BA) without control-intervention grouping (use argument 'BACI' "
+	               "to change).");
+	_gamma_ix_per_epoch_and_group.emplace_back(_numEpochs);
+	for (size_t i = 0; i < _numEpochs; i++) {
+		size_t ix                           = _gamma_names.add(coretools::str::toString(i + 1));
+		_gamma_ix_per_epoch_and_group[0][i] = ix;
+		_CI_indices_per_gamma.emplace_back(1, 0);
+	}
+}
+
+void TGamma::_fillGammaIndicatorBACI(size_t NumCI) {
+	// open file
+	if (!parameters().exists("BACI")) {
+		UERROR("The argument 'BACI' needs to be specified when analysing ", NumCI, " control-intervention groups and ",
+		       _numEpochs, " epochs.");
+	}
+	auto name = parameters().get<std::string>("BACI");
+	coretools::TInputMaybeRcppFile file(name, coretools::FileType::NoHeader);
+	logfile().list("Reading BACI grouping information from file ", name, "...");
+
+	// number of columns = number of epochs in total -> check if this matches timesOfChange!
+	size_t numEpochs = file.numCols();
+	if (numEpochs != _numEpochs) {
+		UERROR("The number of epochs provided in BACI-file '", name, "' (", numEpochs,
+		       ") does not match the number of epochs provided through the argument 'timesOfChange' (", _numEpochs,
+		       ").");
+	}
+
+	// parse file and fill _gamma_ix_per_epoch_and_group and _gamma_names
+	for (; !file.empty(); file.popFront()) {
+		// new line = new group (control / intervention)
+		_gamma_ix_per_epoch_and_group.emplace_back(_numEpochs);
+		for (size_t m = 0; m < _numEpochs; ++m) {
+			auto gamma_name = file.get<std::string>(m);
+			if (!_gamma_names.exists(gamma_name)) { _CI_indices_per_gamma.emplace_back(); }
+			size_t ix                                        = _gamma_names.add(gamma_name);
+			_gamma_ix_per_epoch_and_group[file.curLine()][m] = ix;
+			_CI_indices_per_gamma[ix].emplace_back(file.curLine());
+		}
+	}
+
+	// check if the number of groups (CI) matches the number of input files
+	if (NumCI != _gamma_ix_per_epoch_and_group.size()) {
+		UERROR("The number of control-intervention groups provided in BACI file '", name, "' (",
+		       _gamma_ix_per_epoch_and_group.size(),
+		       ") does not match the number of groups provided in the count files (", NumCI, ").");
+	}
+
+	logfile().conclude("Found ", _gamma_ix_per_epoch_and_group.size(),
+	                   " control-intervention (CI) groups with a total number of ", _numEpochs, " epochs.");
+}
+
+void TGamma::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints) {
+	// check if times of change, as provided by the user, are valid and adjust them if necessary
 	assert(!Timepoints.empty());
 
 	// read command-line argument
@@ -353,7 +410,6 @@ void TGamma::_adjustTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints) 
 	TypeTime minTime = *std::min_element(Timepoints.cbegin(), Timepoints.cend());
 	TypeTime maxTime = *std::max_element(Timepoints.cbegin(), Timepoints.cend());
 
-	std::vector<TypeTime> timesOfChange;
 	for (auto toc : vec) {
 		if (toc <= minTime) {
 			logfile().warning("Time of change ", toc, " pre-dates or equals the first time point ", minTime,
@@ -362,19 +418,37 @@ void TGamma::_adjustTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints) 
 			logfile().warning("Time of change ", toc, " post-dates or equals the last time point ", maxTime,
 			                  ". Will ignore this time of change.");
 		} else {
-			timesOfChange.push_back(toc);
+			if (!_timesOfChange.empty() && toc <= _timesOfChange.back()) { // check if it is sorted
+				UERROR("Time of change ", toc, " pre-dates or equals the previous time of change ",
+				       _timesOfChange.back(), ". Please provide times of change in increasing order.");
+			}
+			_timesOfChange.push_back(toc);
 		}
 	}
 
 	// count number of epochs
-	_numEpochs = timesOfChange.size() + 1;
-
-	// overwrite timesOfChange in parameters()
-	parameters().add("timesOfChange", coretools::str::concatenateString(timesOfChange, ","));
+	_numEpochs = _timesOfChange.size() + 1;
 
 	// report
-	logfile().list("Times of change = ", timesOfChange, " (argument 'timesOfChange').");
+	logfile().list("Times of change = ", _timesOfChange, " (argument 'timesOfChange').");
 	logfile().list("Number of epochs = ", _numEpochs, ".");
+}
+
+void TGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID) {
+	if (_gamma->hasFixedInitialValue()) { return; }
+
+	// TODO: fix OLS for CI cases
+	std::vector<TypeTime> epochStarts = getEpochStarts(Timepoints);
+	TOLSGamma ols(_numEpochs, epochStarts);
+	auto gamma = ols.estimateInitialGamma(Data, Timepoints, SpeciesID);
+	assert(gamma.size() == _gamma->size());
+	for (size_t m = 0; m < gamma.size(); ++m) { _gamma->set(m, gamma[m]); }
+}
+
+void TGamma::initializeJP(const TData &Data, const TModelBase &Model) {
+	// set _oldLL and _oldJP
+	_curJP = Model.calculateJeffreyPrior(Data, *this);
+	_tryJP = _curJP;
 }
 
 std::vector<TypeTime> TGamma::getEpochStarts(const TUniqueContainer<TypeTime> &Timepoints) const {
@@ -386,9 +460,7 @@ std::vector<TypeTime> TGamma::getEpochStarts(const TUniqueContainer<TypeTime> &T
 	std::vector<TypeTime> epochStarts = {minTime};
 
 	// all intermediate T
-	if (_timesOfChange->size() != 0) {
-		for (size_t i = 0; i < _timesOfChange->size(); i++) { epochStarts.push_back(_timesOfChange->value(i)); }
-	}
+	epochStarts.insert(epochStarts.end(), _timesOfChange.begin(), _timesOfChange.end());
 
 	// T_M = t_K
 	epochStarts.push_back(*max_element(Timepoints.cbegin(), Timepoints.cend()));
@@ -418,9 +490,9 @@ void TGamma::setSimulatedGammaToZero() {
 
 // functions to update gamma
 
-bool TGamma::updateSpecificIndex(size_t m) {
+bool TGamma::updateSpecificIndex(size_t ix) {
 	if (_gamma->isUpdated()) {
-		_gamma->propose(coretools::TRange(m));
+		_gamma->propose(coretools::TRange(ix));
 		return true;
 	}
 	return false;
@@ -433,8 +505,8 @@ double TGamma::getLogPriorRatio(const TData &Data, const TModelBase &Model) {
 	return _tryJP - _curJP;
 }
 
-bool TGamma::acceptOrReject(double logH, size_t m) {
-	if (_gamma->acceptOrReject(logH, coretools::TRange(m))) {
+bool TGamma::acceptOrReject(double logH, size_t ix) {
+	if (_gamma->acceptOrReject(logH, coretools::TRange(ix))) {
 		_curJP = _tryJP;
 		return true;
 	}
@@ -443,55 +515,61 @@ bool TGamma::acceptOrReject(double logH, size_t m) {
 
 void TGamma::resetSummaryGammaPosterior() {
 	_counter = 0;
-	for (size_t m = 0; m < _numEpochs; ++m) {
-		std::fill(_summaryGammaPosterior[m].begin(), _summaryGammaPosterior[m].end(), 0);
-	}
+	for (auto &m : _summaryGammaPosterior) { std::fill(m.begin(), m.end(), 0); }
 }
 
 void TGamma::updateSummaryGammaPosterior() {
 	++_counter;
-	for (size_t m = 0; m < _numEpochs; ++m) {     // rows
-		for (size_t n = 0; n < _numEpochs; ++n) { // column
-			if (m == n) {
-				// on the diagonal: count if gamma_m > 0
-				if (_gamma->value(m) >= 0.0) { ++_summaryGammaPosterior[m][n]; }
+	for (size_t ix_1 = 0; ix_1 < _gamma->size(); ++ix_1) {     // rows
+		for (size_t ix_2 = 0; ix_2 < _gamma->size(); ++ix_2) { // column
+			if (ix_1 == ix_2) {
+				// on the diagonal: count if gamma_ix_1 > 0
+				if (_gamma->value(ix_1) >= 0.0) { ++_summaryGammaPosterior[ix_1][ix_2]; }
 			} else {
-				// off the diagonal: count if gamma_m > gamma_n
-				if (_gamma->value(m) > _gamma->value(n)) { ++_summaryGammaPosterior[m][n]; }
+				// off the diagonal: count if gamma_ix_1 > gamma_ix_2
+				if (_gamma->value(ix_1) > _gamma->value(ix_2)) { ++_summaryGammaPosterior[ix_1][ix_2]; }
 			}
 		}
 	}
 }
 
 void TGamma::writeSummaryGammaPosterior(const std::string &Prefix) {
-	std::vector<std::string> rowNames(_numEpochs);
-	for (size_t m = 0; m < _numEpochs; ++m) { rowNames[m] = "gamma_" + coretools::str::toString(m + 1); }
-	auto header = rowNames;
+	auto header = _gamma_names.vec();
 	header.insert(header.begin(), "row_bigger_than_column");
 	coretools::TOutputMaybeRcppFile file(Prefix + "_gammaSummaries.txt", header);
-	for (size_t m = 0; m < _numEpochs; ++m) {
-		file << rowNames[m];
-		for (size_t n = 0; n < _numEpochs; ++n) { file << (double)_summaryGammaPosterior[m][n] / (double)_counter; }
+	for (size_t ix_1 = 0; ix_1 < _gamma->size(); ++ix_1) {
+		file << _gamma_names[ix_1];
+		for (size_t ix_2 = 0; ix_2 < _gamma->size(); ++ix_2) {
+			file << (double)_summaryGammaPosterior[ix_1][ix_2] / (double)_counter;
+		}
 		file.endln();
 	}
 }
 
 // getters
 size_t TGamma::numEpochs() const { return _numEpochs; }
-
+size_t TGamma::numCIGroups() const { return _gamma_ix_per_epoch_and_group.size(); }
 size_t TGamma::numTimepoints() const { return _rho.n_rows; }
+size_t TGamma::size() const { return _gamma->size(); }
+const std::vector<size_t> &TGamma::getCIGroups(size_t gamma_ix) const { return _CI_indices_per_gamma[gamma_ix]; }
 
-TypeGamma TGamma::gamma(size_t m) const { return _gamma->value(m); }
+TypeGamma TGamma::gamma(size_t epoch, size_t CI_ix) const {
+	assert(epoch < _numEpochs);
+	assert(CI_ix < _gamma_ix_per_epoch_and_group.size());
+
+	auto ix = _gamma_ix_per_epoch_and_group[CI_ix][epoch];
+	return _gamma->value(ix);
+}
 
 double TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 
 bool TGamma::gammaIsUpdated() const { return _gamma->isUpdated(); }
 
-[[nodiscard]] std::vector<TypePhi> TGamma::phi() const {
+[[nodiscard]] std::vector<TypePhi> TGamma::phi(size_t CI_ix) const {
 	std::vector<TypePhi> phi(numTimepoints());
 	for (size_t k = 0; k < numTimepoints(); ++k) {
 		double logPhi = 0.0;
-		for (size_t m = 0; m < _numEpochs; m++) { logPhi += _rho(k, m) * gamma(m); }
+		for (size_t m = 0; m < _numEpochs; m++) { logPhi += _rho(k, m) * gamma(m, CI_ix); }
 		phi[k] = exp(logPhi); // make logPhi to phi
 	}
 	return phi;
@@ -502,8 +580,9 @@ bool TGamma::gammaIsUpdated() const { return _gamma->isUpdated(); }
 //------------------------------------------
 
 TStochasticPrior::TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
-                                   TypeParamTOC *TimesOfChange, const TUniqueContainer<TypeTime> &Timepoints)
-    : _logPhi(LogPhi), _logSigma(LogSigma), _gamma(Gamma, TimesOfChange, Timepoints) {}
+                                   const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI,
+                                   const std::vector<size_t> &CI_index_per_j)
+    : _logPhi(LogPhi), _logSigma(LogSigma), _gamma(Gamma, Timepoints, NumCI), _CI_index_per_j(CI_index_per_j) {}
 
 void TStochasticPrior::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior) {
 	// initialize gamma and times of change
@@ -517,12 +596,12 @@ void TStochasticPrior::initialize(const TUniqueContainer<TypeTime> &Timepoints, 
 	_fillStochasticRho(Timepoints);
 
 	// resize deterministic phi
-	_newDeterministicPhi.resize(_gamma.numTimepoints());
-	_oldDeterministicPhi.resize(_gamma.numTimepoints());
+	_newDeterministicPhi.resize(_gamma.numCIGroups(), std::vector<TypePhi>(_gamma.numTimepoints()));
+	_oldDeterministicPhi.resize(_gamma.numCIGroups(), std::vector<TypePhi>(_gamma.numTimepoints()));
 
 	// resize delta's
-	_newSumRhoGamma.resize(_gamma.numTimepoints(), 0.0);
-	_oldSumRhoGamma.resize(_gamma.numTimepoints(), 0.0);
+	_newSumRhoGamma.resize(_gamma.numCIGroups(), std::vector<double>(_gamma.numTimepoints(), 0.0));
+	_oldSumRhoGamma.resize(_gamma.numCIGroups(), std::vector<double>(_gamma.numTimepoints(), 0.0));
 }
 
 void TStochasticPrior::estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints,
@@ -536,8 +615,10 @@ void TStochasticPrior::initializeTempVariables(const TData &Data, const TModelBa
 	_oldSumRhoGamma = _newSumRhoGamma;
 
 	// initialize deterministic phi
-	_newDeterministicPhi = _gamma.phi();
-	_oldDeterministicPhi = _newDeterministicPhi;
+	for (size_t i = 0; i < _gamma.numCIGroups(); ++i) {
+		_newDeterministicPhi[i] = _gamma.phi(i);
+		_oldDeterministicPhi[i] = _newDeterministicPhi[i];
+	}
 
 	// initialize JP
 	if (CalculateJP) { _gamma.initializeJP(Data, Model); }
@@ -571,10 +652,12 @@ void TStochasticPrior::_fillStochasticRho(const TUniqueContainer<TypeTime> &Time
 }
 
 void TStochasticPrior::_initializeSumRhoGamma() {
-	std::fill(_newSumRhoGamma.begin(), _newSumRhoGamma.end(), 0.0);
-	for (size_t k = 1; k < _gamma.numTimepoints(); ++k) {
-		for (size_t e = 0; e < _gamma.numEpochs(); e++) {
-			_newSumRhoGamma[k] += _stochasticRho(k, e) * (double)_gamma.gamma(e);
+	for (size_t i = 0; i < _gamma.numCIGroups(); ++i) {
+		std::fill(_newSumRhoGamma[i].begin(), _newSumRhoGamma[i].end(), 0.0);
+		for (size_t k = 1; k < _gamma.numTimepoints(); ++k) {
+			for (size_t e = 0; e < _gamma.numEpochs(); e++) {
+				_newSumRhoGamma[i][k] += _stochasticRho(k, e) * (double)_gamma.gamma(e, i);
+			}
 		}
 	}
 }
@@ -586,21 +669,23 @@ void TStochasticPrior::_initializeTransitionProbabilities() {
 	_tryLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints, 0.0));
 	_curLogTransitionProbs.resize(numLoc, std::vector<double>(numTimePoints, 0.0));
 
-	for (size_t j = 0; j < numLoc; ++j) {            // loop over locations
+	for (size_t j = 0; j < numLoc; ++j) { // loop over locations
+		const size_t CI_index = _CI_index_per_j[j];
 		for (size_t k = 1; k < numTimePoints; ++k) { // loop over timepoints
-			_curLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k);
+			_curLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k, CI_index);
 		}
 	}
 	_tryLogTransitionProbs = _curLogTransitionProbs;
 }
 
-coretools::probdist::TNormalDistr TStochasticPrior::_getMeanSdTransitionProbability(size_t j, size_t k) const {
+coretools::probdist::TNormalDistr TStochasticPrior::_getMeanSdTransitionProbability(size_t j, size_t k,
+                                                                                    size_t CI_index) const {
 	const auto deltaTime = (double)_deltaTimeVec[k];
 
 	// calculate mean of normal distribution
 	const auto sigma                = exp(_logSigma->value());
 	const auto sigma2               = sigma * sigma;
-	const auto sumRhoGamma          = _newSumRhoGamma[k];
+	const auto sumRhoGamma          = _newSumRhoGamma[CI_index][k];
 	const auto log_phi_j_previous_k = _logPhi->value(_logPhi->getIndex({j, k - 1}));
 	const auto mean                 = log_phi_j_previous_k + sumRhoGamma - sigma2 / 2.0 * deltaTime;
 
@@ -611,10 +696,10 @@ coretools::probdist::TNormalDistr TStochasticPrior::_getMeanSdTransitionProbabil
 	return distr;
 }
 
-double TStochasticPrior::_calculateLogTransitionProbability(size_t j, size_t k) const {
+double TStochasticPrior::_calculateLogTransitionProbability(size_t j, size_t k, size_t CI_index) const {
 	assert(k > 0);
 
-	coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k);
+	coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k, CI_index);
 	const double log_phi_j_k                = _logPhi->value(_logPhi->getIndex({j, k}));
 	return distr.logDensity(log_phi_j_k);
 }
@@ -622,9 +707,10 @@ double TStochasticPrior::_calculateLogTransitionProbability(size_t j, size_t k) 
 double TStochasticPrior::calculateLLRatioForUpdateGamma() {
 	// likelihood: just go through Markov chain and sum up log transition probabilities
 	double LL = 0.0;
-	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
+	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over locations
+		const size_t CI_index = _CI_index_per_j[j];
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
-			_tryLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k);
+			_tryLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k, CI_index);
 			LL += _tryLogTransitionProbs[j][k] - _curLogTransitionProbs[j][k];
 		}
 	}
@@ -634,34 +720,35 @@ double TStochasticPrior::calculateLLRatioForUpdateGamma() {
 double TStochasticPrior::calculateLL() const {
 	// likelihood: just go through Markov chain and sum up log transition probabilities
 	double LL = 0.0;
-	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
+	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over locations
+		const size_t CI_index = _CI_index_per_j[j];
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
-			LL += _calculateLogTransitionProbability(j, k);
+			LL += _calculateLogTransitionProbability(j, k, CI_index);
 		}
 	}
 	return LL;
 }
 
 void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
-	for (size_t m = 0; m < _gamma.numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
-		if (_gamma.updateSpecificIndex(m)) {
+	for (size_t ix = 0; ix < _gamma.size(); ix++) { // update gamma one by one
+		if (_gamma.updateSpecificIndex(ix)) {
 			// remember current delta
-			_oldSumRhoGamma = _newSumRhoGamma;
-			_initializeSumRhoGamma();
+			_oldSumRhoGamma = _newSumRhoGamma; // TODO ?
+			_initializeSumRhoGamma();          // TODO ?
 			// remember current phi
-			_oldDeterministicPhi       = _newDeterministicPhi;
-			_newDeterministicPhi       = _gamma.phi();
+			_oldDeterministicPhi       = _newDeterministicPhi; // TODO ?
+			_newDeterministicPhi       = _gamma.phi();         // TODO ?
 			const double LLRatio       = calculateLLRatioForUpdateGamma();
 			const double logPriorRatio = _gamma.getLogPriorRatio(Data, Model); // Jeffrey prior
 
 			const double logH = LLRatio + logPriorRatio;
-			if (_gamma.acceptOrReject(logH, m)) { // already swaps JP (if necessary)
+			if (_gamma.acceptOrReject(logH, ix)) { // already swaps JP (if necessary)
 				// accepted
 				swapTryCur(); // -> _curLogTransitionProbs = _tryLogTransitionProbs;
 			} else {
 				// rejected
-				_newSumRhoGamma      = _oldSumRhoGamma;
-				_newDeterministicPhi = _oldDeterministicPhi;
+				_newSumRhoGamma      = _oldSumRhoGamma;      // TODO ?
+				_newDeterministicPhi = _oldDeterministicPhi; // TODO ?
 			}
 		}
 	}
@@ -671,15 +758,15 @@ void TStochasticPrior::updateGamma(const TData &Data, const TModelBase &Model) {
 
 bool TStochasticPrior::gammaIsUpdated() const { return _gamma.gammaIsUpdated(); }
 
-std::vector<double> TStochasticPrior::updateGamma_forLogPhiJointUpdate(size_t m) {
+std::vector<double> TStochasticPrior::updateGamma_forLogPhiJointUpdate(size_t ix) {
 	std::vector<double> Delta(_gamma.numTimepoints(), 0.0);
-	if (_gamma.updateSpecificIndex(m)) {
+	if (_gamma.updateSpecificIndex(ix)) {
 		// remember current delta
-		_oldSumRhoGamma = _newSumRhoGamma;
-		_initializeSumRhoGamma();
+		_oldSumRhoGamma = _newSumRhoGamma; // TODO ?
+		_initializeSumRhoGamma();          // TODO ?
 		// remember current phi
-		_oldDeterministicPhi = _newDeterministicPhi;
-		_newDeterministicPhi = _gamma.phi();
+		_oldDeterministicPhi = _newDeterministicPhi; // TODO ?
+		_newDeterministicPhi = _gamma.phi();         // TODO ?
 
 		// calculate Delta
 		for (size_t k = 0; k < _gamma.numTimepoints(); ++k) {
@@ -708,7 +795,7 @@ void TStochasticPrior::updateSummaryGammaPosterior() { _gamma.updateSummaryGamma
 double TStochasticPrior::calculateLogPriorRatio(size_t j, size_t k) {
 	if (k == _gamma.numTimepoints()) { return 0.0; } // last timepoint: no data on the right
 
-	_tryLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k);
+	_tryLogTransitionProbs[j][k] = _calculateLogTransitionProbability(j, k, _CI_index_per_j[j]);
 	return _tryLogTransitionProbs[j][k] - _curLogTransitionProbs[j][k];
 }
 
@@ -725,7 +812,7 @@ void TStochasticPrior::swapTryCur(size_t j, size_t k) {
 }
 
 double TStochasticPrior::sampleFromTransitionProbability(size_t j, size_t k) const {
-	coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k);
+	coretools::probdist::TNormalDistr distr = _getMeanSdTransitionProbability(j, k, _CI_index_per_j[j]);
 	return distr.sample();
 }
 

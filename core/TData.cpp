@@ -199,14 +199,16 @@ void TTimepoints::simulateNB(double phi, double a, double u) {
 // TLocations
 //-------------------------------------------
 
-TLocations::TLocations(const TTimepoints &pt, size_t location_id) {
+TLocations::TLocations(const TTimepoints &pt, size_t location_id, size_t group_id) {
 	_location_id = location_id;
+	_group_id    = group_id;
 	add(pt);
 }
 
-TLocations::TLocations(size_t location_id, size_t TimepointSize, size_t numSpecies, size_t numCovariatesEffort,
-                       size_t numCovariatesDetection) {
+TLocations::TLocations(size_t location_id, size_t group_id, size_t TimepointSize, size_t numSpecies,
+                       size_t numCovariatesEffort, size_t numCovariatesDetection) {
 	_location_id = location_id;
+	_group_id    = group_id;
 	for (size_t t = 0; t < TimepointSize; t++) {
 		_timepoints.emplace_back(t, numSpecies, numCovariatesEffort, numCovariatesDetection);
 	}
@@ -217,6 +219,7 @@ size_t TLocations::size() const { return _timepoints.size(); }
 TypeNu TLocations::nu(size_t species_id) const { return _nu[species_id]; }
 
 size_t TLocations::location_id() const { return _location_id; }
+size_t TLocations::group_id() const { return _group_id; }
 
 const TTimepoints &TLocations::operator[](size_t index) const { return _timepoints[index]; }
 
@@ -948,7 +951,7 @@ const std::vector<size_t> &TData::locationId_to_ij(size_t SpeciesIDInUniqueConta
 	return _ij_per_locationId[SpeciesIDInUniqueContainer][location_id];
 }
 
-void TData::clear(){
+void TData::clear() {
 	_methods.clear();
 
 	_numSpecies = 0;
