@@ -83,11 +83,12 @@ private:
 
 	std::unique_ptr<stattools::TObservation<TypeCounts, NumDimCounts, BirpBox>> _data;
 
-	void (TBirpPrior::*_funUpdate)();
+	void (TBirpPrior:: *_funUpdate)();
 
 public:
 	TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
+	           const TUniqueContainer<std::string> &CIGroupNames, const TUniqueContainer<TypeTime> &TimePoints,
+	           const TUniqueContainer<std::string> &SpeciesNames,
 	           const TUniqueContainer<std::string> &CovariateEffortNames,
 	           const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
 	           bool Stochastic, bool Simulate, const std::map<std::string, std::string> &InitVals);

@@ -20,42 +20,57 @@ class TOLSGamma {
 private:
 	// values of gamma
 	std::vector<double> _gamma;
+	size_t _numGamma;
+
+	// BACI
+	std::vector<std::vector<size_t>> _gamma_ix_per_CIgroup_and_epoch;
+	std::vector<std::vector<size_t>> _CI_indices_per_gamma;
 
 	// number of epochs
 	size_t _numEpochs = 0;
 	std::vector<TypeTime> _epochStarts;
 
-	bool _timePointIsWithinEpoch(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t m) const;
-	size_t _getNextEpochInitialGamma(const std::vector<bool> &EpochInitialized,
+	bool _timePointIsRelevant(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t CI_index, size_t ix) const;
+	size_t _getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
 	                                 const std::vector<std::vector<double>> &y,
 	                                 const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
-	auto _get_Y_m(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t m, size_t SpeciesID) const;
+	auto _get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID) const;
 	static arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
 	                        const std::vector<size_t> &DataSeriesIndex, size_t L);
-	void _augmentYWithOLSEstimatesStart(size_t curEpoch, const arma::vec &Beta, std::vector<std::vector<double>> &y,
-	                                    std::vector<std::vector<TypeTime>> &t,
+	void _augmentYWithOLSEstimatesStart(size_t curGamma, size_t epoch, const arma::vec &Beta,
+	                                    std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
 	                                    std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
-	void _augmentYWithOLSEstimatesEnd(size_t curEpoch, const arma::vec &Beta, std::vector<std::vector<double>> &y,
-	                                  std::vector<std::vector<TypeTime>> &t,
+	void _augmentYWithOLSEstimatesStart_All(size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y,
+	                                        std::vector<std::vector<TypeTime>> &t,
+	                                        std::vector<std::vector<size_t>> &dataSeriesIndex,
+	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
+	void _augmentYWithOLSEstimatesEnd(size_t curGamma, size_t epoch, const arma::vec &Beta,
+	                                  std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
 	                                  std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
+	void _augmentYWithOLSEstimatesEnd_All(size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y,
+	                                      std::vector<std::vector<TypeTime>> &t,
+	                                      std::vector<std::vector<size_t>> &dataSeriesIndex,
+	                                      std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
 	static void _augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                                                    size_t l, std::vector<std::vector<size_t>> &dataSeriesIndex,
-	                                                    size_t curEpoch, size_t otherEpoch);
+	                                                    size_t curGamma, size_t otherGamma);
 	static bool _dontAugmentDataSeries(const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                                   const std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                   const std::vector<std::vector<TypeTime>> &t, size_t l, size_t curEpoch,
 	                                   size_t otherEpoch, TypeTime EpochBorder);
-	static bool _epochIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
+	static bool _gammaIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
 	                                 const std::vector<size_t> &dataSeriesIndex,
 	                                 const std::vector<bool> &AllDataPointsAreZero);
-	static bool _epochIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
+	static bool _gammaIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
 	                                                       const std::vector<size_t> &dataSeriesIndex,
 	                                                       const std::vector<size_t> &numDataPointsWithZeroCounts);
 
 public:
-	TOLSGamma(size_t NumEpochs, const std::vector<TypeTime> &EpochStarts);
+	TOLSGamma(size_t NumGamma, size_t NumEpochs, const std::vector<TypeTime> &EpochStarts,
+	          const std::vector<std::vector<size_t>> &Gamma_ix_per_CIgroup_and_epoch,
+	          const std::vector<std::vector<size_t>> &CI_indices_per_gamma);
 	std::vector<double> estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints,
 	                                         size_t SpeciesID);
 };
@@ -70,6 +85,9 @@ protected:
 	// stattools parameters
 	TypeParamGamma *_gamma = nullptr;
 
+	// species id
+	size_t _species_id = 0;
+
 	// times of change
 	std::vector<TypeTime> _timesOfChange;
 	size_t _numEpochs = 0;
@@ -78,12 +96,13 @@ protected:
 	coretools::TMatrix<double> _rho;
 
 	// Jeffrey's prior
-	bool _noJP    = false;
-	double _tryJP = 0.0;
-	double _curJP = 0.0;
+	bool _noJP = false;
+	std::vector<double> _tryJP;
+	std::vector<double> _curJP;
 
 	// BACI
-	std::vector<std::vector<size_t>> _gamma_ix_per_epoch_and_group;
+	size_t _numCIGroups;
+	std::vector<std::vector<size_t>> _gamma_ix_per_CIgroup_and_epoch;
 	TUniqueContainer<std::string> _gamma_names;
 	std::vector<std::vector<size_t>> _CI_indices_per_gamma;
 
@@ -94,22 +113,24 @@ protected:
 	// initialization
 	void _fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints);
 	void _fillRho(const TUniqueContainer<TypeTime> &Timepoints);
-	void _fillGammaIndicatorCI(size_t NumCI);
+	void _fillGammaIndicatorCI();
 	void _fillGammaIndicatorBA();
-	void _fillGammaIndicatorBACI(size_t NumCI);
-	void _readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI);
+	void _fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGroupNames);
+	void _readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints,
+	                        const TUniqueContainer<std::string> &CIGroupNames);
 
 public:
-	TGamma(TypeParamGamma *Gamma, const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI);
+	TGamma(TypeParamGamma *Gamma, const TUniqueContainer<TypeTime> &Timepoints,
+	       const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID);
 	~TGamma() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);
-	void estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID);
+	void estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints);
 	void initializeJP(const TData &Data, const TModelBase &Model);
 
 	std::vector<TypeTime> getEpochStarts(const TUniqueContainer<TypeTime> &Timepoints) const;
 
-	double getLogPriorRatio(const TData &Data, const TModelBase &Model);
+	double getLogPriorRatio(const TData &Data, const TModelBase &Model, size_t CI_ix);
 
 	bool updateSpecificIndex(size_t m);
 	bool acceptOrReject(double logH, size_t m);
@@ -124,6 +145,7 @@ public:
 	size_t numCIGroups() const;
 	size_t numTimepoints() const;
 	size_t size() const;
+	size_t species_id() const;
 	const std::vector<size_t> &getCIGroups(size_t gamma_ix) const;
 	TypeGamma gamma(size_t m, size_t CI_ix) const;
 	double rho(size_t row, size_t col) const;
@@ -160,13 +182,10 @@ protected:
 	std::vector<std::vector<TypePhi>> _newDeterministicPhi;
 	std::vector<std::vector<TypePhi>> _oldDeterministicPhi;
 
-	// BACI stuff
-	const std::vector<size_t> &_CI_index_per_j;
-
 	// fill rho and delta
 	void _fillStochasticRho(const TUniqueContainer<TypeTime> &Timepoints);
-	void _initializeSumRhoGamma();
-	void _initializeTransitionProbabilities();
+	void _initializeSumRhoGamma(size_t CI_index);
+	void _initializeTransitionProbabilities(const TData &Data);
 
 	// transition probabilities
 	double _calculateLogTransitionProbability(size_t j, size_t k, size_t CI_index) const;
@@ -174,24 +193,26 @@ protected:
 
 public:
 	TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
-	                 const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI,
-	                 const std::vector<size_t> &CI_index_per_j);
+	                 const TUniqueContainer<TypeTime> &Timepoints, const TUniqueContainer<std::string> &CIGroupNames,
+	                 size_t SpeciesID);
 	~TStochasticPrior() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);
-	void estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID);
+	void estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints);
 	void initializeTempVariables(const TData &Data, const TModelBase &Model, bool CalculateJP);
 
 	// update gamma
 	void updateGamma(const TData &Data, const TModelBase &Model);
-	double calculateLL() const;
-	double calculateLLRatioForUpdateGamma();
+	double calculateLL(const TData &Data, size_t CI_index) const;
+	double calculateLLRatioForUpdateGamma(const TData &Data, size_t CI_index);
 	void swapTryCur();
+	void swapTryCur(size_t ix, const TData &Data);
 	void swapTryCur(size_t j, size_t k);
-	double calculateLogPriorRatio(size_t j, size_t k);
+	double calculateLogPriorRatio(size_t j, size_t k, size_t CI_index);
 
 	// joint update of gamma
-	std::vector<double> updateGamma_forLogPhiJointUpdate(size_t m);
+	void updateGamma_forLogPhiJointUpdate(size_t ix);
+	std::vector<double> getDelta_forLogPhiJointUpdate(size_t CI_index);
 	bool evaluateGamma_forLogPhiJointUpdate(size_t m, double LLRatio, const TData &Data, const TModelBase &Model);
 
 	// write posterior summaries of gamma's
@@ -201,13 +222,16 @@ public:
 
 	// simulations
 	void setSimulatedGammaToZero();
-	double sampleFromTransitionProbability(size_t j, size_t k) const;
+	double sampleFromTransitionProbability(size_t j, size_t k, size_t CI_index) const;
 
 	// getters
-	TypePhi deterministicPhi(size_t k) const;
-	std::vector<TypePhi> calculateDeterministicPhi() const;
+	TypePhi deterministicPhi(size_t k, size_t CI_index) const;
+	std::vector<TypePhi> calculateDeterministicPhi(size_t CI_index) const;
 	size_t numEpochs() const;
 	bool gammaIsUpdated() const;
+	size_t numCIGroups() const;
+	size_t size() const;
+	const std::vector<size_t> &getCIGroups(size_t gamma_ix) const;
 };
 
 #endif // BIRP_TGAMMA_H

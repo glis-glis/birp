@@ -41,7 +41,7 @@ std::vector<double> TModelBase::calculateSigma(const TLocations &loc) const {
 	std::vector<double> sigma(loc.size());
 	for (size_t k = 0; k < loc.size(); k++) {
 		// calculate sigma and fill into p (will normalize later)
-		sigma[k] = phi(loc.location_id(), loc[k].timepoint_id()) * loc[k].effort();
+		sigma[k] = phi(loc.location_id(), loc[k].timepoint_id(), loc.group_id()) * loc[k].effort();
 	}
 	return sigma;
 }
@@ -50,7 +50,7 @@ std::vector<double> TModelBase::calculateSigmaFromDeterministicPhi(const TLocati
 	std::vector<double> sigma(loc.size());
 	for (size_t k = 0; k < loc.size(); k++) {
 		// calculate sigma and fill into p (will normalize later)
-		sigma[k] = deterministicPhi(loc[k].timepoint_id()) * loc[k].effort();
+		sigma[k] = deterministicPhi(loc[k].timepoint_id(), loc.group_id()) * loc[k].effort();
 	}
 	return sigma;
 }
@@ -79,22 +79,24 @@ arma::mat TModelBase::_calcFisherInfo(const TGamma &Gamma, const std::vector<dou
 	return (double)nu * tmp;
 }
 
-double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma) const {
-	// used in update of gamma of stochastic model
+double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma, size_t CI_index) const {
+	// used in update of gamma of deterministic and stochastic model
 	arma::mat fisherInfo(Gamma.numEpochs(), Gamma.numEpochs(), arma::fill::zeros);
-	size_t ix_linNumMethLoc = 0;
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
-		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
-			size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
-			for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
-				std::vector sigma     = calculateSigmaFromDeterministicPhi(method[l]);
-				std::vector<double> p = sigma;
-				// now normalize by row sum!
-				coretools::normalize(p);
-				// add to JP
-				fisherInfo += _calcFisherInfo(Gamma, p, sigma, method[l].nu(index_in_counts), method[l]);
-			}
+		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
+		if (!method.hasDataForCIGroup(CI_index)) { continue; }
+
+		size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
+		// loop over locations with that CI group
+		for (const auto j_in_method : method.getLocationIndicesForCIGroup(CI_index)) {
+			std::vector sigma     = calculateSigmaFromDeterministicPhi(method[j_in_method]);
+			std::vector<double> p = sigma;
+			// now normalize by row sum!
+			coretools::normalize(p);
+			// add to JP
+			fisherInfo +=
+			    _calcFisherInfo(Gamma, p, sigma, method[j_in_method].nu(index_in_counts), method[j_in_method]);
 		}
 	}
 	const auto det = arma::det(fisherInfo);
@@ -103,44 +105,61 @@ double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma)
 }
 
 void TModelBase::_initializeLL(const TData &Data) {
-	// loop over all datapoints (methods - locations - timepoints) of a single species
+	// loop over all datapoints (methods - locations - timepoints - CI groups) of a single species
 	// used to initialize curLL
 	size_t ix_linNumMethLoc = 0;
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
-		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
-			size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
-			for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
-				std::vector sigma     = calculateSigma(method[l]);
-				std::vector<double> p = sigma;
-				// now normalize by row sum!
-				coretools::normalize(p);
-				// add to Likelihood
-				_curLL[ix_linNumMethLoc] =
-				    _distr->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc, i);
-			}
+		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
+		size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
+		for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
+			std::vector sigma     = calculateSigma(method[l]);
+			std::vector<double> p = sigma;
+			// now normalize by row sum!
+			coretools::normalize(p);
+			// add to Likelihood
+			_curLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc, i);
 		}
 	}
+	_tryLL = _curLL;
 }
 
-double TModelBase::calculateLLRatio(const TData &Data, size_t CI_index) {
-	// TODO: only consider locations that belong to CI index
-	// loop over all datapoints (methods - locations - timepoints) of a single species
-	// used in update of gamma of deterministic model and sigma in stochastic model
-	size_t ix_linNumMethLoc = 0;
+void TModelBase::_updateTryLL(const TData &Data, size_t index_in_counts, size_t ix_method, size_t j_in_method) {
+	size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, ix_method, j_in_method);
+	const auto &location    = Data[ix_method][j_in_method];
+
+	std::vector sigma     = calculateSigma(location);
+	std::vector<double> p = sigma;
+	// now normalize by row sum!
+	coretools::normalize(p);
+	// calculate Likelihood
+	_tryLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, location, p, index_in_counts, ix_linNumMethLoc, ix_method);
+}
+
+double TModelBase::calculateLLRatio(const TData &Data) {
+	// loop over all datapoints (methods - locations - timepoints - CI groups) of a single species
+	// used in update of sigma in stochastic model
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
-		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) {
-			size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
-			for (size_t l = 0; l < method.size(); l++, ix_linNumMethLoc++) { // loop over locations
-				std::vector sigma     = calculateSigma(method[l]);
-				std::vector<double> p = sigma;
-				// now normalize by row sum!
-				coretools::normalize(p);
-				// add to Likelihood
-				_tryLL[ix_linNumMethLoc] =
-				    _distr->calculateLL(sigma, method[l], p, index_in_counts, ix_linNumMethLoc, i);
-			}
+		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
+		size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
+		// loop over locations within that method
+		for (size_t l = 0; l < method.size(); l++) { _updateTryLL(Data, index_in_counts, i, l); }
+	}
+	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
+}
+
+double TModelBase::calculateLLRatio_perCIGroup(size_t CI_index, const TData &Data) {
+	// loop over all locations of a specific CI group (across all methods and timepoints) of a single species
+	// used in update of gamma of deterministic model
+	for (size_t i = 0; i < Data.size(); ++i) {
+		const auto &method = Data[i];
+		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
+		if (!method.hasDataForCIGroup(CI_index)) { continue; }
+		size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
+		// loop over locations with that CI group
+		for (const auto j_in_method : method.getLocationIndicesForCIGroup(CI_index)) {
+			_updateTryLL(Data, index_in_counts, i, j_in_method);
 		}
 	}
 	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
@@ -154,17 +173,9 @@ double TModelBase::calculateLLRatio_perLocation(size_t j, const TData &Data) {
 		// check if method has data for this species and the location with index j
 		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
 		if (!method.hasDataForLocation(j)) { continue; }
-		size_t j_in_method = method.getLocationIndexInMethod(j);
-
-		size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j_in_method);
-		size_t index_in_counts  = method.getIndexInCounts(_speciesIDinUniqueContainer);
-		std::vector sigma       = calculateSigma(method[j_in_method]);
-		std::vector<double> p   = sigma;
-		// now normalize by row sum!
-		coretools::normalize(p);
-		// add to Likelihood
-		_tryLL[ix_linNumMethLoc] =
-		    _distr->calculateLL(sigma, method[j_in_method], p, index_in_counts, ix_linNumMethLoc, i);
+		size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
+		size_t j_in_method     = method.getLocationIndexInMethod(j);
+		_updateTryLL(Data, index_in_counts, i, j_in_method);
 	}
 	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
 }
@@ -172,28 +183,32 @@ double TModelBase::calculateLLRatio_perLocation(size_t j, const TData &Data) {
 double TModelBase::calculateLLRatio_perMethod(size_t i, const TData &Data) {
 	// loop over all locations and timepoints of a particular method of a single species
 	const auto &method = Data[i];
-
-	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { // chame gd hei ga
-		return 0.0;
-	}
+	if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return 0.0; }
 
 	for (size_t j = 0; j < method.size(); ++j) { // loop over locations
-		const auto &loc        = method[j];
 		size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
-		std::vector sigma      = calculateSigma(loc);
-		std::vector<double> p  = sigma;
-		// now normalize by row sum!
-		coretools::normalize(p);
-		// calculate Likelihood
-		size_t ix_linNumMethLoc  = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j);
-		_tryLL[ix_linNumMethLoc] = _distr->calculateLL(sigma, method[j], p, index_in_counts, ix_linNumMethLoc, i);
+		_updateTryLL(Data, index_in_counts, i, j);
 	}
+
 	return coretools::containerSum(_tryLL) - coretools::containerSum(_curLL);
 }
 
 void TModelBase::swapTryCur() {
-	// used when all datapoints are affected (update of deterministic gamma or sigma)
+	// used when all datapoints are affected (update of sigma)
 	std::swap(_tryLL, _curLL);
+}
+
+void TModelBase::swapTryCur_perCIGroup(size_t CI_index, const TData &Data) {
+	// used for update of deterministic gamma
+	for (size_t i = 0; i < Data.size(); ++i) {
+		const auto &method = Data[i];
+		if (method.hasDataForSpeciesID(_speciesIDinUniqueContainer) && method.hasDataForCIGroup(CI_index)) {
+			for (const auto j_in_method : method.getLocationIndicesForCIGroup(CI_index)) {
+				size_t ix_linNumMethLoc = Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j_in_method);
+				std::swap(_tryLL[ix_linNumMethLoc], _curLL[ix_linNumMethLoc]);
+			}
+		}
+	}
 }
 
 void TModelBase::swapTryCur_perLocation(size_t j, const TData &Data) {
@@ -252,10 +267,10 @@ void TModelBase::setCurLLPerMethod(const std::vector<double> &Values, size_t i, 
 
 TDeterministic::TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,
                                const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
-                               const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI,
-                               const std::vector<size_t> &CI_index_per_j)
-    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn), _gamma(Gamma, Timepoints, NumCI),
-      _CI_index_per_j(CI_index_per_j) {}
+                               const TUniqueContainer<TypeTime> &Timepoints,
+                               const TUniqueContainer<std::string> &CIGroupNames)
+    : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn),
+      _gamma(Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer) {}
 
 void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
                                 const TUniqueContainer<TypeTime> &TimePoints, TBirpPrior *BirpPrior) {
@@ -268,7 +283,7 @@ void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::s
 
 void TDeterministic::estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) {
 	_estimateInitialParameters(Data);
-	_gamma.estimateInitialGamma(Data, Timepoints, _speciesIDinUniqueContainer);
+	_gamma.estimateInitialGamma(Data, Timepoints);
 	for (size_t i = 0; i < _gamma.numCIGroups(); ++i) { _fillPhi(i); }
 	_oldPhi = _newPhi;
 }
@@ -280,8 +295,12 @@ void TDeterministic::initializeTempVariables(const TData &Data) {
 
 void TDeterministic::_fillPhi(size_t CI_ix) { _newPhi[CI_ix] = _gamma.phi(CI_ix); }
 
-TypePhi TDeterministic::phi(size_t location_id, size_t timepoint_id) const {
-	return _newPhi[_CI_index_per_j[location_id]][timepoint_id];
+TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id, size_t CI_index) const {
+	return deterministicPhi(timepoint_id, CI_index);
+}
+
+TypePhi TDeterministic::deterministicPhi(size_t timepoint_id, size_t CI_index) const {
+	return _newPhi[CI_index][timepoint_id];
 }
 
 void TDeterministic::update(const TData &Data) {
@@ -292,20 +311,20 @@ void TDeterministic::update(const TData &Data) {
 		if (!_gamma.updateSpecificIndex(ix)) { continue; }
 
 		double logH = 0.0;
-		for (auto CI_index : _gamma.getCIGroups(ix)) {
+		for (const auto CI_index : _gamma.getCIGroups(ix)) {
 			_oldPhi[CI_index] = _newPhi[CI_index];
 			_fillPhi(CI_index);
-			const auto LLRatio         = calculateLLRatio(Data, CI_index);
+			const auto LLRatio         = calculateLLRatio_perCIGroup(CI_index, Data);
 			const double logPriorRatio = _gamma.getLogPriorRatio(Data, *this, CI_index); // Jeffrey prior
 			logH += LLRatio + logPriorRatio;
 		}
 
 		if (_gamma.acceptOrReject(logH, ix)) {
 			// accepted
-			swapTryCur();
+			for (const auto CI_index : _gamma.getCIGroups(ix)) { swapTryCur_perCIGroup(CI_index, Data); }
 		} else {
 			// reject
-			for (auto CI_index : _gamma.getCIGroups(ix)) { _newPhi[CI_index] = _oldPhi[CI_index]; }
+			for (const auto CI_index : _gamma.getCIGroups(ix)) { _newPhi[CI_index] = _oldPhi[CI_index]; }
 		}
 	}
 
@@ -333,10 +352,11 @@ void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) {
 TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations,
                          size_t NumTimePoints, const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
                          TypeParamGamma *Gamma, TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma,
-                         const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI,
-                         const std::vector<size_t> &CI_index_per_j)
+                         const TUniqueContainer<TypeTime> &Timepoints,
+                         const TUniqueContainer<std::string> &CIGroupNames)
     : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn),
-      _prior(LogPhi, LogSigma, Gamma, Timepoints, NumCI, CI_index_per_j), _logPhi(LogPhi), _logSigma(LogSigma) {
+      _prior(LogPhi, LogSigma, Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer), _logPhi(LogPhi),
+      _logSigma(LogSigma) {
 
 	_jointUpdater = std::make_unique<stattools::TUpdateUnique<TypeLogPhi, false>>(
 	    NumLocations * NumTimePoints, true, std::make_unique<stattools::TPropKernelNormal<TypeLogPhi, double>>(),
@@ -359,23 +379,27 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 	_logSigma->initStorage(BirpPrior);
 }
 
-void TStochastic::_setPhiFromDeterministic() {
-	auto deterministicPhi = _prior.calculateDeterministicPhi();
+void TStochastic::_setPhiFromDeterministic(const TData &Data) {
+	// calculate deterministic phi for all CI groups
+	std::vector<std::vector<TypePhi>> deterministicPhi(_prior.numCIGroups());
+	for (size_t i = 0; i < _prior.numCIGroups(); ++i) { deterministicPhi[i] = _prior.calculateDeterministicPhi(i); }
 
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over locations
 		for (size_t k = 0; k < _logPhi->dimensions()[1]; ++k) { // loop over timepoints
-			const auto index = _logPhi->getIndex({j, k});       // get linear index
-			_logPhi->set(index, log(deterministicPhi[k]));
+			// get CI group for that location
+			const size_t CI_index = Data.locationsId_to_CI_index(_speciesIDinUniqueContainer, j);
+			const auto index      = _logPhi->getIndex({j, k}); // get linear index
+			_logPhi->set(index, log(deterministicPhi[CI_index][k]));
 		}
 	}
 }
 
 void TStochastic::estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) {
 	_estimateInitialParameters(Data);
-	_prior.estimateInitialGamma(Data, Timepoints, _speciesIDinUniqueContainer);
+	_prior.estimateInitialGamma(Data, Timepoints);
 
 	// initialize phi based on deterministic phi
-	_setPhiFromDeterministic();
+	_setPhiFromDeterministic(Data);
 
 	// set sigma
 	_logSigma->set(0.0);
@@ -392,11 +416,14 @@ void TStochastic::_updateLogPhi(size_t j, size_t k, const TData &Data) {
 	const coretools::TRange range(ix);
 	_logPhi->propose(range);
 
-	const auto logPriorRatio = _prior.calculateLogPriorRatio(j, k) + _prior.calculateLogPriorRatio(j, k + 1);
+	const size_t CI_index = Data.locationsId_to_CI_index(_speciesIDinUniqueContainer, j);
+
+	const auto logPriorRatio =
+	    _prior.calculateLogPriorRatio(j, k, CI_index) + _prior.calculateLogPriorRatio(j, k + 1, CI_index);
 	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
 	// and k)
-	const auto LLRatio       = calculateLLRatio_perLocation(j, Data);
-	const double logH        = LLRatio + logPriorRatio;
+	const auto LLRatio = calculateLLRatio_perLocation(j, Data);
+	const double logH  = LLRatio + logPriorRatio;
 	if (_logPhi->acceptOrReject(logH, range)) {
 		_prior.swapTryCur(j, k);
 		_prior.swapTryCur(j, k + 1);
@@ -415,28 +442,37 @@ void TStochastic::_updateLogPhi(const TData &Data) {
 
 void TStochastic::_jointUpdateLogPhiGamma(const TData &Data) {
 	if (!_prior.gammaIsUpdated()) { return; }
-	for (size_t m = 0; m < _prior.numEpochs(); m++) { // loop over epochs and update gamma epoch by epoch
+
+	for (size_t ix = 0; ix < _prior.size(); ix++) { // loop over all gamma
 		// propose new gamma
-		const auto Delta = _prior.updateGamma_forLogPhiJointUpdate(m);
-		// adjust logPhi by Delta_k
-		for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over all locations
-			for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
-				const size_t linear     = _logPhi->getIndex({j, k});
-				const double logPhi_new = _logPhi->value(linear) + Delta[k];
-				_logPhi->set(linear, logPhi_new);
+		_prior.updateGamma_forLogPhiJointUpdate(ix);
+
+		// adjust logPhi by Delta_k, per CI group
+		double LLRatio = 0.0;
+		for (const auto CI_index : _prior.getCIGroups(ix)) {
+			const auto Delta = _prior.getDelta_forLogPhiJointUpdate(CI_index);
+			// loop over all locations j for that CI group
+			for (const auto j : Data.get_locationsIds_for_CI_index(_speciesIDinUniqueContainer, CI_index)) {
+				for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
+					const size_t linear     = _logPhi->getIndex({j, k});
+					const double logPhi_new = _logPhi->value(linear) + Delta[k];
+					_logPhi->set(linear, logPhi_new);
+				}
 			}
+			// add to LLRatio: no need to add prior on phi (= transition probabilities), since they didn't change!
+			LLRatio += calculateLLRatio_perCIGroup(CI_index, Data);
 		}
 
-		// calculate LL: no need to add prior on phi (= transition probabilities), since they didn't change!
-		const double LLRatio = calculateLLRatio(Data);
-		if (_prior.evaluateGamma_forLogPhiJointUpdate(m, LLRatio, Data, *this)) {
-			// accepted: swap LL of all locations
-			swapTryCur();
+		if (_prior.evaluateGamma_forLogPhiJointUpdate(ix, LLRatio, Data, *this)) {
+			// accepted: swap LL for all locations of that CI group
+			for (const auto CI_index : _prior.getCIGroups(ix)) { swapTryCur_perCIGroup(CI_index, Data); }
 		} else {
-			// rejected: re-set all logPhi
-			for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) {     // loop over all locations
-				for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
-					_logPhi->reset(_logPhi->getIndex({j, k}));
+			// rejected: re-set all logPhi that were changed
+			for (const auto CI_index : _prior.getCIGroups(ix)) {
+				for (const auto j : Data.get_locationsIds_for_CI_index(_speciesIDinUniqueContainer, CI_index)) {
+					for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
+						_logPhi->reset(_logPhi->getIndex({j, k}));
+					}
 				}
 			}
 		}
@@ -461,10 +497,11 @@ void TStochastic::_jointUpdateLogPhi(size_t j, size_t k, const TData &Data) {
 	_shiftLogPhis(j, k, diff);
 
 	// only transition probability from previous matters!
-	const auto logPriorRatio = _prior.calculateLogPriorRatio(j, k);
+	const size_t CI_index    = Data.locationsId_to_CI_index(_speciesIDinUniqueContainer, j);
+	const auto logPriorRatio = _prior.calculateLogPriorRatio(j, k, CI_index);
 
-	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for j
-	// and k)
+	// only need to calculate LL for this location j and timepoint k, but across all methods (if they have data for
+	// j and k)
 	const auto LLRatio  = calculateLLRatio_perLocation(j, Data);
 	const double logH   = LLRatio + logPriorRatio;
 	const size_t ixLast = _logPhi->getIndex({j, _logPhi->dimensions()[1] - 1});
@@ -486,19 +523,22 @@ void TStochastic::_jointUpdateLogPhi(const TData &Data) {
 	}
 }
 
-void TStochastic::_updateLogSigma() {
+void TStochastic::_updateLogSigma(const TData &Data) {
 	// propose a new value
 	const coretools::TRange range(0);
 	_logSigma->propose(range);
 
 	double LLRatio = 0.0;
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
-		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { LLRatio += _prior.calculateLogPriorRatio(j, k); }
+		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
+			const size_t CI_index = Data.locationsId_to_CI_index(_speciesIDinUniqueContainer, j);
+			LLRatio += _prior.calculateLogPriorRatio(j, k, CI_index);
+		}
 	}
 
 	const double logH = LLRatio + _logSigma->getLogRatio();
 	if (_logSigma->acceptOrReject(logH, range)) {
-		// accepted: update transition probabilities
+		// accepted: update all transition probabilities
 		_prior.swapTryCur();
 	}
 }
@@ -518,7 +558,7 @@ void TStochastic::update(const TData &Data) {
 	}
 
 	// update logSigma
-	if (_logSigma->isUpdated()) { _updateLogSigma(); }
+	if (_logSigma->isUpdated()) { _updateLogSigma(Data); }
 }
 
 void TStochastic::simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) {
@@ -534,23 +574,26 @@ void TStochastic::simulate(TData &Data, const std::vector<double> &n_bar, bool S
 	for (size_t j = 0; j < _logPhi->dimensions()[0]; ++j) { // loop over all locations
 		size_t ix = _logPhi->getIndex({j, 0});
 		_logPhi->set(ix, 0.0); // set first phi = 1 -> logPhi = 0
+		const size_t CI_index = Data.locationsId_to_CI_index(_speciesIDinUniqueContainer, j);
 		for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
 			ix = _logPhi->getIndex({j, k});
-			_logPhi->set(ix, _prior.sampleFromTransitionProbability(j, k));
+			_logPhi->set(ix, _prior.sampleFromTransitionProbability(j, k, CI_index));
 		}
 	}
 
 	_simulateDistributionParameters(Data, n_bar, SimulateCovariates);
 }
 
-coretools::StrictlyPositive TStochastic::phi(size_t j, size_t k) const {
+coretools::StrictlyPositive TStochastic::phi(size_t j, size_t k, size_t /*CI_index*/) const {
 	const double phi = exp(_logPhi->value(_logPhi->getIndex({j, k})));
 	if (phi < coretools::StrictlyPositive::min()) { return coretools::StrictlyPositive::min(); }
 	if (phi > coretools::StrictlyPositive::max()) { return coretools::StrictlyPositive::max(); }
 	return phi;
 }
 
-TypePhi TStochastic::deterministicPhi(size_t timepoint_id) const { return _prior.deterministicPhi(timepoint_id); }
+TypePhi TStochastic::deterministicPhi(size_t timepoint_id, size_t CI_index) const {
+	return _prior.deterministicPhi(timepoint_id, CI_index);
+}
 
 // write posterior summaries of gamma's
 void TStochastic::resetSummaryGammaPosterior() { _prior.resetSummaryGammaPosterior(); }

@@ -41,6 +41,7 @@ protected:
 	void _updateDistributionParameters(const TData &Data);
 	void _simulateDistributionParameters(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates);
 	void _initializeLL(const TData &Data);
+	void _updateTryLL(const TData &Data, size_t index_in_counts, size_t ix_method, size_t j_in_method);
 
 public:
 	TModelBase(size_t SpeciesIDinUniqueContainer, const TData &Data,
@@ -59,18 +60,19 @@ public:
 	[[nodiscard]] std::vector<double> calculateSigmaFromDeterministicPhi(const TLocations &loc) const;
 
 	// abstract function for phi
-	[[nodiscard]] virtual TypePhi phi(size_t location_id, size_t timepoint_k) const = 0;
-	[[nodiscard]] virtual TypePhi deterministicPhi(size_t timepoint_k) const        = 0;
+	[[nodiscard]] virtual TypePhi phi(size_t location_id, size_t timepoint_k, size_t CI_index) const = 0;
+	[[nodiscard]] virtual TypePhi deterministicPhi(size_t timepoint_k, size_t CI_index) const        = 0;
 
-	[[nodiscard]] double calculateJeffreyPrior(const TData &Data, const TGamma &Gamma) const;
-	double calculateLLRatio(const TData &Data, size_t CI_index);
+	[[nodiscard]] double calculateJeffreyPrior(const TData &Data, const TGamma &Gamma, size_t CI_index) const;
+	double calculateLLRatio(const TData &Data);
 	double calculateLLRatio_perLocation(size_t j, const TData &Data);
-
+	double calculateLLRatio_perCIGroup(size_t CI_index, const TData &Data);
 	double calculateLLRatio_perMethod(size_t i, const TData &Data);
 
 	void swapTryCur();
 	void swapTryCur_perLocation(size_t j, const TData &Data);
 	void swapTryCur_perMethod(size_t i, const TData &Data);
+	void swapTryCur_perCIGroup(size_t CI_index, const TData &Data);
 
 	[[nodiscard]] double curLL(size_t ij) const;
 	double curLLPerMethod(size_t i, const TData &Data);
@@ -98,16 +100,12 @@ protected:
 	std::vector<std::vector<TypePhi>> _newPhi;
 	std::vector<std::vector<TypePhi>> _oldPhi;
 
-	// BACI stuff
-	const std::vector<size_t> &_CI_index_per_j;
-
 	void _fillPhi(size_t CI_ix);
 
 public:
 	TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,
 	               const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
-	               const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI,
-					 const std::vector<size_t> &CI_index_per_j);
+	               const TUniqueContainer<TypeTime> &Timepoints, const TUniqueContainer<std::string> &CIGroupNames);
 	~TDeterministic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
@@ -118,7 +116,8 @@ public:
 
 	void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) override;
 
-	[[nodiscard]] TypePhi phi(size_t location_id, size_t timepoint_id) const override;
+	[[nodiscard]] TypePhi phi(size_t location_id, size_t timepoint_id, size_t CI_index) const override;
+	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k, size_t CI_index) const override;
 
 	// write posterior summaries of gamma's
 	void resetSummaryGammaPosterior() override;
@@ -141,7 +140,7 @@ protected:
 	std::unique_ptr<stattools::TUpdateUnique<TypeLogPhi, false>> _jointUpdater;
 
 	// initialization
-	void _setPhiFromDeterministic();
+	void _setPhiFromDeterministic(const TData &Data);
 
 	// update single logPhi
 	void _updateLogPhi(size_t j, size_t k, const TData &Data);
@@ -156,13 +155,13 @@ protected:
 	void _jointUpdateLogPhi(const TData &Data);
 
 	// update logSigma
-	void _updateLogSigma();
+	void _updateLogSigma(const TData &Data);
 
 public:
 	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations, size_t NumTimePoint,
 	            const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
-	            TypeParamLogPhi *LogPhi, TypeParamLogSigma *Logigma, const TUniqueContainer<TypeTime> &Timepoints, size_t NumCI,
-					 const std::vector<size_t> &CI_index_per_j);
+	            TypeParamLogPhi *LogPhi, TypeParamLogSigma *Logigma, const TUniqueContainer<TypeTime> &Timepoints,
+	            const TUniqueContainer<std::string> &CIGroupNames);
 	~TStochastic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
@@ -173,8 +172,8 @@ public:
 
 	void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) override;
 
-	[[nodiscard]] TypePhi phi(size_t location_id, size_t timepoint_k) const override;
-	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k) const override;
+	[[nodiscard]] TypePhi phi(size_t location_id, size_t timepoint_k, size_t CI_index) const override;
+	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k, size_t CI_index) const override;
 
 	// write posterior summaries of gamma's
 	void resetSummaryGammaPosterior() override;

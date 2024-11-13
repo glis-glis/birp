@@ -23,6 +23,7 @@ protected:
 	TUniqueContainer<std::string> _covariateEffortNames;
 	TUniqueContainer<std::string> _covariateDetectionNames;
 	TUniqueContainer<std::string> _speciesNames;
+	TUniqueContainer<std::string> _CIGroupNames;
 
 	// open files
 	static std::vector<std::string> _getAllFilenames();
@@ -30,6 +31,7 @@ protected:
 	// read input files
 	auto _keepLocations(const std::string &Filename, bool hasCounts) const;
 	void _readFile(const std::string &Filename, bool hasCounts);
+	void _checkIfAllCountsZero();
 
 	void _sortTimepoints();
 
@@ -39,6 +41,7 @@ protected:
 	// simulate
 	void _fillTimepointsFromCommandLine();
 	void _fillLocationsFromCommandLine();
+	void _fillCIGroupsFromCommandLine();
 	std::vector<size_t> _simulateSpeciesNames();
 	std::vector<size_t> _simulateCovEffortNames();
 	std::vector<size_t> _simulateCovDetectionNames();

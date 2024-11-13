@@ -25,6 +25,18 @@ TBirpCore::TBirpCore() {
 	}
 }
 
+void TBirpCore::_checkIfAllCountsZero() {
+	size_t sumNonZero = 0;
+	for (size_t i = 0; i < _data.size(); ++i) {
+		for (size_t j = 0; j < _data[i].size(); ++j) {
+			for (size_t k = 0; k < _data[i][j].size(); ++k) {
+				if (_data[i][j][k].counts_per_species(0) > 0) { sumNonZero++; }
+			}
+		}
+	}
+	if (sumNonZero == 0) { UERROR("All counts are zero! Can not infer trends."); }
+}
+
 void TBirpCore::_readForInference(bool hasCounts) {
 	// get all input filenames (one per method)
 	std::vector<std::string> filenames = _getAllFilenames();
@@ -35,19 +47,11 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	if (_data.size() == 0) { UERROR("No method passes filters!"); }
 
 	// check if all counts are zero
-	size_t sumNonZero = 0;
-	for (size_t i = 0; i < _data.size(); ++i) {
-		for (size_t j = 0; j < _data[i].size(); ++j) {
-			for (size_t k = 0; k < _data[i][j].size(); ++k) {
-				if (_data[i][j][k].counts_per_species(0) > 0) { sumNonZero++; }
-			}
-		}
-	}
-	if (sumNonZero == 0) { UERROR("All counts are zero! Can not infer trends."); }
+	_checkIfAllCountsZero();
 
 	// sort and finalize
 	_sortTimepoints();
-	_data.fillMethLocIndices(_speciesNames.size(), _locations);
+	_data.fillMethLocIndices(_speciesNames.size(), _locations, _CIGroupNames);
 
 	// write filtered counts
 	_writeFile("filtered");
@@ -56,12 +60,13 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	logfile().endIndent();
 }
 
-void TBirpCore::_clear(){
+void TBirpCore::_clear() {
 	_outname = "";
 
 	// locations, methods, timepoints
 	_locations.clear();
 	_timepoints.clear();
+	_CIGroupNames.clear();
 	_covariateEffortNames.clear();
 	_covariateDetectionNames.clear();
 	_speciesNames.clear();
@@ -292,6 +297,10 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 	TMethods method(methodName, _data.size(), species_ids, covariateEffort_ids, covariateDetection_ids);
 	_data.addMethod(method); // the index of the method is the current size of the _methods vector
 
+	// check if file contains information about CI group
+	bool has_CI_groups = std::find(file.header().begin(), file.header().end(), "CI_group") != file.header().end();
+	if (!has_CI_groups) { _CIGroupNames.add(""); }
+
 	for (; !file.empty(); file.popFront()) {
 		std::string location = (std::string)file.get("location");
 		if (!keepLocations[location]) { continue; }                  // skip this location
@@ -299,7 +308,11 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
 		size_t location_id  = _locations.add((std::string)location);
 		size_t timepoint_id = _timepoints.add(file.get<TypeTime>("timepoint"));
-		const auto &row     = file.front();
+
+		size_t CI_group_id = 0;
+		if (has_CI_groups) { CI_group_id = _CIGroupNames.add(file.get<std::string>("CI_group")); }
+
+		const auto &row = file.front();
 
 		// boot one vector together (stiflä) of all species counts, and one of all covariates
 		std::vector<TypeCounts> countVec(species_ids.size(), 0);
@@ -319,7 +332,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		// create timepoint
 		TTimepoints pt(countVec, covEffortVec, covDetectionVec, timepoint_id);
 		// add timepoint to data, either in existing object or create new one
-		_data.back().add(pt, location_id); // back: goes to last element
+		_data.back().add(pt, location_id, CI_group_id, _locations, _CIGroupNames);
 	}
 	// standardize covariates
 	_data.back().standardizeCovariates();
@@ -342,8 +355,8 @@ std::map<std::string, std::string> TBirpCore::_runMCMC(bool Stochastic,
                                                        const std::map<std::string, std::string> &InitVals) {
 	// create model
 	stattools::instances::dagBuilder().clear();
-	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
-	                 _outname, Stochastic, false, InitVals);
+	TBirpModel model(_data, _locations, _CIGroupNames, _timepoints, _speciesNames, _covariateEffortNames,
+	                 _covariateDetectionNames, _outname, Stochastic, false, InitVals);
 
 	// run MCMC
 	stattools::TMCMC mcmc;
@@ -386,6 +399,10 @@ void TBirpCore::infer() {
 
 std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &method) {
 	std::vector<std::string> header = getHeader();
+
+	// add CI group id to base header vector
+	header.emplace_back("CI_group");
+
 	// add species name to base header vector
 	for (const auto &speciesID : method.speciesIDsinUniqueContainer()) {
 		header.push_back("counts_" + _speciesNames[speciesID]);
@@ -414,7 +431,7 @@ void TBirpCore::_writeFile(const std::string &Name) {
 		fileList << Filename << coretools::endl;
 		// now create actual file with data and write
 		coretools::TOutputMaybeRcppFile outfile(Filename, header);
-		method.write(outfile, _locations, _timepoints);
+		method.write(outfile, _locations, _timepoints, _CIGroupNames);
 	}
 }
 
@@ -448,6 +465,13 @@ void TBirpCore::_fillLocationsFromCommandLine() {
 	size_t numLocations = parameters().get("numLocations", 2);
 	logfile().list("Number of locations: ", numLocations, " (argument 'numLocations').");
 	for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l)); }
+}
+
+void TBirpCore::_fillCIGroupsFromCommandLine() {
+	size_t numCIGroups = parameters().get("numCIGroups", 1);
+	logfile().list("Number of control-intervention groups: ", numCIGroups, " (argument 'numCIGroups').");
+	if (numCIGroups == 0) { UERROR("Number of control-intervention groups can not be zero (argument 'numCIGroups')."); }
+	for (size_t i = 0; i < numCIGroups; ++i) { _CIGroupNames.add("Group_" + coretools::str::toString(i)); }
 }
 
 std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
@@ -496,6 +520,7 @@ void TBirpCore::simulate() {
 		// else read main dimensions from command line
 		_fillTimepointsFromCommandLine();
 		_fillLocationsFromCommandLine();
+		_fillCIGroupsFromCommandLine();
 		size_t numMethods = parameters().get("numMethods", 1);
 		logfile().list("Number of methods: ", numMethods, " (argument 'numMethods').");
 		// create vector of speciesnames species_1, species_2 ... as many as there are. currently only supports one
@@ -506,12 +531,12 @@ void TBirpCore::simulate() {
 
 		for (size_t m = 0; m < numMethods; ++m) {
 			TMethods method("Method_" + coretools::str::toString(m + 1), _locations.size(), _timepoints.size(), m,
-			                species_ids, covariateEffort_ids, covariateDetection_ids);
+			                species_ids, covariateEffort_ids, covariateDetection_ids, _CIGroupNames.size());
 			_data.addMethod(method);
 		}
 		for (auto &m : _data) { m.fillIDVectors(_speciesNames.size()); }
 	}
-	_data.fillMethLocIndices(_speciesNames.size(), _locations);
+	_data.fillMethLocIndices(_speciesNames.size(), _locations, _CIGroupNames);
 
 	// create model
 	const bool stochastic = parameters().exists("stochastic");
@@ -522,8 +547,8 @@ void TBirpCore::simulate() {
 	}
 
 	std::map<std::string, std::string> initVals; // empty
-	TBirpModel model(_data, _locations, _timepoints, _speciesNames, _covariateEffortNames, _covariateDetectionNames,
-	                 _outname, stochastic, true, initVals);
+	TBirpModel model(_data, _locations, _CIGroupNames, _timepoints, _speciesNames, _covariateEffortNames,
+	                 _covariateDetectionNames, _outname, stochastic, true, initVals);
 
 	// run simulator
 	stattools::TSimulator simulator;

@@ -62,7 +62,7 @@ public:
 	                           const std::vector<double> &SumsPerCovariate, bool AssumeTrueDetectionProbability);
 
 	void write(coretools::TOutputMaybeRcppFile &File, std::string location,
-	           const TUniqueContainer<TypeTime> &Timepoints) const;
+	           const TUniqueContainer<TypeTime> &Timepoints, const std::string &CIGroupName) const;
 
 	// getters
 	[[nodiscard]] const std::vector<TypeCovariateEffort> &covariatesEffort() const;
@@ -133,7 +133,7 @@ public:
 	[[nodiscard]] const TTimepoints &operator[](size_t index) const;
 
 	void write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<TypeTime> &Timepoints) const;
+	           const TUniqueContainer<TypeTime> &Timepoints, const TUniqueContainer<std::string> &CIGroupNames) const;
 
 	// iterators
 	[[nodiscard]] std::vector<TTimepoints>::const_iterator cbegin() const;
@@ -176,14 +176,18 @@ private:
 	std::vector<size_t> _covariateEffortIDsinUniqueContainer;
 	std::vector<size_t> _covariateDetectionIDsinUniqueContainer;
 
-	// variables to identify correct species in epoch model
+	// variables to identify species in epoch model
 	std::vector<size_t> _speciesIDsinUniqueContainer;
 	std::vector<bool> _hasDataForSpeciesID;
 	std::vector<size_t> _indexInCounts;
 
-	// variables to identify correct locations
+	// variables to identify locations
 	std::vector<bool> _hasDataForLocationID;
 	std::vector<size_t> _map_j_location;
+
+	// variables to identify CI group
+	std::vector<bool> _hasDataForCIGroup;
+	std::vector<std::vector<size_t>> _location_per_CI_group;
 
 	// alpha and beta (regression coefficients of covariates)
 	std::shared_ptr<TypeParamAlpha> _alpha;
@@ -219,6 +223,10 @@ private:
 	void _simulateCovariates();
 	double _calculateU_i(double n_i_bar, const TModelBase &Model);
 
+	// index lookup stuff
+	void _fillLocationIDs(const TUniqueContainer<std::string> &Locations);
+	void _fillCIGroupIDs(const TUniqueContainer<std::string> &CIGroupNames);
+
 public:
 	explicit TMethods(const std::string_view &methodName, size_t index,
 	                  const std::vector<std::size_t> &speciesIDsinUniqueContainer,
@@ -228,7 +236,7 @@ public:
 	TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index,
 	         const std::vector<size_t> &speciesIDsinUniqueContainer,
 	         const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
-	         const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer);
+	         const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer, size_t NumCIGroups);
 
 	TMethods() = default;
 
@@ -239,14 +247,16 @@ public:
 	                const TUniqueContainer<std::string> &CovariateDetectionNames, TBirpPrior *BirpPrior);
 
 	// add data
-	void add(const TTimepoints &pt, size_t location_id);
+	void add(const TTimepoints &pt, size_t location_id, size_t group_id,
+	         const TUniqueContainer<std::string> &LocationNames, const TUniqueContainer<std::string> &CIGroupNames);
 
 	// finalize data filling
 	void sorttimes(const std::vector<size_t> &index);
 	void standardizeCovariates();
 	void fillIDVectors(size_t totalSizeOfUniqueContainer);
 	void initializeEffort();
-	void fillLocationIDs(const TUniqueContainer<std::string> &Locations);
+	void initializeLookups(const TUniqueContainer<std::string> &Locations,
+	                       const TUniqueContainer<std::string> &CIGroupNames);
 
 	// getters
 	[[nodiscard]] size_t size() const;
@@ -264,6 +274,8 @@ public:
 	[[nodiscard]] size_t getIndexInCounts(size_t speciesIDinUniqueContainer) const;
 	[[nodiscard]] bool hasDataForLocation(size_t j) const;
 	[[nodiscard]] size_t getLocationIndexInMethod(size_t j) const;
+	[[nodiscard]] bool hasDataForCIGroup(size_t CI_index) const;
+	[[nodiscard]] const std::vector<size_t> &getLocationIndicesForCIGroup(size_t CI_index) const;
 
 	// iterators
 	const TLocations &operator[](const size_t index) const { return _locations[index]; }
@@ -283,7 +295,7 @@ public:
 
 	// writing
 	void write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,
-	           const TUniqueContainer<TypeTime> &Timepoints) const;
+	           const TUniqueContainer<TypeTime> &Timepoints, const TUniqueContainer<std::string> &CIGroupNames) const;
 };
 
 //-------------------------------------------
@@ -302,10 +314,17 @@ private:
 	std::vector<std::vector<std::pair<size_t, size_t>>> _linear_to_i_j;
 	std::vector<std::vector<std::vector<size_t>>> _i_j_to_linear;
 	std::vector<std::vector<std::vector<size_t>>> _ij_per_locationId;
+	std::vector<std::vector<size_t>> _CI_index_per_locationId;
+	std::vector<std::vector<std::vector<size_t>>> _locationsIds_per_CI_index;
 
 	// fill indices
 	void _fillNumMethLocs();
 	[[nodiscard]] std::pair<size_t, size_t> _getMethAndLocIndex(size_t ij_index, size_t speciesID) const;
+	void _fillLinearToIJ();
+	void _fillIJToLinear();
+	void _fillIJPerLocationID(const TUniqueContainer<std::string> &Locations);
+	void _fillLocationIDPerCI(const TUniqueContainer<std::string> &Locations,
+	                          const TUniqueContainer<std::string> &CIGroupNames);
 
 public:
 	TData();
@@ -313,7 +332,8 @@ public:
 
 	void addMethod(const TMethods &Method);
 
-	void fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::string> &Locations);
+	void fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::string> &Locations,
+	                        const TUniqueContainer<std::string> &CIGroupNames);
 
 	// iterators
 	[[nodiscard]] size_t size() const;
@@ -332,6 +352,9 @@ public:
 	                                                             size_t linear) const;
 	[[nodiscard]] const std::vector<size_t> &locationId_to_ij(size_t SpeciesIDInUniqueContainer,
 	                                                          size_t location_id) const;
+	[[nodiscard]] size_t locationsId_to_CI_index(size_t SpeciesIDInUniqueContainer, size_t location_id) const;
+	[[nodiscard]] const std::vector<size_t> &get_locationsIds_for_CI_index(size_t SpeciesIDInUniqueContainer,
+	                                                                       size_t CI_index) const;
 
 	// clear
 	void clear();

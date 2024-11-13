@@ -56,7 +56,7 @@ void TBirpCommonModel::_createBeta(size_t i, TData &Data, const std::string &Fil
 }
 
 TBirpCommonModel::TBirpCommonModel(TData &Data, const std::string &Filename)
-    : _boxOnGamma(), _boxOnAlpha(), _boxOnBeta(), _boxOnBeta0(), gamma("gamma", &_boxOnGamma, {Filename}){
+    : _boxOnGamma(), _boxOnAlpha(), _boxOnBeta(), _boxOnBeta0(), gamma("gamma", &_boxOnGamma, {Filename}) {
 
 	// don't update gamma and TOC via DAG
 	gamma.getDefinition().excludeFromDAGUpdates(true);
@@ -120,7 +120,8 @@ TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename)
 //------------------------------------------
 
 TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,
-                       const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
+                       const TUniqueContainer<std::string> &CIGroupNames, const TUniqueContainer<TypeTime> &TimePoints,
+                       const TUniqueContainer<std::string> &SpeciesNames,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
                        bool Stochastic, bool Simulate, const std::map<std::string, std::string> &InitVals)
@@ -152,9 +153,9 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 	}
 
 	// create birp prior (Poisson or Negative Binomial)
-	_birpPrior =
-	    std::make_shared<TBirpPrior>(Data, Locations, TimePoints, CovariateEffortNames, CovariateDetectionNames,
-	                                 SpeciesNames.size(), _commonModel, _negBinomAddOn, _stochasticAddOn, Filename);
+	_birpPrior = std::make_shared<TBirpPrior>(Data, Locations, CIGroupNames, TimePoints, CovariateEffortNames,
+	                                          CovariateDetectionNames, SpeciesNames.size(), _commonModel,
+	                                          _negBinomAddOn, _stochasticAddOn, Filename);
 
 	// add updater for joint logPhi update
 	if (Stochastic) { stattools::instances::dagBuilder().addExtraUpdater(_birpPrior->getPtrToJointUpdater()); }

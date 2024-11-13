@@ -162,8 +162,8 @@ void TTimepoints::resetBetaEffort() {
 }
 
 void TTimepoints::write(coretools::TOutputMaybeRcppFile &File, std::string location,
-                        const TUniqueContainer<TypeTime> &Timepoints) const {
-	File << location << Timepoints[_timepoint_id] << _counts_per_species;
+                        const TUniqueContainer<TypeTime> &Timepoints, const std::string &CIGroupName) const {
+	File << location << Timepoints[_timepoint_id] << CIGroupName << _counts_per_species;
 
 	// write covariate(s)
 	for (const auto &it : _covariatesEffort) { File << it; }
@@ -254,9 +254,11 @@ void TLocations::sorttimes(const std::vector<size_t> &index) {
 }
 
 void TLocations::write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,
-                       const TUniqueContainer<TypeTime> &Timepoints) const {
-	const std::string &location = Locations[_location_id];
-	for (const auto &timepoint : _timepoints) { timepoint.write(File, location, Timepoints); }
+                       const TUniqueContainer<TypeTime> &Timepoints,
+                       const TUniqueContainer<std::string> &CIGroupNames) const {
+	const std::string &location      = Locations[_location_id];
+	const std::string &CI_group_name = CIGroupNames[_group_id];
+	for (const auto &timepoint : _timepoints) { timepoint.write(File, location, Timepoints, CI_group_name); }
 }
 
 std::vector<TTimepoints>::const_iterator TLocations::cbegin() const { return _timepoints.cbegin(); }
@@ -295,13 +297,13 @@ void TLocations::resetBetaEffort() {
 
 void TLocations::simulatePoisson(double u, const TModelBase &Model) {
 	for (auto &timepoint : _timepoints) {
-		timepoint.simulatePoisson(u, Model.phi(location_id(), timepoint.timepoint_id()));
+		timepoint.simulatePoisson(u, Model.phi(location_id(), timepoint.timepoint_id(), group_id()));
 	}
 }
 
 void TLocations::simulateNB(const TModelBase &Model, double a, double u) {
 	for (auto &timepoint : _timepoints) {
-		timepoint.simulateNB(Model.phi(location_id(), timepoint.timepoint_id()), a, u);
+		timepoint.simulateNB(Model.phi(location_id(), timepoint.timepoint_id(), group_id()), a, u);
 	}
 }
 
@@ -321,7 +323,7 @@ TMethods::TMethods(const std::string_view &methodName, size_t index,
 TMethods::TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index,
                    const std::vector<size_t> &speciesIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
-                   const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer)
+                   const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer, size_t NumCIGroups)
     : _methodName(std::move(methodName)), _i(index),
       _covariateEffortIDsinUniqueContainer(covariateEffortIDsinUniqueContainer),
       _covariateDetectionIDsinUniqueContainer(covariateDetectionIDsinUniqueContainer),
@@ -329,7 +331,9 @@ TMethods::TMethods(std::string methodName, size_t locationSize, size_t Timepoint
 
 	_locations.reserve(locationSize);
 	for (size_t i = 0; i < locationSize; i++) {
-		_locations.emplace_back(i, TimepointSize, _speciesIDsinUniqueContainer.size(),
+		// draw CI group randomly
+		size_t group_id = randomGenerator().getRand(0UL, NumCIGroups);
+		_locations.emplace_back(i, group_id, TimepointSize, _speciesIDsinUniqueContainer.size(),
 		                        covariateEffortIDsinUniqueContainer.size(),
 		                        covariateDetectionIDsinUniqueContainer.size());
 	}
@@ -366,16 +370,23 @@ void TMethods::initialize(const TUniqueContainer<std::string> &CovariateEffortNa
 	_beta->initStorage(BirpPrior, {numCovariatesDetection()}, {covNamesBeta});
 }
 
-void TMethods::add(const TTimepoints &pt, size_t location_id) {
+void TMethods::add(const TTimepoints &pt, size_t location_id, size_t group_id,
+                   const TUniqueContainer<std::string> &LocationNames,
+                   const TUniqueContainer<std::string> &CIGroupNames) {
 	bool dataPointExists = false;
 	for (auto &loc : _locations) {
 		if (loc.location_id() == location_id) {
+			if (loc.group_id() != group_id) {
+				UERROR("Location '", LocationNames[location_id],
+				       "' has been surveyed at multiple timepoints, but has a different control-intervention group (",
+				       CIGroupNames[group_id], " vs ", CIGroupNames[loc.group_id()], " depending on the timepoint.");
+			}
 			dataPointExists = true;
 			loc.add(pt);
 			break;
 		}
 	}
-	if (!dataPointExists) { _locations.emplace_back(pt, location_id); }
+	if (!dataPointExists) { _locations.emplace_back(pt, location_id, group_id); }
 }
 
 auto TMethods::_getMeanVarDetectionCovariates() {
@@ -464,7 +475,13 @@ void TMethods::fillIDVectors(size_t totalSizeOfUniqueContainer) {
 	}
 }
 
-void TMethods::fillLocationIDs(const TUniqueContainer<std::string> &Locations) {
+void TMethods::initializeLookups(const TUniqueContainer<std::string> &Locations,
+                                 const TUniqueContainer<std::string> &CIGroupNames) {
+	_fillLocationIDs(Locations);
+	_fillCIGroupIDs(CIGroupNames);
+}
+
+void TMethods::_fillLocationIDs(const TUniqueContainer<std::string> &Locations) {
 	_hasDataForLocationID.resize(Locations.size(), false);
 	_map_j_location.resize(Locations.size(), 0);
 	for (size_t j = 0; j < Locations.size(); ++j) {         // loop over unique container
@@ -472,6 +489,20 @@ void TMethods::fillLocationIDs(const TUniqueContainer<std::string> &Locations) {
 			if (j == _locations[ix].location_id()) {        // check if this j exists
 				_hasDataForLocationID[j] = true;
 				_map_j_location[j]       = ix;
+			}
+		}
+	}
+}
+
+void TMethods::_fillCIGroupIDs(const TUniqueContainer<std::string> &CIGroupNames) {
+	_hasDataForCIGroup.resize(CIGroupNames.size(), false);
+	_location_per_CI_group.resize(CIGroupNames.size());
+
+	for (size_t i = 0; i < CIGroupNames.size(); ++i) {      // loop over all unique CI groups
+		for (size_t ix = 0; ix < _locations.size(); ++ix) { // loop over locations of this method
+			if (i == _locations[ix].group_id()) {           // check if this group exists
+				_hasDataForCIGroup[i] = true;
+				_location_per_CI_group[i].emplace_back(ix);
 			}
 		}
 	}
@@ -506,6 +537,12 @@ size_t TMethods::getIndexInCounts(size_t speciesIDinUniqueContainer) const {
 
 bool TMethods::hasDataForLocation(size_t j) const { return _hasDataForLocationID[j]; }
 size_t TMethods::getLocationIndexInMethod(size_t j) const { return _map_j_location[j]; }
+
+bool TMethods::hasDataForCIGroup(size_t CI_index) const { return _hasDataForCIGroup[CI_index]; }
+
+const std::vector<size_t> &TMethods::getLocationIndicesForCIGroup(size_t CI_index) const {
+	return _location_per_CI_group[CI_index];
+}
 
 const std::vector<size_t> &TMethods::speciesIDsinUniqueContainer() const { return _speciesIDsinUniqueContainer; }
 const std::vector<size_t> &TMethods::covariateEffortIDsinUniqueContainer() const {
@@ -702,7 +739,8 @@ double TMethods::_calculateU_i(double n_i_bar, const TModelBase &Model) {
 	size_t JK  = 0;
 	for (size_t j = 0; j < size(); j++) {       // loop over all locations
 		for (auto &timepoint : _locations[j]) { // loop over all timepoints
-			sum += timepoint.calculatePhiEffort(Model.phi(_locations[j].location_id(), timepoint.timepoint_id()));
+			sum += timepoint.calculatePhiEffort(
+			    Model.phi(_locations[j].location_id(), timepoint.timepoint_id(), _locations[j].group_id()));
 			++JK;
 		}
 	}
@@ -743,8 +781,9 @@ double TMethods::simulateNB(double n_i_bar, const TModelBase &Model, double a, b
 }
 
 void TMethods::write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,
-                     const TUniqueContainer<TypeTime> &Timepoints) const {
-	for (const auto &location : _locations) { location.write(File, Locations, Timepoints); }
+                     const TUniqueContainer<TypeTime> &Timepoints,
+                     const TUniqueContainer<std::string> &CIGroupNames) const {
+	for (const auto &location : _locations) { location.write(File, Locations, Timepoints, CIGroupNames); }
 }
 
 void TMethods::estimateInitialAlphaBeta() {
@@ -873,13 +912,7 @@ std::pair<size_t, size_t> TData::_getMethAndLocIndex(size_t ij_index, size_t spe
 	DEVERROR("Did not find method and location index for species - this should not happen.");
 }
 
-void TData::fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::string> &Locations) {
-	_numSpecies = NumSpecies;
-
-	for (auto &m : _methods) { m.fillLocationIDs(Locations); }
-
-	_fillNumMethLocs();
-
+void TData::_fillLinearToIJ() {
 	// fill linear to i_j
 	_linear_to_i_j.resize(_numSpecies);
 	for (size_t species = 0; species < _numSpecies; ++species) {
@@ -888,7 +921,9 @@ void TData::fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::st
 			_linear_to_i_j[species][ij] = _getMethAndLocIndex(ij, species);
 		}
 	}
+}
 
+void TData::_fillIJToLinear() {
 	// fill i_j to linear
 	_i_j_to_linear.resize(_numSpecies);
 	for (size_t species = 0; species < _numSpecies; ++species) {
@@ -905,7 +940,9 @@ void TData::fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::st
 			}
 		}
 	}
+}
 
+void TData::_fillIJPerLocationID(const TUniqueContainer<std::string> &Locations) {
 	// fill _ij_per_locationId: numSpecies x locations (in unique-container) x linear methLoc-indices for that location
 	_ij_per_locationId.resize(_numSpecies);
 	for (size_t species = 0; species < _numSpecies; ++species) {
@@ -922,6 +959,58 @@ void TData::fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::st
 			}
 		}
 	}
+}
+
+void TData::_fillLocationIDPerCI(const TUniqueContainer<std::string> &Locations,
+                                 const TUniqueContainer<std::string> &CIGroupNames) {
+	// fill _locationsIds_per_CI_index: numSpecies x number of CI groups x number of locations in that CI group
+	// also fill _CI_index_per_locationId: numSpecies x number of locations (in unique container)
+	// also check: if multiple methods have same location, but use different group -> throw!
+	_locationsIds_per_CI_index.resize(_numSpecies);
+	_CI_index_per_locationId.resize(_numSpecies);
+	for (size_t species = 0; species < _numSpecies; ++species) {
+		_locationsIds_per_CI_index[species].resize(CIGroupNames.size());
+		_CI_index_per_locationId[species].resize(Locations.size());
+		// loop over locations in unique container
+		for (size_t location_id = 0; location_id < Locations.size(); ++location_id) {
+			bool first = true;
+			// loop over all possible method-location combinations of current species
+			for (size_t ij = 0; ij < numMethLoc(species); ++ij) {
+				const auto [i, j] = linear_to_i_j(species, ij);
+				// j=0 in method 1 is not necessarily the first location in the unique container -> check for
+				// location_id
+				if (_methods[i][j].location_id() != location_id) { continue; } // not that location -> go to next
+				// else: found method with that location
+				if (first) {
+					// first match: append location_id to that group_id
+					_locationsIds_per_CI_index[species][_methods[i][j].group_id()].push_back(location_id);
+					// also set CI group index for that location
+					_CI_index_per_locationId[species][location_id] = _methods[i][j].group_id();
+					first                                          = false;
+				} else if (_methods[i][j].group_id() != _CI_index_per_locationId[species][location_id]) {
+					// another method has the same location -> check if group matches
+					UERROR(
+					    "Location '", Locations[location_id],
+					    "' has been surveyed using multiple methods but with different control-intervention groups (",
+					    CIGroupNames[_methods[i][j].group_id()], " vs ",
+					    CIGroupNames[_CI_index_per_locationId[species][location_id]], ".");
+				}
+			}
+		}
+	}
+}
+
+void TData::fillMethLocIndices(size_t NumSpecies, const TUniqueContainer<std::string> &Locations,
+                               const TUniqueContainer<std::string> &CIGroupNames) {
+	_numSpecies = NumSpecies;
+
+	for (auto &m : _methods) { m.initializeLookups(Locations, CIGroupNames); }
+
+	_fillNumMethLocs();
+	_fillLinearToIJ();
+	_fillIJToLinear();
+	_fillIJPerLocationID(Locations);
+	_fillLocationIDPerCI(Locations, CIGroupNames);
 }
 
 size_t TData::size() const { return _methods.size(); }
@@ -949,6 +1038,15 @@ const std::pair<size_t, size_t> &TData::linear_to_i_j(size_t SpeciesIDInUniqueCo
 
 const std::vector<size_t> &TData::locationId_to_ij(size_t SpeciesIDInUniqueContainer, size_t location_id) const {
 	return _ij_per_locationId[SpeciesIDInUniqueContainer][location_id];
+}
+
+size_t TData::locationsId_to_CI_index(size_t SpeciesIDInUniqueContainer, size_t location_id) const {
+	return _CI_index_per_locationId[SpeciesIDInUniqueContainer][location_id];
+}
+
+const std::vector<size_t> &TData::get_locationsIds_for_CI_index(size_t SpeciesIDInUniqueContainer,
+                                                                size_t CI_index) const {
+	return _locationsIds_per_CI_index[SpeciesIDInUniqueContainer][CI_index];
 }
 
 void TData::clear() {

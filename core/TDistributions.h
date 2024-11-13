@@ -20,7 +20,7 @@ protected:
 	size_t _speciesIDinUniqueContainer = 0; // refers to ID in unique container
 
 public:
-	TDistributionBase(size_t SpeciesIDinUniqueContainer);
+	explicit TDistributionBase(size_t SpeciesIDinUniqueContainer);
 	virtual ~TDistributionBase() = default;
 
 	virtual void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
@@ -28,8 +28,9 @@ public:
 	virtual void update(const TData &Data, TModelBase &Model) = 0;
 	virtual void estimateInitialParameters(const TData &Data) = 0;
 
-	virtual double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
-	                           size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const = 0;
+	[[nodiscard]] virtual double calculateLL(const std::vector<double> &sigma, const TLocations &loc,
+	                                         const std::vector<double> &p, size_t index_in_counts,
+	                                         size_t ix_linNumMethLoc, size_t ix_method) const = 0;
 
 	virtual void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &n_bar,
 	                      bool SimulateCovariates) = 0;
@@ -40,15 +41,16 @@ public:
 //---------------------------------------
 class TPoissonDistribution : public TDistributionBase {
 public:
-	TPoissonDistribution(size_t SpeciesIDinUniqueContainer);
+	explicit TPoissonDistribution(size_t SpeciesIDinUniqueContainer);
 	~TPoissonDistribution() override = default;
 
 	void initialize(const TData &, const TUniqueContainer<std::string> &, TBirpPrior *) override {};
 	void update(const TData &, TModelBase &) override {};
 	void estimateInitialParameters(const TData &) override {};
 
-	double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
-	                   size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const override;
+	[[nodiscard]] double calculateLL(const std::vector<double> &sigma, const TLocations &loc,
+	                                 const std::vector<double> &p, size_t index_in_counts, size_t ix_linNumMethLoc,
+	                                 size_t ix_method) const override;
 
 	// simulation
 	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &n_bar,
@@ -66,7 +68,7 @@ protected:
 	TypeParamB *_b         = nullptr;
 	bool _isMu;
 
-	double _getMuOrN(size_t j, size_t ij) const;
+	[[nodiscard]] double _getMuOrN(size_t j, size_t ij) const;
 
 	// update functions
 	void _updateMu(const TData &Data, TModelBase &Model);
@@ -93,8 +95,9 @@ public:
 	void update(const TData &Data, TModelBase &Model) override;
 	void estimateInitialParameters(const TData &Data) override;
 
-	double calculateLL(const std::vector<double> &sigma, const TLocations &loc, const std::vector<double> &p,
-	                   size_t index_in_counts, size_t ix_linNumMethLoc, size_t ix_method) const override;
+	[[nodiscard]] double calculateLL(const std::vector<double> &sigma, const TLocations &loc,
+	                                 const std::vector<double> &p, size_t index_in_counts, size_t ix_linNumMethLoc,
+	                                 size_t ix_method) const override;
 
 	// simulate
 	void simulate(TData &Data, const TModelBase &Model, const std::vector<double> &n_bar,

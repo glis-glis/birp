@@ -8,16 +8,17 @@
 using namespace coretools::instances;
 
 TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locations,
-                       const TUniqueContainer<TypeTime> &TimePoints,
+                       const TUniqueContainer<std::string> &CIGroupNames, const TUniqueContainer<TypeTime> &TimePoints,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, size_t numSpecies,
                        TBirpCommonModel &CommonModel, std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
                        std::unique_ptr<TBirpStochasticAddOn> &StochasticAddOn, std::string Prefix)
-    : _data(Data), _locations(Locations), _timepoints(TimePoints), _covariateEffortNames(CovariateEffortNames),
-      _covariateDetectionNames(CovariateDetectionNames), _numSpecies(numSpecies), _out(std::move(Prefix)) {
+    : _data(Data), _locations(Locations), _CIGroupNames(CIGroupNames), _timepoints(TimePoints),
+      _covariateEffortNames(CovariateEffortNames), _covariateDetectionNames(CovariateDetectionNames),
+      _numSpecies(numSpecies), _out(std::move(Prefix)) {
 
 	// stattools: tell which ones are prior parameters
-	addPriorParameter({&CommonModel.gamma});
+	addPriorParameter(&CommonModel.gamma);
 	for (auto &a : CommonModel.alpha) { addPriorParameter(a.get()); }
 	for (auto &b : CommonModel.beta0) { addPriorParameter(b.get()); }
 	for (auto &b : CommonModel.beta) { addPriorParameter(b.get()); }
@@ -28,12 +29,12 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 	// create models
 	size_t speciesID = 0;
 	if (StochasticAddOn) {
-		_models.emplace_back(std::make_unique<TStochastic>(
-		    speciesID, Data, Locations.size(), TimePoints.size(), NegBinomAddOn, &CommonModel.gamma,
-		    &StochasticAddOn->logPhi, &StochasticAddOn->logSigma, _timepoints));
+		_models.emplace_back(std::make_unique<TStochastic>(speciesID, Data, Locations.size(), TimePoints.size(),
+		                                                   NegBinomAddOn, &CommonModel.gamma, &StochasticAddOn->logPhi,
+		                                                   &StochasticAddOn->logSigma, _timepoints, _CIGroupNames));
 	} else {
 		_models.emplace_back(std::make_unique<TDeterministic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
-		                                                      _timepoints));
+		                                                      _timepoints, _CIGroupNames));
 	}
 
 	for (size_t i = 0; i < Data.size(); ++i) {
