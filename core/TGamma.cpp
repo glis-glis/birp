@@ -294,7 +294,7 @@ size_t TOLSGamma::_getNextGammaToInitialize(const std::vector<bool> &GammaInitia
 }
 
 std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints,
-                                                    size_t SpeciesID) {
+                                                    size_t SpeciesID, const TUniqueContainer<std::string> &GammaNames) {
 	logfile().startIndent("Estimating initial gamma with OLS:");
 
 	// fill response variable y
@@ -313,7 +313,7 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 	while (std::accumulate(gammaInitialized.begin(), gammaInitialized.end(), 0U) < _numGamma) {
 		// 1) find gamma that contains the most data points per degree of freedom (= number of parameters = L + 1)
 		size_t curGamma = _getNextGammaToInitialize(gammaInitialized, y, l_to_ij);
-		logfile().listFlush("Gamma ", curGamma + 1, ":");
+		logfile().listFlush("Gamma ", GammaNames[curGamma], ":");
 
 		// 2) we need at least one data series (method-location combination) with at least 2 timepoints
 		const size_t L = l_to_ij[curGamma].size();
@@ -355,10 +355,10 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 //------------------------------------------
 
 TGamma::TGamma(TypeParamGamma *Gamma, const TUniqueContainer<TypeTime> &Timepoints,
-               const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID)
+               const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID, std::string_view Prefix)
     : _gamma(Gamma), _species_id(SpeciesID), _numCIGroups(CIGroupNames.size()) {
 	// find out how many epochs there are and how many CI groups
-	_readGammaGrouping(Timepoints, CIGroupNames);
+	_readGammaGrouping(Timepoints, CIGroupNames, Prefix);
 
 	// calculate Jeffrey's prior?
 	_noJP = parameters().exists("noJP");
@@ -375,9 +375,9 @@ void TGamma::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior
 }
 
 void TGamma::_readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints,
-                                const TUniqueContainer<std::string> &CIGroupNames) {
+                                const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix) {
 	if (parameters().exists("timesOfChange")) {
-		_fillTimesOfChange(Timepoints);
+		_fillTimesOfChange(Timepoints, Prefix);
 	} else {
 		logfile().list(
 		    "Will assume a single epoch without any times of change (use argument 'timesOfChange' to change).");
@@ -386,28 +386,35 @@ void TGamma::_readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints,
 
 	// read gamma grouping BACI
 	if (_numCIGroups > 1 && _numEpochs == 1) { // CI only
-		_fillGammaIndicatorCI();
+		_fillGammaIndicatorCI(CIGroupNames);
 	} else if (_numCIGroups == 1) { // BA only
-		_fillGammaIndicatorBA();
+		_fillGammaIndicatorBA(Timepoints);
 	} else { // BACI
 		_fillGammaIndicatorBACI(CIGroupNames);
 	}
+
+	// write to file
+	coretools::TOutputMaybeRcppFile file((std::string)Prefix + "_BACI_configuration.txt");
+	for (size_t i = 0; i < _numCIGroups; ++i) {
+		for (size_t e = 0; e < _numEpochs; ++e) { file << _gamma_names[_gamma_ix_per_CIgroup_and_epoch[i][e]]; }
+		file.endln();
+	}
 }
 
-void TGamma::_fillGammaIndicatorCI() {
+void TGamma::_fillGammaIndicatorCI(const TUniqueContainer<std::string> &CIGroupNames) {
 	// if only a single epoch and multiple groups -> we do CI -> no need to provide BACI-grouping file
 	logfile().list("Will perform control-intervention analysis (CI) without before-after grouping (provide arguments "
 	               "'timesOfChange' and 'BACI' to switch to a BACI analysis).");
 	_gamma_ix_per_CIgroup_and_epoch.resize(_numCIGroups);
 	_CI_indices_per_gamma.resize(_numCIGroups); // there will be as many gammas as there are CI groups
 	for (size_t i = 0; i < _numCIGroups; i++) {
-		size_t ix = _gamma_names.add(coretools::str::toString(i + 1)); // one gamma per CI group
-		_gamma_ix_per_CIgroup_and_epoch[i].push_back(ix);              // a single epoch, index of gamma = ix
-		_CI_indices_per_gamma[i] = {i};                                // for each gamma: what is the CI group index?
+		size_t ix = _gamma_names.add(CIGroupNames[i]);    // one gamma per CI group
+		_gamma_ix_per_CIgroup_and_epoch[i].push_back(ix); // a single epoch, index of gamma = ix
+		_CI_indices_per_gamma[i] = {i};                   // for each gamma: what is the CI group index?
 	}
 }
 
-void TGamma::_fillGammaIndicatorBA() {
+void TGamma::_fillGammaIndicatorBA(const TUniqueContainer<TypeTime> &Timepoints) {
 	// if only a single group -> we do BA -> no need to provide BACI-grouping file
 	logfile().list("Will perform before-after analysis (BA) without control-intervention grouping (provide column "
 	               "'CI_group' in counts file and argument 'BACI' to switch to a BACI analysis).");
@@ -416,10 +423,16 @@ void TGamma::_fillGammaIndicatorBA() {
 	_gamma_ix_per_CIgroup_and_epoch.resize(1, std::vector<size_t>(_numEpochs, 0));
 	_CI_indices_per_gamma.resize(_numEpochs); // there will be as many gammas as there are epochs
 
-	for (size_t i = 0; i < _numEpochs; i++) {
-		size_t ix = _gamma_names.add(coretools::str::toString(i + 1)); // one gamma per epoch
-		_gamma_ix_per_CIgroup_and_epoch[0][i] = ix;                    // a single group, gamma index for epoch i is ix
-		_CI_indices_per_gamma[i]              = {0};                   // every gamma has CI group index = 0
+	// get epoch starts for nice names
+	auto epochStarts      = getEpochStarts(Timepoints);
+	size_t ix_epoch_start = 1;
+
+	for (size_t i = 0; i < _numEpochs; i++, ix_epoch_start++) {
+		std::string name = "Epoch_" + coretools::str::toString(epochStarts[ix_epoch_start - 1]) + "-" +
+		                   coretools::str::toString(epochStarts[ix_epoch_start]);
+		size_t ix                             = _gamma_names.add(name); // one gamma per epoch
+		_gamma_ix_per_CIgroup_and_epoch[0][i] = ix;                     // a single group, gamma index for epoch i is ix
+		_CI_indices_per_gamma[i]              = {0};                    // every gamma has CI group index = 0
 	}
 }
 
@@ -487,7 +500,7 @@ void TGamma::_fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGrou
 	                   " epochs.");
 }
 
-void TGamma::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints) {
+void TGamma::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, std::string_view Prefix) {
 	// check if times of change, as provided by the user, are valid and adjust them if necessary
 	assert(!Timepoints.empty());
 
@@ -517,6 +530,10 @@ void TGamma::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints) {
 	// count number of epochs
 	_numEpochs = _timesOfChange.size() + 1;
 
+	// write to file
+	coretools::TOutputMaybeRcppFile file((std::string)Prefix + "_timesOfChange.txt");
+	file.writeln(_timesOfChange);
+
 	// report
 	logfile().list("Times of change = ", _timesOfChange, " (argument 'timesOfChange').");
 	logfile().list("Number of epochs = ", _numEpochs, ".");
@@ -527,7 +544,7 @@ void TGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<Type
 
 	std::vector<TypeTime> epochStarts = getEpochStarts(Timepoints);
 	TOLSGamma ols(_gamma->size(), _numEpochs, epochStarts, _gamma_ix_per_CIgroup_and_epoch, _CI_indices_per_gamma);
-	auto gamma = ols.estimateInitialGamma(Data, Timepoints, _species_id);
+	auto gamma = ols.estimateInitialGamma(Data, Timepoints, _species_id, _gamma_names);
 	assert(gamma.size() == _gamma->size());
 	for (size_t ix = 0; ix < gamma.size(); ++ix) { _gamma->set(ix, gamma[ix]); }
 }
@@ -669,8 +686,9 @@ bool TGamma::gammaIsUpdated() const { return _gamma->isUpdated(); }
 
 TStochasticPrior::TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
                                    const TUniqueContainer<TypeTime> &Timepoints,
-                                   const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID)
-    : _logPhi(LogPhi), _logSigma(LogSigma), _gamma(Gamma, Timepoints, CIGroupNames, SpeciesID) {}
+                                   const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID,
+                                   std::string_view Prefix)
+    : _logPhi(LogPhi), _logSigma(LogSigma), _gamma(Gamma, Timepoints, CIGroupNames, SpeciesID, Prefix) {}
 
 void TStochasticPrior::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior) {
 	// initialize gamma and times of change

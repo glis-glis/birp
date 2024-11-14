@@ -236,7 +236,8 @@ public:
 	TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index,
 	         const std::vector<size_t> &speciesIDsinUniqueContainer,
 	         const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
-	         const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer, size_t NumCIGroups);
+	         const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer, size_t NumCIGroups,
+	         const TData &Data);
 
 	TMethods() = default;
 

@@ -531,7 +531,7 @@ void TBirpCore::simulate() {
 
 		for (size_t m = 0; m < numMethods; ++m) {
 			TMethods method("Method_" + coretools::str::toString(m + 1), _locations.size(), _timepoints.size(), m,
-			                species_ids, covariateEffort_ids, covariateDetection_ids, _CIGroupNames.size());
+			                species_ids, covariateEffort_ids, covariateDetection_ids, _CIGroupNames.size(), _data);
 			_data.addMethod(method);
 		}
 		for (auto &m : _data) { m.fillIDVectors(_speciesNames.size()); }

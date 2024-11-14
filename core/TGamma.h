@@ -72,7 +72,7 @@ public:
 	          const std::vector<std::vector<size_t>> &Gamma_ix_per_CIgroup_and_epoch,
 	          const std::vector<std::vector<size_t>> &CI_indices_per_gamma);
 	std::vector<double> estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints,
-	                                         size_t SpeciesID);
+	                                         size_t SpeciesID, const TUniqueContainer<std::string> &GammaNames);
 };
 
 //------------------------------------------
@@ -111,17 +111,17 @@ protected:
 	size_t _counter = 0;
 
 	// initialization
-	void _fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints);
+	void _fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, std::string_view Prefix);
 	void _fillRho(const TUniqueContainer<TypeTime> &Timepoints);
-	void _fillGammaIndicatorCI();
-	void _fillGammaIndicatorBA();
+	void _fillGammaIndicatorCI(const TUniqueContainer<std::string> &CIGroupNames);
+	void _fillGammaIndicatorBA(const TUniqueContainer<TypeTime> &Timepoints);
 	void _fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGroupNames);
 	void _readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints,
-	                        const TUniqueContainer<std::string> &CIGroupNames);
+	                        const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix);
 
 public:
 	TGamma(TypeParamGamma *Gamma, const TUniqueContainer<TypeTime> &Timepoints,
-	       const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID);
+	       const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID, std::string_view Prefix);
 	~TGamma() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);
@@ -194,7 +194,7 @@ protected:
 public:
 	TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
 	                 const TUniqueContainer<TypeTime> &Timepoints, const TUniqueContainer<std::string> &CIGroupNames,
-	                 size_t SpeciesID);
+	                 size_t SpeciesID, std::string_view Prefix);
 	~TStochasticPrior() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);

@@ -268,9 +268,9 @@ void TModelBase::setCurLLPerMethod(const std::vector<double> &Values, size_t i, 
 TDeterministic::TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,
                                const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
                                const TUniqueContainer<TypeTime> &Timepoints,
-                               const TUniqueContainer<std::string> &CIGroupNames)
+                               const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix)
     : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn),
-      _gamma(Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer) {}
+      _gamma(Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix) {}
 
 void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
                                 const TUniqueContainer<TypeTime> &TimePoints, TBirpPrior *BirpPrior) {
@@ -353,9 +353,9 @@ TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, s
                          size_t NumTimePoints, const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
                          TypeParamGamma *Gamma, TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma,
                          const TUniqueContainer<TypeTime> &Timepoints,
-                         const TUniqueContainer<std::string> &CIGroupNames)
+                         const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix)
     : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn),
-      _prior(LogPhi, LogSigma, Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer), _logPhi(LogPhi),
+      _prior(LogPhi, LogSigma, Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix), _logPhi(LogPhi),
       _logSigma(LogSigma) {
 
 	_jointUpdater = std::make_unique<stattools::TUpdateUnique<TypeLogPhi, false>>(

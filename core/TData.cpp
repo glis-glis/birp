@@ -323,7 +323,8 @@ TMethods::TMethods(const std::string_view &methodName, size_t index,
 TMethods::TMethods(std::string methodName, size_t locationSize, size_t TimepointSize, size_t index,
                    const std::vector<size_t> &speciesIDsinUniqueContainer,
                    const std::vector<std::size_t> &covariateEffortIDsinUniqueContainer,
-                   const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer, size_t NumCIGroups)
+                   const std::vector<std::size_t> &covariateDetectionIDsinUniqueContainer, size_t NumCIGroups,
+                   const TData &Data)
     : _methodName(std::move(methodName)), _i(index),
       _covariateEffortIDsinUniqueContainer(covariateEffortIDsinUniqueContainer),
       _covariateDetectionIDsinUniqueContainer(covariateDetectionIDsinUniqueContainer),
@@ -331,8 +332,12 @@ TMethods::TMethods(std::string methodName, size_t locationSize, size_t Timepoint
 
 	_locations.reserve(locationSize);
 	for (size_t i = 0; i < locationSize; i++) {
-		// draw CI group randomly
-		size_t group_id = randomGenerator().getRand(0UL, NumCIGroups);
+		size_t group_id;
+		if (Data.size() == 0) { // draw CI group randomly if location does not exist yet (first method)
+			group_id = randomGenerator().getRand(0UL, NumCIGroups);
+		} else { // else match CI group of location of previous method
+			group_id = Data[Data.size() - 1][i].group_id();
+		}
 		_locations.emplace_back(i, group_id, TimepointSize, _speciesIDsinUniqueContainer.size(),
 		                        covariateEffortIDsinUniqueContainer.size(),
 		                        covariateDetectionIDsinUniqueContainer.size());
@@ -993,7 +998,7 @@ void TData::_fillLocationIDPerCI(const TUniqueContainer<std::string> &Locations,
 					    "Location '", Locations[location_id],
 					    "' has been surveyed using multiple methods but with different control-intervention groups (",
 					    CIGroupNames[_methods[i][j].group_id()], " vs ",
-					    CIGroupNames[_CI_index_per_locationId[species][location_id]], ".");
+					    CIGroupNames[_CI_index_per_locationId[species][location_id]], ").");
 				}
 			}
 		}
