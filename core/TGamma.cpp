@@ -20,16 +20,47 @@ TOLSGamma::TOLSGamma(size_t NumGamma, size_t NumEpochs, const std::vector<TypeTi
 	_gamma.resize(NumGamma, 0.0);
 }
 
-bool TOLSGamma::_timePointIsRelevant(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t CI_index,
-                                     size_t ix) const {
-	// for a given gamma_ix, a timepoint is relevant if it lies within an epoch for which gamma_ix is relevant
-	for (size_t e = 0; e < _numEpochs; ++e) {                     // loop over all epochs
-		if (_gamma_ix_per_CIgroup_and_epoch[CI_index][e] == ix) { // if gamma is relevant for that epoch
-			// returns true if a timepoint is withing an epoch (borders included)
-			if (Timepoints[t] >= _epochStarts[e] && Timepoints[t] <= _epochStarts[e + 1]) { return true; }
+bool TOLSGamma::_timePointIsRelevant(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t e) const {
+	// returns true if a timepoint is withing an epoch (borders included)
+	return Timepoints[t] >= _epochStarts[e] && Timepoints[t] <= _epochStarts[e + 1];
+}
+
+auto TOLSGamma::_loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
+                                    size_t i, size_t j_in_method, size_t e, size_t L, std::vector<double> &y_ix,
+                                    std::vector<TypeTime> &t_ix, std::vector<size_t> &dataSeriesIndex) const {
+	// loop over all timepoints in current datapoint (method/location)
+	bool hasTimepoint = false;
+	size_t numZero    = 0;
+	bool allZero      = true;
+	for (size_t k = 0; k < Data[i][j_in_method].size(); ++k) { // loop over timepoints
+		const auto &timepoint = Data[i][j_in_method][k];
+		// skip timepoints that are not part of epoch
+		if (!_timePointIsRelevant(Timepoints, timepoint.timepoint_id(), e)) { continue; }
+
+		// ignore datapoints with effort zero
+		if (timepoint.effort() == 0.0) { continue; }
+
+		hasTimepoint = true;
+
+		// prevent issues with zero counts: log(0) = inf
+		// exclude them from analysis, but remember how many were excluded
+		size_t counts = timepoint.counts_per_species(SpeciesID);
+		if (counts == 0) {
+			++numZero;
+			continue;
+		} else {
+			allZero = false;
 		}
+
+		// calculate y
+		const double y = log((double)counts / (double)timepoint.effort());
+
+		// add to containers
+		y_ix.push_back(y);
+		t_ix.emplace_back(Timepoints[timepoint.timepoint_id()]);
+		dataSeriesIndex.emplace_back(L);
 	}
-	return false;
+	return std::make_tuple(hasTimepoint, numZero, allZero);
 }
 
 auto TOLSGamma::_get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix,
@@ -37,10 +68,11 @@ auto TOLSGamma::_get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &T
 	// calculates response variable y_ix for each gamma as well as other variables needed for OLS
 	std::vector<double> y_ix;            // response variable
 	std::vector<TypeTime> t_ix;          // timepoints, same size as y_ix
-	std::vector<size_t> dataSeriesIndex; // index indicating which method-location-combi was used, same size as y_ix
-	std::vector<std::pair<size_t, size_t>> l_to_ij;  // map that indicates i-j for each linear l
-	std::vector<size_t> numDataPointsWithZeroCounts; // count number of counts=0 for each linear l
-	std::vector<bool> allDataPointsAreZero;          // count number of counts=0 for each linear l
+	std::vector<size_t> dataSeriesIndex; // index: which group-epoch-method-location-combi was used, same size as y_ix
+	std::vector<std::pair<size_t, size_t>> l_to_ij;       // map that indicates i-j for each linear l
+	std::vector<std::pair<size_t, size_t>> l_to_CI_epoch; // map that indicates CIgroup-epoch for each linear l
+	std::vector<size_t> numDataPointsWithZeroCounts;      // count number of counts=0 for each linear l
+	std::vector<bool> allDataPointsAreZero;               // count number of counts=0 for each linear l
 
 	size_t L = 0;
 	for (const size_t CI_index : _CI_indices_per_gamma[ix]) { // loop over all CI groups that are relevant for gamma
@@ -48,50 +80,30 @@ auto TOLSGamma::_get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &T
 			if (!Data[i].hasDataForCIGroup(CI_index)) { continue; }
 			// loop over locations relevant for current gamma
 			for (const auto j_in_method : Data[i].getLocationIndicesForCIGroup(CI_index)) {
-				bool dataSeries_has_Timepoint_within_epoch = false;
-				size_t numDataPointsWithZeroCounts_this_ij = 0;
-				for (size_t k = 0; k < Data[i][j_in_method].size(); ++k) { // loop over timepoints
+				for (size_t e = 0; e < _numEpochs; ++e) { // loop over all epochs
+					// skip epoch if gamma_ix is not relevant
+					if (_gamma_ix_per_CIgroup_and_epoch[CI_index][e] != ix) { continue; }
 
-					// check if timepoint is informative about current gamma_ix
-					const auto &timepoint = Data[i][j_in_method][k];
-					if (!_timePointIsRelevant(Timepoints, timepoint.timepoint_id(), CI_index, ix)) { continue; }
+					const auto [hasTimepoint, numZero, allZero] = _loopOverTimepoints(
+					    Data, Timepoints, SpeciesID, i, j_in_method, e, L, y_ix, t_ix, dataSeriesIndex);
 
-					// ignore datapoints with effort zero
-					if (timepoint.effort() == 0.0) { continue; }
+					if (!hasTimepoint) { continue; } // no timepoint (with non-zero effort) for this group-epoch-i-j
 
-					dataSeries_has_Timepoint_within_epoch = true;
-
-					// prevent issues with zero counts: log(0) = inf
-					// exclude them from analysis, but remember how many were excluded
-					size_t counts = timepoint.counts_per_species(SpeciesID);
-					if (counts == 0) {
-						++numDataPointsWithZeroCounts_this_ij;
-						continue;
+					// check if next epoch will have the same gamma as current epoch
+					if (e == _numEpochs - 1 || _gamma_ix_per_CIgroup_and_epoch[CI_index][e + 1] != ix) {
+						// if last epoch or next epoch is different -> create separate group -> increase L here
+						++L;
+						l_to_ij.emplace_back(i, j_in_method);
+						l_to_CI_epoch.emplace_back(CI_index, e);
+						numDataPointsWithZeroCounts.emplace_back(numZero);
+						allDataPointsAreZero.emplace_back(allZero);
 					}
-
-					// calculate y
-					const double y = log((double)counts / (double)timepoint.effort());
-
-					// add to containers
-					y_ix.push_back(y);
-					t_ix.emplace_back(Timepoints[timepoint.timepoint_id()]);
-					dataSeriesIndex.emplace_back(L);
-				}
-
-				// check if method-location combination l had any data that falls within epoch
-				// if all counts are zero for this combination l: can not do OLS, ignore
-				// -> else: add entry to map l_to_ij that indicates i-j for a specific l
-				if (dataSeries_has_Timepoint_within_epoch) {
-					++L;
-					l_to_ij.emplace_back(i, j_in_method);
-					numDataPointsWithZeroCounts.emplace_back(numDataPointsWithZeroCounts_this_ij);
-					allDataPointsAreZero.emplace_back(numDataPointsWithZeroCounts_this_ij ==
-					                                  Data[i][j_in_method].size());
 				}
 			}
 		}
 	}
-	return std::make_tuple(y_ix, t_ix, dataSeriesIndex, l_to_ij, numDataPointsWithZeroCounts, allDataPointsAreZero);
+	return std::make_tuple(y_ix, t_ix, dataSeriesIndex, l_to_ij, l_to_CI_epoch, numDataPointsWithZeroCounts,
+	                       allDataPointsAreZero);
 }
 
 arma::vec TOLSGamma::_doOLS(const std::vector<double> &Y_ix, const std::vector<TypeTime> &T_ix,
@@ -110,46 +122,61 @@ arma::vec TOLSGamma::_doOLS(const std::vector<double> &Y_ix, const std::vector<T
 	return beta.as_col(); // matrix -> vector
 }
 
-void TOLSGamma::_augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-                                                        size_t l, std::vector<std::vector<size_t>> &dataSeriesIndex,
-                                                        size_t curGamma, size_t otherGamma) {
-	// get method (i) and location (j) index of data series (l) of current gamma
-	const size_t i                  = l_to_ij[curGamma][l].first;
-	const size_t j                  = l_to_ij[curGamma][l].second;
-	// check if other gamma (can be any) already contains this specific combination of i and j
-	const auto &l_to_ij_other_gamma = l_to_ij[otherGamma];
-	bool found                      = false;
+void TOLSGamma::_augmentDataSeriesIndexWithOLSEstimates(
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch, size_t l,
+    std::vector<std::vector<size_t>> &dataSeriesIndex, size_t curGamma, size_t otherGamma) {
+
+	// get method (i) and location (j) index of intercept (l) of current gamma
+	const size_t i = l_to_ij[curGamma][l].first;
+	const size_t j = l_to_ij[curGamma][l].second;
+
+	// get CI_index and epoch index of intercept (l) of current gamma
+	const size_t CI_index = l_to_CI_epoch[curGamma][l].first;
+	const size_t epoch    = l_to_CI_epoch[curGamma][l].second;
+
+	// check if other gamma already contains this specific combination of i and j for that epoch and CI_index
+	const auto &l_to_ij_other_gamma       = l_to_ij[otherGamma];
+	const auto &l_to_CI_epoch_other_gamma = l_to_CI_epoch[otherGamma];
+	bool found                            = false;
 	for (size_t l_other = 0; l_other < l_to_ij_other_gamma.size(); ++l_other) {
-		if (l_to_ij_other_gamma[l_other].first == i && l_to_ij_other_gamma[l_other].second == j) {
-			// method and location exists in other gamma as well
+		if (l_to_ij_other_gamma[l_other].first == i && l_to_ij_other_gamma[l_other].second == j &&
+		    l_to_CI_epoch_other_gamma[l_other].first == CI_index &&
+		    l_to_CI_epoch_other_gamma[l_other].second == epoch) {
+			// method and location at that group and epoch exists in other gamma as well
 			// -> use that index l to augment dataSeriesIndex
-			// -> no need to augment l_to_ij since this ij already exists
+			// -> no need to augment l_to_ij or l_to_ij_other_gamma since this ij already exists
 			dataSeriesIndex[otherGamma].push_back(l_other);
 			found = true;
 			break;
 		}
 	}
-	// other gamma does not yet contain this specific combination of i and j
-	// -> add a new entry {i, j} to l_to_ij
+	// other gamma does not yet contain this specific combination of i and j at that group and epoch
+	// -> add a new entry {i, j} to l_to_ij and {CI_index, epoch} to l_to_ij_other_gamma
 	// -> use this new l to augment dataSeriesIndex
 	if (!found) {
 		l_to_ij[otherGamma].emplace_back(i, j);
+		l_to_CI_epoch[otherGamma].emplace_back(CI_index, epoch);
 		const size_t l_other = l_to_ij[otherGamma].size() - 1;
 		dataSeriesIndex[otherGamma].push_back(l_other);
 	}
 }
 
 bool TOLSGamma::_dontAugmentDataSeries(const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+                                       const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
                                        const std::vector<std::vector<size_t>> &dataSeriesIndex,
-                                       const std::vector<std::vector<TypeTime>> &t, size_t l, size_t curGamma,
-                                       size_t otherGamma, TypeTime EpochBorder) {
+                                       const std::vector<std::vector<TypeTime>> &t, size_t CI_index, size_t epoch,
+                                       size_t l, size_t curGamma, size_t otherGamma, TypeTime EpochBorder) {
+	// skip if intercept l affects a different CI group or epoch
+	if (l_to_CI_epoch[curGamma][l].first != CI_index || l_to_CI_epoch[curGamma][l].second != epoch) { return true; }
+
 	// check if other gamma already has data at method i and location j and epoch border (start or end)
 	// get method (i) and location (j) index of data series (l) of current epoch
 	const size_t i = l_to_ij[curGamma][l].first;
 	const size_t j = l_to_ij[curGamma][l].second;
 	// loop over all timepoints of other epoch
 	for (size_t r = 0; r < t[otherGamma].size(); ++r) {
-		// check if other epoch contains this method (i) and location (j) and the timepoint corresponding to
+		// check if other gamma contains this method (i) and location (j) and the timepoint corresponding to
 		// EpochBorder
 		const size_t other_l   = dataSeriesIndex[otherGamma][r];
 		const size_t other_i   = l_to_ij[otherGamma][other_l].first;
@@ -160,113 +187,109 @@ bool TOLSGamma::_dontAugmentDataSeries(const std::vector<std::vector<std::pair<s
 	return false;
 }
 
-void TOLSGamma::_augmentYWithOLSEstimatesStart(size_t curGamma, size_t epoch, const arma::vec &Beta,
-                                               std::vector<std::vector<double>> &y,
-                                               std::vector<std::vector<TypeTime>> &t,
-                                               std::vector<std::vector<size_t>> &dataSeriesIndex,
-                                               std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const {
-	// first epoch: no need to augment previous epoch since there is none
-	if (epoch == 0) { return; }
+void TOLSGamma::_augmentYWithOLSEstimatesStart(
+    size_t curGamma, size_t CI_index, size_t epoch, const arma::vec &Beta, std::vector<std::vector<double>> &y,
+    std::vector<std::vector<TypeTime>> &t, std::vector<std::vector<size_t>> &dataSeriesIndex,
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const {
+
 	const TypeTime epochStart = _epochStarts[epoch];
 
-	for (size_t l = 0; l < l_to_ij[epoch].size(); ++l) {                    // loop over all dataseries
-		for (size_t otherGamma = 0; otherGamma < _numGamma; ++otherGamma) { // loop over all other gamma
-			if (otherGamma == curGamma) { continue; }
-			if (_dontAugmentDataSeries(l_to_ij, dataSeriesIndex, t, l, curGamma, otherGamma, epochStart)) { continue; }
+	for (size_t otherGamma = 0; otherGamma < _numGamma; ++otherGamma) { // loop over all other gamma
+		if (otherGamma == curGamma) { continue; }               // no need to augment curGamma: this was just estimated
+		for (size_t l = 0; l < l_to_ij[curGamma].size(); ++l) { // loop over all intercepts that were estimated
+			if (_dontAugmentDataSeries(l_to_ij, l_to_CI_epoch, dataSeriesIndex, t, CI_index, epoch, l, curGamma,
+			                           otherGamma, epochStart)) {
+				continue;
+			}
 
 			const auto alpha_l = Beta(l);
 			const auto y_start = alpha_l + (double)epochStart * _gamma[curGamma];
-			// epoch start does not correspond to an existing timepoint -> augment data with y_start
+			// augment
 			y[otherGamma].push_back(y_start);
 			t[otherGamma].emplace_back(epochStart);
-			_augmentDataSeriesIndexWithOLSEstimates(l_to_ij, l, dataSeriesIndex, curGamma, otherGamma);
+			_augmentDataSeriesIndexWithOLSEstimates(l_to_ij, l_to_CI_epoch, l, dataSeriesIndex, curGamma, otherGamma);
 		}
 	}
 }
 
-void TOLSGamma::_augmentYWithOLSEstimatesStart_All(size_t curGamma, const arma::vec &Beta,
-                                                   std::vector<std::vector<double>> &y,
-                                                   std::vector<std::vector<TypeTime>> &t,
-                                                   std::vector<std::vector<size_t>> &dataSeriesIndex,
-                                                   std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const {
+void TOLSGamma::_augmentYWithOLSEstimatesStart_All(
+    size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
+    std::vector<std::vector<size_t>> &dataSeriesIndex, std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const {
 	// for each CI group that uses this gamma: add start
 	for (const auto CI_index : _CI_indices_per_gamma[curGamma]) {
-		// find first epoch that uses this gamma
-		for (size_t e = 0; e < _numEpochs; ++e) {                           // loop over all epochs
-			if (_gamma_ix_per_CIgroup_and_epoch[CI_index][e] == curGamma) { // found it!
-				_augmentYWithOLSEstimatesStart(curGamma, e, Beta, y, t, dataSeriesIndex, l_to_ij);
-				// for one CI group: even if a gamma applies to multiple epochs, we only care about the first epoch
-				break;
+		for (size_t e = 1; e < _numEpochs; ++e) { // loop over all epochs (but skip first one: there is no previous)
+			if (_gamma_ix_per_CIgroup_and_epoch[CI_index][e] != curGamma ||
+			    _gamma_ix_per_CIgroup_and_epoch[CI_index][e - 1] == curGamma) {
+				// skip epoch if gamma_ix is not relevant or if previous epoch uses the same gamma
+				continue;
 			}
+			// previous epoch uses a different gamma -> augment it!
+			_augmentYWithOLSEstimatesStart(curGamma, CI_index, e, Beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch);
 		}
 	}
 }
 
-void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curGamma, size_t epoch, const arma::vec &Beta,
+void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, size_t epoch, const arma::vec &Beta,
                                              std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
                                              std::vector<std::vector<size_t>> &dataSeriesIndex,
-                                             std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const {
-	// last epoch: no need to augment next epoch since there is none
-	if (epoch == _numEpochs - 1) { return; }
+                                             std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+                                             std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const {
 	const TypeTime epochEnd = _epochStarts[epoch + 1];
 
-	for (size_t l = 0; l < l_to_ij[curGamma].size(); ++l) {                 // loop over all dataseries
-		for (size_t otherGamma = 0; otherGamma < _numGamma; ++otherGamma) { // loop over all other gamma
-			if (otherGamma == curGamma) { continue; }
-			if (_dontAugmentDataSeries(l_to_ij, dataSeriesIndex, t, l, curGamma, otherGamma, epochEnd)) { continue; }
+	for (size_t otherGamma = 0; otherGamma < _numGamma; ++otherGamma) { // loop over all other gamma
+		if (otherGamma == curGamma) { continue; }               // no need to augment curGamma: this was just estimated
+		for (size_t l = 0; l < l_to_ij[curGamma].size(); ++l) { // loop over all intercepts that were estimated
+			if (_dontAugmentDataSeries(l_to_ij, l_to_CI_epoch, dataSeriesIndex, t, CI_index, epoch, l, curGamma,
+			                           otherGamma, epochEnd)) {
+				continue;
+			}
 
 			const auto alpha_l = Beta(l);
 			const auto y_end   = alpha_l + (double)epochEnd * _gamma[curGamma];
-			// epoch end does not correspond to an existing timepoint -> augment data with y_start
+			// augment
 			y[otherGamma].push_back(y_end);
 			t[otherGamma].emplace_back(epochEnd);
-			_augmentDataSeriesIndexWithOLSEstimates(l_to_ij, l, dataSeriesIndex, curGamma, otherGamma);
+			_augmentDataSeriesIndexWithOLSEstimates(l_to_ij, l_to_CI_epoch, l, dataSeriesIndex, curGamma, otherGamma);
 		}
 	}
 }
 
-void TOLSGamma::_augmentYWithOLSEstimatesEnd_All(size_t curGamma, const arma::vec &Beta,
-                                                 std::vector<std::vector<double>> &y,
-                                                 std::vector<std::vector<TypeTime>> &t,
-                                                 std::vector<std::vector<size_t>> &dataSeriesIndex,
-                                                 std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const {
+void TOLSGamma::_augmentYWithOLSEstimatesEnd_All(
+    size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
+    std::vector<std::vector<size_t>> &dataSeriesIndex, std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const {
 	// for each CI group that uses this gamma: add end
 	for (const auto CI_index : _CI_indices_per_gamma[curGamma]) {
-		// for one CI group: even if a gamma applies to multiple epochs, we only care about the last epoch
-		size_t lastEpoch = 0;
-		for (size_t e = 0; e < _numEpochs; ++e) {
-			if (_gamma_ix_per_CIgroup_and_epoch[CI_index][e] == curGamma) { lastEpoch = e; }
+		for (size_t e = 0; e < _numEpochs - 1; ++e) { // loop over all epochs (but skip last one: there is no next)
+			_augmentYWithOLSEstimatesEnd(curGamma, CI_index, e, Beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch);
 		}
-		_augmentYWithOLSEstimatesEnd(curGamma, lastEpoch, Beta, y, t, dataSeriesIndex, l_to_ij);
 	}
 }
 
-bool TOLSGamma::_gammaIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
-                                     const std::vector<size_t> &dataSeriesIndex,
+bool TOLSGamma::_gammaIsIdentifiable(size_t L, const std::vector<size_t> &dataSeriesIndex,
                                      const std::vector<bool> &AllDataPointsAreZero) {
-	for (size_t l = 0; l < L; ++l) { // loop over all possible data series
-		// count the number of occurrences of that particular data series (method/location combination) for the current
-		// gamma
+	for (size_t l = 0; l < L; ++l) { // loop over all possible group-epoch-i-j combinations
+		// count the number of occurrences of that particular l for the current gamma
 		size_t counter_l = 0;
-		for (size_t r = 0; r < t.size(); ++r) { // loop over all data of current gamma
-			if (dataSeriesIndex[r] == l) { ++counter_l; }
+		for (auto r : dataSeriesIndex) {
+			if (r == l) { ++counter_l; }
 		}
 		if (counter_l >= 2 && !AllDataPointsAreZero[l]) { return true; }
 	}
 	return false;
 }
 
-bool TOLSGamma::_gammaIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
-                                                           const std::vector<size_t> &dataSeriesIndex,
+bool TOLSGamma::_gammaIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<size_t> &dataSeriesIndex,
                                                            const std::vector<size_t> &numDataPointsWithZeroCounts) {
 	if (numDataPointsWithZeroCounts.empty()) { return false; } // no data points at all!
 
-	for (size_t l = 0; l < L; ++l) { // loop over all possible data series
-		// count the number of occurrences of that particular data series (method/location combination) in the
-		// current epoch
+	for (size_t l = 0; l < L; ++l) { // loop over all possible group-epoch-i-j combinations
+		// count the number of occurrences of that l for the current gamma
 		size_t counter_l = 0;
-		for (size_t r = 0; r < t.size(); ++r) { // loop over all data of current epoch
-			if (dataSeriesIndex[r] == l) { ++counter_l; }
+		for (auto r : dataSeriesIndex) {
+			if (r == l) { ++counter_l; }
 		}
 		// add the number of data points that have zero counts for that particular data series
 		counter_l += numDataPointsWithZeroCounts[l];
@@ -297,27 +320,29 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
                                                     size_t SpeciesID, const TUniqueContainer<std::string> &GammaNames) {
 	logfile().startIndent("Estimating initial gamma with OLS:");
 
-	// fill response variable y
+	// fill response variable y and other indicator vectors
 	std::vector<std::vector<double>> y(_numGamma);
 	std::vector<std::vector<TypeTime>> t(_numGamma);
 	std::vector<std::vector<size_t>> dataSeriesIndex(_numGamma);
 	std::vector<std::vector<std::pair<size_t, size_t>>> l_to_ij(_numGamma);
+	std::vector<std::vector<std::pair<size_t, size_t>>> l_to_CI_epoch(_numGamma);
 	std::vector<std::vector<size_t>> numDataPointsWithZeroCounts(_numGamma);
 	std::vector<std::vector<bool>> allDataPointsAreZero(_numGamma);
-
 	for (size_t ix = 0; ix < _numGamma; ++ix) {
-		std::tie(y[ix], t[ix], dataSeriesIndex[ix], l_to_ij[ix], numDataPointsWithZeroCounts[ix],
+		std::tie(y[ix], t[ix], dataSeriesIndex[ix], l_to_ij[ix], l_to_CI_epoch[ix], numDataPointsWithZeroCounts[ix],
 		         allDataPointsAreZero[ix]) = _get_Y_ix(Data, Timepoints, ix, SpeciesID);
 	}
+
 	std::vector<bool> gammaInitialized(_numGamma, false);
 	while (std::accumulate(gammaInitialized.begin(), gammaInitialized.end(), 0U) < _numGamma) {
-		// 1) find gamma that contains the most data points per degree of freedom (= number of parameters = L + 1)
+		// 1) find gamma that contains the most data points per degree of freedom (= number of parameters =
+		// L + 1)
 		size_t curGamma = _getNextGammaToInitialize(gammaInitialized, y, l_to_ij);
 		logfile().listFlush("Gamma ", GammaNames[curGamma], ":");
 
-		// 2) we need at least one data series (method-location combination) with at least 2 timepoints
+		// 2) we need at least one group-epoch-i-j combination with at least 2 timepoints
 		const size_t L = l_to_ij[curGamma].size();
-		if (_gammaIsIdentifiable(L, t[curGamma], dataSeriesIndex[curGamma], allDataPointsAreZero[curGamma])) {
+		if (_gammaIsIdentifiable(L, dataSeriesIndex[curGamma], allDataPointsAreZero[curGamma])) {
 			// 3) estimate intercept and gamma with OLS
 			auto beta        = _doOLS(y[curGamma], t[curGamma], dataSeriesIndex[curGamma], L);
 			_gamma[curGamma] = beta(L);
@@ -326,11 +351,11 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 			_gamma[curGamma] = std::max(_gamma[curGamma], -1.0);
 
 			// 4) calculate y_start and y_end and add it to existing data
-			_augmentYWithOLSEstimatesStart_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij);
-			_augmentYWithOLSEstimatesEnd_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij);
+			_augmentYWithOLSEstimatesStart_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch);
+			_augmentYWithOLSEstimatesEnd_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch);
 		} else {
 			// check if gamma would be identifiable but isn't because we excluded counts = 0 for OLS
-			if (_gammaIsNotIdentifiableBecauseOfZeroCounts(L, t[curGamma], dataSeriesIndex[curGamma],
+			if (_gammaIsNotIdentifiableBecauseOfZeroCounts(L, dataSeriesIndex[curGamma],
 			                                               numDataPointsWithZeroCounts[curGamma])) {
 				// set gamma to zero: identifiable for MCMC, but not for OLS
 				// don't augment y_start and y_end: not a reliable estimate of gamma
@@ -343,10 +368,11 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 		}
 
 		gammaInitialized[curGamma] = true;
-		logfile().flush(" initial gamma = ", _gamma[curGamma], "!");
+		logfile().flush(" initial value = ", _gamma[curGamma], "!");
 		logfile().newLine();
 	}
 	logfile().endIndent();
+
 	return _gamma;
 }
 
@@ -379,8 +405,8 @@ void TGamma::_readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints,
 	if (parameters().exists("timesOfChange")) {
 		_fillTimesOfChange(Timepoints, Prefix);
 	} else {
-		logfile().list(
-		    "Will assume a single epoch without any times of change (use argument 'timesOfChange' to change).");
+		logfile().list("Will assume a single epoch without any times of change (use argument "
+		               "'timesOfChange' to change).");
 		_numEpochs = 1;
 	}
 
@@ -478,7 +504,11 @@ void TGamma::_fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGrou
 
 			_gamma_ix_per_CIgroup_and_epoch[group_id][m] = ix; // store gamma index for current group and epoch
 			if (ix < _CI_indices_per_gamma.size()) {           // gamma index already exists -> append group index
-				_CI_indices_per_gamma[ix].push_back(group_id);
+				// if that group is already present in gamma_ix: don't append
+				if (std::find(_CI_indices_per_gamma[ix].begin(), _CI_indices_per_gamma[ix].end(), group_id) ==
+				    _CI_indices_per_gamma[ix].end()) {
+					_CI_indices_per_gamma[ix].push_back(group_id);
+				}
 			} else if (ix == _CI_indices_per_gamma.size()) { // new gamma index (+1 of previous) -> append new index
 				_CI_indices_per_gamma.push_back({group_id});
 			} else {

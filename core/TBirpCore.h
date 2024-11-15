@@ -50,6 +50,7 @@ protected:
 	std::vector<std::string> _getMethodspecificHeader(const TMethods &method);
 	void _writeFile(const std::string &Name);
 	void _writeTimePoints();
+	void _writeCIGroups();
 
 	void _clear();
 

@@ -56,6 +56,7 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	// write filtered counts
 	_writeFile("filtered");
 	_writeTimePoints();
+	_writeCIGroups();
 
 	logfile().endIndent();
 }
@@ -438,6 +439,11 @@ void TBirpCore::_writeFile(const std::string &Name) {
 void TBirpCore::_writeTimePoints() {
 	coretools::TOutputMaybeRcppFile file(_outname + "_timepoints.txt", {"timepoints"});
 	for (auto it : _timepoints) { file << it << coretools::endl; }
+}
+
+void TBirpCore::_writeCIGroups() {
+	coretools::TOutputMaybeRcppFile file(_outname + "_CI_groups.txt", {"CI_groups"});
+	for (auto it : _CIGroupNames) { file << it << coretools::endl; }
 }
 
 void TBirpCore::_fillTimepointsFromCommandLine() {

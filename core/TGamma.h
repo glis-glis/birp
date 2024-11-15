@@ -30,41 +30,49 @@ private:
 	size_t _numEpochs = 0;
 	std::vector<TypeTime> _epochStarts;
 
-	bool _timePointIsRelevant(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t CI_index, size_t ix) const;
+	bool _timePointIsRelevant(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t e) const;
+	auto _loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
+	                         size_t i, size_t j_in_method, size_t e, size_t L, std::vector<double> &y_ix,
+	                         std::vector<TypeTime> &t_ix, std::vector<size_t> &dataSeriesIndex) const;
 	size_t _getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
 	                                 const std::vector<std::vector<double>> &y,
 	                                 const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
 	auto _get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID) const;
 	static arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
 	                        const std::vector<size_t> &DataSeriesIndex, size_t L);
-	void _augmentYWithOLSEstimatesStart(size_t curGamma, size_t epoch, const arma::vec &Beta,
+	void _augmentYWithOLSEstimatesStart(size_t curGamma, size_t CI_index, size_t epoch, const arma::vec &Beta,
 	                                    std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
 	                                    std::vector<std::vector<size_t>> &dataSeriesIndex,
-	                                    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
+	                                    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+	                                    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const;
 	void _augmentYWithOLSEstimatesStart_All(size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y,
 	                                        std::vector<std::vector<TypeTime>> &t,
 	                                        std::vector<std::vector<size_t>> &dataSeriesIndex,
-	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
-	void _augmentYWithOLSEstimatesEnd(size_t curGamma, size_t epoch, const arma::vec &Beta,
+	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const;
+	void _augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, size_t epoch, const arma::vec &Beta,
 	                                  std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
 	                                  std::vector<std::vector<size_t>> &dataSeriesIndex,
-	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
+	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const;
 	void _augmentYWithOLSEstimatesEnd_All(size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y,
 	                                      std::vector<std::vector<TypeTime>> &t,
 	                                      std::vector<std::vector<size_t>> &dataSeriesIndex,
-	                                      std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
-	static void _augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-	                                                    size_t l, std::vector<std::vector<size_t>> &dataSeriesIndex,
-	                                                    size_t curGamma, size_t otherGamma);
+	                                      std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+	                                      std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const;
+	static void
+	_augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
+	                                        size_t l, std::vector<std::vector<size_t>> &dataSeriesIndex,
+	                                        size_t curGamma, size_t otherGamma);
 	static bool _dontAugmentDataSeries(const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+	                                   const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
 	                                   const std::vector<std::vector<size_t>> &dataSeriesIndex,
-	                                   const std::vector<std::vector<TypeTime>> &t, size_t l, size_t curEpoch,
-	                                   size_t otherEpoch, TypeTime EpochBorder);
-	static bool _gammaIsIdentifiable(size_t L, const std::vector<TypeTime> &t,
-	                                 const std::vector<size_t> &dataSeriesIndex,
+	                                   const std::vector<std::vector<TypeTime>> &t, size_t CI_index, size_t epoch,
+	                                   size_t l, size_t curGamma, size_t otherGamma, TypeTime EpochBorder);
+	static bool _gammaIsIdentifiable(size_t L, const std::vector<size_t> &dataSeriesIndex,
 	                                 const std::vector<bool> &AllDataPointsAreZero);
-	static bool _gammaIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<TypeTime> &t,
-	                                                       const std::vector<size_t> &dataSeriesIndex,
+	static bool _gammaIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<size_t> &dataSeriesIndex,
 	                                                       const std::vector<size_t> &numDataPointsWithZeroCounts);
 
 public:
