@@ -300,7 +300,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
 	// check if file contains information about CI group
 	bool has_CI_groups = std::find(file.header().begin(), file.header().end(), "CI_group") != file.header().end();
-	if (!has_CI_groups) { _CIGroupNames.add(""); }
+	if (!has_CI_groups) { _CIGroupNames.add("Group_0"); }
 
 	for (; !file.empty(); file.popFront()) {
 		std::string location = (std::string)file.get("location");
