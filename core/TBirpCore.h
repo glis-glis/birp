@@ -51,6 +51,7 @@ protected:
 	void _writeFile(const std::string &Name);
 	void _writeTimePoints();
 	void _writeCIGroups();
+	void _writeInference();
 
 	void _clear();
 

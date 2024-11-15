@@ -53,11 +53,6 @@ void TBirpCore::_readForInference(bool hasCounts) {
 	_sortTimepoints();
 	_data.fillMethLocIndices(_speciesNames.size(), _locations, _CIGroupNames);
 
-	// write filtered counts
-	_writeFile("filtered");
-	_writeTimePoints();
-	_writeCIGroups();
-
 	logfile().endIndent();
 }
 
@@ -366,6 +361,9 @@ std::map<std::string, std::string> TBirpCore::_runMCMC(bool Stochastic,
 	// tell model to write gamma summaries to file
 	model.writeSummaryGammaPosterior(_outname);
 
+	// also write filtered counts etc
+	_writeInference();
+
 	// get initial values for stochastic, if needed
 	return model.getFinalValues();
 }
@@ -434,6 +432,12 @@ void TBirpCore::_writeFile(const std::string &Name) {
 		coretools::TOutputMaybeRcppFile outfile(Filename, header);
 		method.write(outfile, _locations, _timepoints, _CIGroupNames);
 	}
+}
+
+void TBirpCore::_writeInference(){
+	_writeFile("filtered");
+	_writeTimePoints();
+	_writeCIGroups();
 }
 
 void TBirpCore::_writeTimePoints() {
