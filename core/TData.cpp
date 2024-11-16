@@ -333,8 +333,17 @@ TMethods::TMethods(std::string methodName, size_t locationSize, size_t Timepoint
 	_locations.reserve(locationSize);
 	for (size_t i = 0; i < locationSize; i++) {
 		size_t group_id;
-		if (Data.size() == 0) { // draw CI group randomly if location does not exist yet (first method)
-			group_id = randomGenerator().getRand(0UL, NumCIGroups);
+		if (Data.size() == 0) { // first method: location does not yet exist
+			if (parameters().exists("CI_group_per_location")) {
+				if (i >= NumCIGroups) {
+					UERROR("More locations (", locationSize, ") than CI groups (", NumCIGroups,
+					       ") (argument 'CI_group_per_location').");
+				}
+				group_id = i;
+			} else {
+				// draw CI group randomly
+				group_id = randomGenerator().getRand(0UL, NumCIGroups);
+			}
 		} else { // else match CI group of location of previous method
 			group_id = Data[Data.size() - 1][i].group_id();
 		}
