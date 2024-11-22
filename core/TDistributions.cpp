@@ -27,12 +27,12 @@ double TPoissonDistribution::calculateLL(const std::vector<double> & /*sigma*/, 
 	return LL;
 }
 
-void TPoissonDistribution::simulate(TData &Data, const TModelBase &Model, const std::vector<double> &n_bar,
+void TPoissonDistribution::simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n,
                                     bool SimulateCovariates) {
 
 	for (size_t i = 0; i < Data.size(); ++i) {
 		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
-		Data[i].simulatePoisson(n_bar[i], Model, SimulateCovariates);
+		Data[i].simulatePoisson(use_n_bar, n, Model, SimulateCovariates);
 	}
 }
 
@@ -303,7 +303,7 @@ std::vector<double> TNegBinDistribution::_readAFromCommandLine(const TData &Data
 	return a;
 }
 
-void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model, const std::vector<double> &n_bar,
+void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n,
                                    bool SimulateCovariates) {
 	// read a that should be used for simulation
 	auto a = _readAFromCommandLine(Data);
@@ -312,7 +312,7 @@ void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model, const s
 		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
 
 		// simulate counts
-		const double u_i = Data[i].simulateNB(n_bar[i], Model, a[i], SimulateCovariates);
+		const double u_i = Data[i].simulateNB(use_n_bar, n, Model, a[i], SimulateCovariates);
 
 		// set b accordingly: b_i = a_i / (J * u_i)
 		const double b_i = a[i] / ((double)Data[i].size() * u_i);

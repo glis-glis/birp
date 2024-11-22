@@ -177,8 +177,8 @@ double TTimepoints::calculatePhiEffort(double phi) {
 	return lambda;
 }
 
-void TTimepoints::simulatePoisson(double u, double phi) {
-	coretools::Positive lambda = u * phi * _effort;
+void TTimepoints::simulatePoisson(double N, double phi) {
+	coretools::Positive lambda = N * phi * _effort;
 
 	if (lambda == 0.0) {
 		_counts_per_species[0] = 0;
@@ -187,9 +187,9 @@ void TTimepoints::simulatePoisson(double u, double phi) {
 	}
 }
 
-void TTimepoints::simulateNB(double phi, double a, double u) {
+void TTimepoints::simulateNB(double phi, double a, double N) {
 	// first draw lambda from a Gamma distr and then from there draw counts from Pois
-	double alpha           = u * phi * _effort / a;
+	double alpha           = N * phi * _effort / a;
 	double beta            = 1.0 / a;
 	double lambda          = randomGenerator().getGammaRand(alpha, beta);
 	_counts_per_species[0] = randomGenerator().getPoissonRandom(lambda);
@@ -295,15 +295,15 @@ void TLocations::resetBetaEffort() {
 	for (auto &timepoint : _timepoints) { timepoint.resetBetaEffort(); }
 }
 
-void TLocations::simulatePoisson(double u, const TModelBase &Model) {
+void TLocations::simulatePoisson(double N, const TModelBase &Model) {
 	for (auto &timepoint : _timepoints) {
-		timepoint.simulatePoisson(u, Model.phi(location_id(), timepoint.timepoint_id(), group_id()));
+		timepoint.simulatePoisson(N, Model.phi(location_id(), timepoint.timepoint_id(), group_id()));
 	}
 }
 
-void TLocations::simulateNB(const TModelBase &Model, double a, double u) {
+void TLocations::simulateNB(const TModelBase &Model, double a, double N) {
 	for (auto &timepoint : _timepoints) {
-		timepoint.simulateNB(Model.phi(location_id(), timepoint.timepoint_id(), group_id()), a, u);
+		timepoint.simulateNB(Model.phi(location_id(), timepoint.timepoint_id(), group_id()), a, N);
 	}
 }
 
@@ -762,36 +762,38 @@ double TMethods::_calculateU_i(double n_i_bar, const TModelBase &Model) {
 	return u_i;
 }
 
-void TMethods::simulatePoisson(double n_i_bar, const TModelBase &Model, bool SimulateCovariates) {
+void TMethods::simulatePoisson(bool use_n_bar, double n, const TModelBase &Model, bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalize(_alpha->getFull());
 	_setValuesForSingleCovariate();
 
 	if (SimulateCovariates) { _simulateCovariates(); }
 
-	// calculate scaling factor u_i
-	const double u_i = _calculateU_i(n_i_bar, Model);
+	// calculate scaling factor
+	double N = n;
+	if (use_n_bar) { N = _calculateU_i(n, Model); }
 
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
-		_locations[j].simulatePoisson(u_i, Model);
+		_locations[j].simulatePoisson(N, Model);
 	}
 }
 
-double TMethods::simulateNB(double n_i_bar, const TModelBase &Model, double a, bool SimulateCovariates) {
+double TMethods::simulateNB(bool use_n_bar, double n, const TModelBase &Model, double a, bool SimulateCovariates) {
 	// simulate covariates, if necessary
 	_alpha->normalize(_alpha->getFull());
 	_setValuesForSingleCovariate();
 
 	if (SimulateCovariates) { _simulateCovariates(); }
 
-	// calculate scaling factor u_i
-	const double u_i = _calculateU_i(n_i_bar, Model);
+	// calculate scaling factor (only if n_bar was provided)
+	double N = n;
+	if (use_n_bar) { N = _calculateU_i(n, Model); }
 
 	for (size_t j = 0; j < size(); j++) { // loop over all locations
-		_locations[j].simulateNB(Model, a, u_i);
+		_locations[j].simulateNB(Model, a, N);
 	}
 
-	return u_i;
+	return N;
 }
 
 void TMethods::write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,

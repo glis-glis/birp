@@ -95,10 +95,10 @@ public:
 	double calculatePhiEffort(double phi);
 
 	// functions for simulating under Poisson model
-	void simulatePoisson(double u, double phi);
+	void simulatePoisson(double N, double phi);
 
 	// functions for simulating under Negative Binomial model
-	void simulateNB(double phi, double a, double u);
+	void simulateNB(double phi, double a, double N);
 };
 
 //-------------------------------------------
@@ -156,10 +156,10 @@ public:
 	}
 
 	// functions for simulating under Poisson model
-	void simulatePoisson(double u, const TModelBase &Model);
+	void simulatePoisson(double N, const TModelBase &Model);
 
 	// functions for simulating under Negative Binomial model
-	void simulateNB(const TModelBase &Model, double a, double u);
+	void simulateNB(const TModelBase &Model, double a, double N);
 };
 
 //-------------------------------------------
@@ -290,9 +290,9 @@ public:
 	void updateAlphaBeta(const TData &Data, const std::vector<std::unique_ptr<TModelBase>> &Models);
 
 	// functions for simulating
-	void simulatePoisson(double n_bar, const TModelBase &Model, bool SimulateCovariates);
+	void simulatePoisson(bool use_n_bar, double n, const TModelBase &Model, bool SimulateCovariates);
 
-	double simulateNB(double n_bar, const TModelBase &Model, double A, bool SimulateCovariates);
+	double simulateNB(bool use_n_bar, double n, const TModelBase &Model, double A, bool SimulateCovariates);
 
 	// writing
 	void write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,

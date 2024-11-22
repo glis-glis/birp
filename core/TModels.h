@@ -39,7 +39,7 @@ protected:
 	                             TBirpPrior *BirpPrior);
 	void _estimateInitialParameters(const TData &Data);
 	void _updateDistributionParameters(const TData &Data);
-	void _simulateDistributionParameters(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates);
+	void _simulateDistributionParameters(TData &Data, bool use_n_bar, double n, bool SimulateCovariates);
 	void _initializeLL(const TData &Data);
 	void _updateTryLL(const TData &Data, size_t index_in_counts, size_t ix_method, size_t j_in_method);
 
@@ -53,7 +53,7 @@ public:
 	virtual void estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) = 0;
 	virtual void initializeTempVariables(const TData &Data)                                       = 0;
 	virtual void update(const TData &Data)                                                        = 0;
-	virtual void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) = 0;
+	virtual void simulate(TData &Data, bool use_n_bar, double n, bool SimulateCovariates)         = 0;
 
 	// calculate sigma
 	[[nodiscard]] std::vector<double> calculateSigma(const TLocations &loc) const;
@@ -115,7 +115,7 @@ public:
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
-	void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) override;
+	void simulate(TData &Data, bool use_n_bar, double n_bar, bool SimulateCovariates) override;
 
 	[[nodiscard]] TypePhi phi(size_t location_id, size_t timepoint_id, size_t CI_index) const override;
 	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k, size_t CI_index) const override;
@@ -171,7 +171,7 @@ public:
 	void initializeTempVariables(const TData &Data) override;
 	void update(const TData &Data) override;
 
-	void simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) override;
+	void simulate(TData &Data, bool use_n_bar, double n_bar, bool SimulateCovariates) override;
 
 	[[nodiscard]] TypePhi phi(size_t location_id, size_t timepoint_k, size_t CI_index) const override;
 	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k, size_t CI_index) const override;

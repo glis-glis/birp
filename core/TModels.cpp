@@ -32,9 +32,9 @@ void TModelBase::_estimateInitialParameters(const TData &Data) { _distr->estimat
 
 void TModelBase::_updateDistributionParameters(const TData &Data) { _distr->update(Data, *this); }
 
-void TModelBase::_simulateDistributionParameters(TData &Data, const std::vector<double> &n_bar,
+void TModelBase::_simulateDistributionParameters(TData &Data, bool use_n_bar, double n,
                                                  bool SimulateCovariates) {
-	_distr->simulate(Data, *this, n_bar, SimulateCovariates);
+	_distr->simulate(Data, *this, use_n_bar, n, SimulateCovariates);
 }
 
 std::vector<double> TModelBase::calculateSigma(const TLocations &loc) const {
@@ -332,10 +332,10 @@ void TDeterministic::update(const TData &Data) {
 	_gamma.updateSummaryGammaPosterior();
 }
 
-void TDeterministic::simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) {
+void TDeterministic::simulate(TData &Data, bool use_n_bar, double n, bool SimulateCovariates) {
 	_gamma.setSimulatedGammaToZero();
 	for (size_t i = 0; i < _gamma.numCIGroups(); ++i) { _fillPhi(i); }
-	_simulateDistributionParameters(Data, n_bar, SimulateCovariates);
+	_simulateDistributionParameters(Data, use_n_bar, n, SimulateCovariates);
 }
 
 // write posterior summaries of gamma's
@@ -561,7 +561,7 @@ void TStochastic::update(const TData &Data) {
 	if (_logSigma->isUpdated()) { _updateLogSigma(Data); }
 }
 
-void TStochastic::simulate(TData &Data, const std::vector<double> &n_bar, bool SimulateCovariates) {
+void TStochastic::simulate(TData &Data, bool use_n_bar, double n, bool SimulateCovariates) {
 
 	// simulate gamma
 	_prior.setSimulatedGammaToZero();
@@ -581,7 +581,7 @@ void TStochastic::simulate(TData &Data, const std::vector<double> &n_bar, bool S
 		}
 	}
 
-	_simulateDistributionParameters(Data, n_bar, SimulateCovariates);
+	_simulateDistributionParameters(Data, use_n_bar, n, SimulateCovariates);
 }
 
 coretools::StrictlyPositive TStochastic::phi(size_t j, size_t k, size_t /*CI_index*/) const {

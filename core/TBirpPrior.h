@@ -34,7 +34,6 @@ protected:
 	std::string _out;
 
 	// simulate values
-	std::vector<double> _readNBarFromCommandLine() const;
 	void _simulateUnderPrior(Storage *Data) override;
 
 public:

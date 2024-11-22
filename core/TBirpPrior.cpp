@@ -29,9 +29,9 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 	// create models
 	size_t speciesID = 0;
 	if (StochasticAddOn) {
-		_models.emplace_back(std::make_unique<TStochastic>(speciesID, Data, Locations.size(), TimePoints.size(),
-		                                                   NegBinomAddOn, &CommonModel.gamma, &StochasticAddOn->logPhi,
-		                                                   &StochasticAddOn->logSigma, _timepoints, _CIGroupNames, _out));
+		_models.emplace_back(std::make_unique<TStochastic>(
+		    speciesID, Data, Locations.size(), TimePoints.size(), NegBinomAddOn, &CommonModel.gamma,
+		    &StochasticAddOn->logPhi, &StochasticAddOn->logSigma, _timepoints, _CIGroupNames, _out));
 	} else {
 		_models.emplace_back(std::make_unique<TDeterministic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
 		                                                      _timepoints, _CIGroupNames, _out));
@@ -89,30 +89,22 @@ void TBirpPrior::writeSummaryGammaPosterior(const std::string &Prefix) {
 //------------------------------------
 // Simulations
 
-std::vector<double> TBirpPrior::_readNBarFromCommandLine() const {
-	std::vector<double> n_bar;
-	std::vector<double> n_bar_default = {1000.0};
-	parameters().fill("n_bar", n_bar, n_bar_default);
-	if (n_bar.size() == 1) {
-		n_bar.resize(_data.size(), n_bar[0]); // same for all methods
-	}
-	if (n_bar.size() != _data.size()) {
-		UERROR("Size of n_bar (", n_bar.size(), ") does not match the number of methods (", _data.size(), ")!");
-	}
-	logfile().list("N_bar = ", n_bar, " (argument 'n_bar').");
-	return n_bar;
-}
-
 void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called when simulated
 	// first calculate effort
 	for (auto &method : _data) { method.initializeEffort(); }
 
-	auto n_bar = _readNBarFromCommandLine();
-
 	// do we need to simulate covariates?
 	bool simulateCovariates = !parameters().exists("simulationFile");
 
-	for (const auto &model : _models) { model->simulate(_data, n_bar, simulateCovariates); }
+	// read N_0 or n_bar
+	bool use_n_bar = true;
+	double n       = parameters().get("n_bar", 1000.0);
+	if (parameters().exists("N_0")) {
+		n         = parameters().get<double>("N_0");
+		use_n_bar = false;
+	}
+
+	for (size_t i = 0; i < _numSpecies; ++i) { _models[i]->simulate(_data, use_n_bar, n, simulateCovariates); }
 }
 
 //------------------------------------
