@@ -73,20 +73,20 @@ void TTimepoints::_standardizeCovariatesDetection(const std::vector<coretools::T
 	}
 }
 
-void TTimepoints::_standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate) {
+void TTimepoints::_standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate, size_t NumTimepoints) {
 	assert(!_covariatesEffort.empty()); // should always have at least one effort covariate
 
 	// standardize effort covariates such that they sum to one
 	for (size_t c = 0; c < _covariatesEffort.size(); ++c) {
-		_covariatesEffort[c] = _covariatesEffort[c] / SumsPerCovariate[c];
+		_covariatesEffort[c] = _covariatesEffort[c] / SumsPerCovariate[c] * (double)NumTimepoints;
 	}
 }
 
 void TTimepoints::standardizeCovariates(const std::vector<coretools::TMeanVar<double>> &MeanVar,
                                         const std::vector<double> &SumsPerCovariate,
-                                        bool AssumeTrueDetectionProbability) {
+                                        bool AssumeTrueDetectionProbability, size_t NumTimepoints) {
 	_standardizeCovariatesDetection(MeanVar, AssumeTrueDetectionProbability);
-	_standardizeCovariatesEffort(SumsPerCovariate);
+	_standardizeCovariatesEffort(SumsPerCovariate, NumTimepoints);
 }
 
 double TTimepoints::_calculateEffortTerm(const std::shared_ptr<TypeParamAlpha> &Alpha) {
@@ -476,7 +476,7 @@ void TMethods::standardizeCovariates() {
 
 	// now standardize
 	for (auto &loc : _locations) {
-		for (auto &timepoint : loc) { timepoint.standardizeCovariates(meanVar, sum, assumeTrueDetectionProbability()); }
+		for (auto &timepoint : loc) { timepoint.standardizeCovariates(meanVar, sum, assumeTrueDetectionProbability(), loc.size()); }
 	}
 }
 

@@ -39,7 +39,7 @@ private:
 	// covariates
 	void _standardizeCovariatesDetection(const std::vector<coretools::TMeanVar<double>> &MeanVar,
 	                                     bool AssumeTrueDetectionProbability);
-	void _standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate);
+	void _standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate, size_t NumTimepoints);
 	double _calculateEffortTerm(const std::shared_ptr<TypeParamAlpha> &Alpha);
 	double _calculateDetectionTerm(const std::shared_ptr<TypeParamBeta> &Beta0,
 	                               const std::shared_ptr<TypeParamBeta> &Beta);
@@ -59,7 +59,8 @@ public:
 	void setCovariateEffort(size_t c, TypeCovariateEffort Covariate);
 	void setCovariateDetection(size_t c, TypeCovariateDetection Covariate);
 	void standardizeCovariates(const std::vector<coretools::TMeanVar<double>> &MeanVar,
-	                           const std::vector<double> &SumsPerCovariate, bool AssumeTrueDetectionProbability);
+	                           const std::vector<double> &SumsPerCovariate, bool AssumeTrueDetectionProbability,
+	                           size_t NumTimepoints);
 
 	void write(coretools::TOutputMaybeRcppFile &File, std::string location,
 	           const TUniqueContainer<TypeTime> &Timepoints, const std::string &CIGroupName) const;
