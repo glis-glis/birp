@@ -73,20 +73,23 @@ void TTimepoints::_standardizeCovariatesDetection(const std::vector<coretools::T
 	}
 }
 
-void TTimepoints::_standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate, size_t NumTimepoints) {
+void TTimepoints::_standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate, size_t NumTimepoints,
+                                               size_t NumLocations) {
 	assert(!_covariatesEffort.empty()); // should always have at least one effort covariate
 
 	// standardize effort covariates such that they sum to one
 	for (size_t c = 0; c < _covariatesEffort.size(); ++c) {
-		_covariatesEffort[c] = _covariatesEffort[c] / SumsPerCovariate[c] * (double)NumTimepoints;
+		_covariatesEffort[c] =
+		    _covariatesEffort[c] / SumsPerCovariate[c] * (double)NumTimepoints * (double)NumLocations;
 	}
 }
 
 void TTimepoints::standardizeCovariates(const std::vector<coretools::TMeanVar<double>> &MeanVar,
                                         const std::vector<double> &SumsPerCovariate,
-                                        bool AssumeTrueDetectionProbability, size_t NumTimepoints) {
+                                        bool AssumeTrueDetectionProbability, size_t NumTimepoints,
+                                        size_t NumLocations) {
 	_standardizeCovariatesDetection(MeanVar, AssumeTrueDetectionProbability);
-	_standardizeCovariatesEffort(SumsPerCovariate, NumTimepoints);
+	_standardizeCovariatesEffort(SumsPerCovariate, NumTimepoints, NumLocations);
 }
 
 double TTimepoints::_calculateEffortTerm(const std::shared_ptr<TypeParamAlpha> &Alpha) {
@@ -476,7 +479,10 @@ void TMethods::standardizeCovariates() {
 
 	// now standardize
 	for (auto &loc : _locations) {
-		for (auto &timepoint : loc) { timepoint.standardizeCovariates(meanVar, sum, assumeTrueDetectionProbability(), loc.size()); }
+		for (auto &timepoint : loc) {
+			timepoint.standardizeCovariates(meanVar, sum, assumeTrueDetectionProbability(), loc.size(),
+			                                _locations.size());
+		}
 	}
 }
 
