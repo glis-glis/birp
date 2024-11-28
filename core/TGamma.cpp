@@ -137,13 +137,10 @@ void TOLSGamma::_augmentDataSeriesIndexWithOLSEstimates(
 
 	// check if other gamma already contains this specific combination of i and j for that epoch and CI_index
 	const auto &l_to_ij_other_gamma       = l_to_ij[otherGamma];
-	const auto &l_to_CI_epoch_other_gamma = l_to_CI_epoch[otherGamma];
 	bool found                            = false;
 	for (size_t l_other = 0; l_other < l_to_ij_other_gamma.size(); ++l_other) {
-		if (l_to_ij_other_gamma[l_other].first == i && l_to_ij_other_gamma[l_other].second == j &&
-		    l_to_CI_epoch_other_gamma[l_other].first == CI_index &&
-		    l_to_CI_epoch_other_gamma[l_other].second == epoch) {
-			// method and location at that group and epoch exists in other gamma as well
+		if (l_to_ij_other_gamma[l_other].first == i && l_to_ij_other_gamma[l_other].second == j) {
+			// method and location exists in other gamma as well
 			// -> use that index l to augment dataSeriesIndex
 			// -> no need to augment l_to_ij or l_to_ij_other_gamma since this ij already exists
 			dataSeriesIndex[otherGamma].push_back(l_other);
@@ -151,7 +148,7 @@ void TOLSGamma::_augmentDataSeriesIndexWithOLSEstimates(
 			break;
 		}
 	}
-	// other gamma does not yet contain this specific combination of i and j at that group and epoch
+	// other gamma does not yet contain this specific combination of i and j
 	// -> add a new entry {i, j} to l_to_ij and {CI_index, epoch} to l_to_ij_other_gamma
 	// -> use this new l to augment dataSeriesIndex
 	if (!found) {
