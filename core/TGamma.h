@@ -44,22 +44,26 @@ private:
 	                                    std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
 	                                    std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-	                                    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const;
+	                                    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
+	                                    bool intercept_zero) const;
 	void _augmentYWithOLSEstimatesStart_All(size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y,
 	                                        std::vector<std::vector<TypeTime>> &t,
 	                                        std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const;
+	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
+	                                        bool intercept_zero) const;
 	void _augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, size_t epoch, const arma::vec &Beta,
 	                                  std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
 	                                  std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const;
+	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
+	                                  bool intercept_zero) const;
 	void _augmentYWithOLSEstimatesEnd_All(size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y,
 	                                      std::vector<std::vector<TypeTime>> &t,
 	                                      std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                      std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-	                                      std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const;
+	                                      std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
+	                                      bool intercept_zero) const;
 	static void
 	_augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,

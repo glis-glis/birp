@@ -136,8 +136,8 @@ void TOLSGamma::_augmentDataSeriesIndexWithOLSEstimates(
 	const size_t epoch    = l_to_CI_epoch[curGamma][l].second;
 
 	// check if other gamma already contains this specific combination of i and j for that epoch and CI_index
-	const auto &l_to_ij_other_gamma       = l_to_ij[otherGamma];
-	bool found                            = false;
+	const auto &l_to_ij_other_gamma = l_to_ij[otherGamma];
+	bool found                      = false;
 	for (size_t l_other = 0; l_other < l_to_ij_other_gamma.size(); ++l_other) {
 		if (l_to_ij_other_gamma[l_other].first == i && l_to_ij_other_gamma[l_other].second == j) {
 			// method and location exists in other gamma as well
@@ -184,11 +184,13 @@ bool TOLSGamma::_dontAugmentDataSeries(const std::vector<std::vector<std::pair<s
 	return false;
 }
 
-void TOLSGamma::_augmentYWithOLSEstimatesStart(
-    size_t curGamma, size_t CI_index, size_t epoch, const arma::vec &Beta, std::vector<std::vector<double>> &y,
-    std::vector<std::vector<TypeTime>> &t, std::vector<std::vector<size_t>> &dataSeriesIndex,
-    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const {
+void TOLSGamma::_augmentYWithOLSEstimatesStart(size_t curGamma, size_t CI_index, size_t epoch, const arma::vec &Beta,
+                                               std::vector<std::vector<double>> &y,
+                                               std::vector<std::vector<TypeTime>> &t,
+                                               std::vector<std::vector<size_t>> &dataSeriesIndex,
+                                               std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+                                               std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
+                                               bool intercept_zero) const {
 
 	const TypeTime epochStart = _epochStarts[epoch];
 
@@ -200,7 +202,8 @@ void TOLSGamma::_augmentYWithOLSEstimatesStart(
 				continue;
 			}
 
-			const auto alpha_l = Beta(l);
+			double alpha_l = 0.0;
+			if (!intercept_zero) { alpha_l = Beta(l); }
 			const auto y_start = alpha_l + (double)epochStart * _gamma[curGamma];
 			// augment
 			y[otherGamma].push_back(y_start);
@@ -213,7 +216,7 @@ void TOLSGamma::_augmentYWithOLSEstimatesStart(
 void TOLSGamma::_augmentYWithOLSEstimatesStart_All(
     size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
     std::vector<std::vector<size_t>> &dataSeriesIndex, std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const {
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch, bool intercept_zero) const {
 	// for each CI group that uses this gamma: add start
 	for (const auto CI_index : _CI_indices_per_gamma[curGamma]) {
 		for (size_t e = 1; e < _numEpochs; ++e) { // loop over all epochs (but skip first one: there is no previous)
@@ -223,7 +226,8 @@ void TOLSGamma::_augmentYWithOLSEstimatesStart_All(
 				continue;
 			}
 			// previous epoch uses a different gamma -> augment it!
-			_augmentYWithOLSEstimatesStart(curGamma, CI_index, e, Beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch);
+			_augmentYWithOLSEstimatesStart(curGamma, CI_index, e, Beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
+			                               intercept_zero);
 		}
 	}
 }
@@ -232,7 +236,8 @@ void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, s
                                              std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
                                              std::vector<std::vector<size_t>> &dataSeriesIndex,
                                              std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-                                             std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const {
+                                             std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
+                                             bool intercept_zero) const {
 	const TypeTime epochEnd = _epochStarts[epoch + 1];
 
 	for (size_t otherGamma = 0; otherGamma < _numGamma; ++otherGamma) { // loop over all other gamma
@@ -243,8 +248,9 @@ void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, s
 				continue;
 			}
 
-			const auto alpha_l = Beta(l);
-			const auto y_end   = alpha_l + (double)epochEnd * _gamma[curGamma];
+			double alpha_l = 0.0;
+			if (!intercept_zero) { alpha_l = Beta(l); }
+			const auto y_end = alpha_l + (double)epochEnd * _gamma[curGamma];
 			// augment
 			y[otherGamma].push_back(y_end);
 			t[otherGamma].emplace_back(epochEnd);
@@ -256,11 +262,12 @@ void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, s
 void TOLSGamma::_augmentYWithOLSEstimatesEnd_All(
     size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
     std::vector<std::vector<size_t>> &dataSeriesIndex, std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch) const {
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch, bool intercept_zero) const {
 	// for each CI group that uses this gamma: add end
 	for (const auto CI_index : _CI_indices_per_gamma[curGamma]) {
 		for (size_t e = 0; e < _numEpochs - 1; ++e) { // loop over all epochs (but skip last one: there is no next)
-			_augmentYWithOLSEstimatesEnd(curGamma, CI_index, e, Beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch);
+			_augmentYWithOLSEstimatesEnd(curGamma, CI_index, e, Beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
+			                             intercept_zero);
 		}
 	}
 }
@@ -348,15 +355,21 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 			_gamma[curGamma] = std::max(_gamma[curGamma], -1.0);
 
 			// 4) calculate y_start and y_end and add it to existing data
-			_augmentYWithOLSEstimatesStart_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch);
-			_augmentYWithOLSEstimatesEnd_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch);
+			_augmentYWithOLSEstimatesStart_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch, false);
+			_augmentYWithOLSEstimatesEnd_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch, false);
 		} else {
 			// check if gamma would be identifiable but isn't because we excluded counts = 0 for OLS
 			if (_gammaIsNotIdentifiableBecauseOfZeroCounts(L, dataSeriesIndex[curGamma],
 			                                               numDataPointsWithZeroCounts[curGamma])) {
 				// set gamma to zero: identifiable for MCMC, but not for OLS
-				// don't augment y_start and y_end: not a reliable estimate of gamma
 				_gamma[curGamma] = 0.0;
+
+				// augment with an intercept of zero
+				_augmentYWithOLSEstimatesStart_All(curGamma, arma::vec(), y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
+				                                   true);
+				_augmentYWithOLSEstimatesEnd_All(curGamma, arma::vec(), y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
+				                                 true);
+
 			} else {
 				UERROR(
 				    "Need at least one method-location combination with two or more timepoints for estimating gamma [",
