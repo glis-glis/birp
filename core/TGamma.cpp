@@ -190,7 +190,7 @@ void TOLSGamma::_augmentYWithOLSEstimatesStart(size_t curGamma, size_t CI_index,
                                                std::vector<std::vector<size_t>> &dataSeriesIndex,
                                                std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
                                                std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
-                                               bool intercept_zero) const {
+                                               bool augment_zero) const {
 
 	const TypeTime epochStart = _epochStarts[epoch];
 
@@ -202,9 +202,12 @@ void TOLSGamma::_augmentYWithOLSEstimatesStart(size_t curGamma, size_t CI_index,
 				continue;
 			}
 
-			double alpha_l = 0.0;
-			if (!intercept_zero) { alpha_l = Beta(l); }
-			const auto y_start = alpha_l + (double)epochStart * _gamma[curGamma];
+			double y_start = 0.0;
+			if (!augment_zero) {
+				const double alpha_l = Beta(l);
+				y_start              = alpha_l + (double)epochStart * _gamma[curGamma];
+			}
+
 			// augment
 			y[otherGamma].push_back(y_start);
 			t[otherGamma].emplace_back(epochStart);
@@ -216,7 +219,7 @@ void TOLSGamma::_augmentYWithOLSEstimatesStart(size_t curGamma, size_t CI_index,
 void TOLSGamma::_augmentYWithOLSEstimatesStart_All(
     size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
     std::vector<std::vector<size_t>> &dataSeriesIndex, std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch, bool intercept_zero) const {
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch, bool augment_zero) const {
 	// for each CI group that uses this gamma: add start
 	for (const auto CI_index : _CI_indices_per_gamma[curGamma]) {
 		for (size_t e = 1; e < _numEpochs; ++e) { // loop over all epochs (but skip first one: there is no previous)
@@ -227,7 +230,7 @@ void TOLSGamma::_augmentYWithOLSEstimatesStart_All(
 			}
 			// previous epoch uses a different gamma -> augment it!
 			_augmentYWithOLSEstimatesStart(curGamma, CI_index, e, Beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
-			                               intercept_zero);
+			                               augment_zero);
 		}
 	}
 }
@@ -237,7 +240,7 @@ void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, s
                                              std::vector<std::vector<size_t>> &dataSeriesIndex,
                                              std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
                                              std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
-                                             bool intercept_zero) const {
+                                             bool augment_zero) const {
 	const TypeTime epochEnd = _epochStarts[epoch + 1];
 
 	for (size_t otherGamma = 0; otherGamma < _numGamma; ++otherGamma) { // loop over all other gamma
@@ -248,9 +251,11 @@ void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, s
 				continue;
 			}
 
-			double alpha_l = 0.0;
-			if (!intercept_zero) { alpha_l = Beta(l); }
-			const auto y_end = alpha_l + (double)epochEnd * _gamma[curGamma];
+			double y_end = 0.0;
+			if (!augment_zero) {
+				const double alpha_l = Beta(l);
+				y_end                = alpha_l + (double)epochEnd * _gamma[curGamma];
+			}
 			// augment
 			y[otherGamma].push_back(y_end);
 			t[otherGamma].emplace_back(epochEnd);
@@ -262,12 +267,12 @@ void TOLSGamma::_augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, s
 void TOLSGamma::_augmentYWithOLSEstimatesEnd_All(
     size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
     std::vector<std::vector<size_t>> &dataSeriesIndex, std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
-    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch, bool intercept_zero) const {
+    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch, bool augment_zero) const {
 	// for each CI group that uses this gamma: add end
 	for (const auto CI_index : _CI_indices_per_gamma[curGamma]) {
 		for (size_t e = 0; e < _numEpochs - 1; ++e) { // loop over all epochs (but skip last one: there is no next)
 			_augmentYWithOLSEstimatesEnd(curGamma, CI_index, e, Beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
-			                             intercept_zero);
+			                             augment_zero);
 		}
 	}
 }
@@ -302,19 +307,30 @@ bool TOLSGamma::_gammaIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::
 	return false; // we still don't have enough data
 }
 
+double TOLSGamma::_getScore(size_t numDataPoints_zero, size_t numDataPoints_non_zero) {
+	if (numDataPoints_zero == 1 && numDataPoints_non_zero == 0) { // a single zero
+		return -1.0;
+	}
+	if (numDataPoints_zero == 0 && numDataPoints_non_zero == 1) { // a single non-zero
+		return 0.0;
+	}
+	return 0.5 * (double)numDataPoints_zero + 1.0 * (double)numDataPoints_non_zero;
+}
+
 size_t TOLSGamma::_getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
                                             const std::vector<std::vector<double>> &y,
-                                            const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const {
+                                            const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts) const {
 	// find gamma that contains the most data points per degree of freedom (= number of parameters = L + 1)
 	size_t curGamma = 0;
 	double max      = std::numeric_limits<double>::lowest();
 	for (size_t ix = 0; ix < _numGamma; ++ix) {
-		const size_t numDataPoints      = y[ix].size();
-		const size_t df                 = l_to_ij[ix].size() + 1;
-		const double numDataPointsPerDF = (double)numDataPoints / (double)df;
-		if (!GammaInitialized[ix] && numDataPointsPerDF > max) {
+		const size_t numDataPoints_non_zero = y[ix].size();
+		const size_t numDataPoints_zero     = coretools::containerSum(numDataPointsWithZeroCounts[ix]);
+
+		double score = _getScore(numDataPoints_zero, numDataPoints_non_zero);
+		if (!GammaInitialized[ix] && score > max) {
 			curGamma = ix;
-			max      = numDataPointsPerDF;
+			max      = score;
 		}
 	}
 	return curGamma;
@@ -339,9 +355,8 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 
 	std::vector<bool> gammaInitialized(_numGamma, false);
 	while (std::accumulate(gammaInitialized.begin(), gammaInitialized.end(), 0U) < _numGamma) {
-		// 1) find gamma that contains the most data points per degree of freedom (= number of parameters =
-		// L + 1)
-		size_t curGamma = _getNextGammaToInitialize(gammaInitialized, y, l_to_ij);
+		// 1) find gamma that has the highest score
+		size_t curGamma = _getNextGammaToInitialize(gammaInitialized, y, numDataPointsWithZeroCounts);
 		logfile().listFlush("Gamma ", GammaNames[curGamma], ":");
 
 		// 2) we need at least one group-epoch-i-j combination with at least 2 timepoints
@@ -364,12 +379,11 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 				// set gamma to zero: identifiable for MCMC, but not for OLS
 				_gamma[curGamma] = 0.0;
 
-				// augment with an intercept of zero
+				// augment with zero
 				_augmentYWithOLSEstimatesStart_All(curGamma, arma::vec(), y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
 				                                   true);
 				_augmentYWithOLSEstimatesEnd_All(curGamma, arma::vec(), y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
 				                                 true);
-
 			} else {
 				UERROR(
 				    "Need at least one method-location combination with two or more timepoints for estimating gamma [",

@@ -36,7 +36,7 @@ private:
 	                         std::vector<TypeTime> &t_ix, std::vector<size_t> &dataSeriesIndex) const;
 	size_t _getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
 	                                 const std::vector<std::vector<double>> &y,
-	                                 const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij) const;
+	                                 const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts) const;
 	auto _get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID) const;
 	static arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
 	                        const std::vector<size_t> &DataSeriesIndex, size_t L);
@@ -45,25 +45,25 @@ private:
 	                                    std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                                    std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
-	                                    bool intercept_zero) const;
+	                                    bool augment_zero) const;
 	void _augmentYWithOLSEstimatesStart_All(size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y,
 	                                        std::vector<std::vector<TypeTime>> &t,
 	                                        std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
-	                                        bool intercept_zero) const;
+	                                        bool augment_zero) const;
 	void _augmentYWithOLSEstimatesEnd(size_t curGamma, size_t CI_index, size_t epoch, const arma::vec &Beta,
 	                                  std::vector<std::vector<double>> &y, std::vector<std::vector<TypeTime>> &t,
 	                                  std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                                  std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
-	                                  bool intercept_zero) const;
+	                                  bool augment_zero) const;
 	void _augmentYWithOLSEstimatesEnd_All(size_t curGamma, const arma::vec &Beta, std::vector<std::vector<double>> &y,
 	                                      std::vector<std::vector<TypeTime>> &t,
 	                                      std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                      std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                                      std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
-	                                      bool intercept_zero) const;
+	                                      bool augment_zero) const;
 	static void
 	_augmentDataSeriesIndexWithOLSEstimates(std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                                        std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_CI_epoch,
@@ -78,6 +78,7 @@ private:
 	                                 const std::vector<bool> &AllDataPointsAreZero);
 	static bool _gammaIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<size_t> &dataSeriesIndex,
 	                                                       const std::vector<size_t> &numDataPointsWithZeroCounts);
+	static double _getScore(size_t numDataPoints_zero, size_t numDataPoints_non_zero);
 
 public:
 	TOLSGamma(size_t NumGamma, size_t NumEpochs, const std::vector<TypeTime> &EpochStarts,
