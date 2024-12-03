@@ -86,7 +86,7 @@ std::string getNameMuOrN(bool HasDetectionCovariates) {
 	return "mu";
 }
 
-std::string getLambdaB() { return parameters().get("lambda_b", "1.0"); }
+std::string getLambdaB() { return parameters().get("lambda_b", "0.1"); }
 
 TBirpNegBinomAddOn::TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::string &Filename)
     : _boxOnMuOrN(), _boxOnB(), muOrN(getNameMuOrN(HasDetectionCovariates), &_boxOnMuOrN, {Filename}),
