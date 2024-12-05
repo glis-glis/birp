@@ -295,7 +295,7 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 
 	// check if file contains information about CI group
 	bool has_CI_groups = std::find(file.header().begin(), file.header().end(), "CI_group") != file.header().end();
-	if (!has_CI_groups) { _CIGroupNames.add("Group_0"); }
+	if (!has_CI_groups) { _CIGroupNames.add("Group_1"); }
 
 	for (; !file.empty(); file.popFront()) {
 		std::string location = (std::string)file.get("location");
@@ -474,14 +474,23 @@ void TBirpCore::_fillTimepointsFromCommandLine() {
 void TBirpCore::_fillLocationsFromCommandLine() {
 	size_t numLocations = parameters().get("numLocations", 2);
 	logfile().list("Number of locations: ", numLocations, " (argument 'numLocations').");
-	for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l)); }
+	for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l+1)); }
 }
 
 void TBirpCore::_fillCIGroupsFromCommandLine() {
-	size_t numCIGroups = parameters().get("numCIGroups", 1);
-	logfile().list("Number of control-intervention groups: ", numCIGroups, " (argument 'numCIGroups').");
-	if (numCIGroups == 0) { UERROR("Number of control-intervention groups can not be zero (argument 'numCIGroups')."); }
-	for (size_t i = 0; i < numCIGroups; ++i) { _CIGroupNames.add("Group_" + coretools::str::toString(i)); }
+	if (parameters().exists("BACI")) { // get info on CI groups from BACI file
+		auto name = parameters().get<std::string>("BACI");
+		coretools::TInputMaybeRcppFile file(name, coretools::FileType::NoHeader);
+		for (; !file.empty(); file.popFront()) {
+			_CIGroupNames.add(file.get<std::string>(0)); // first column = CI group name
+		}
+		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'BACI').");
+	} else {
+		size_t numCIGroups = parameters().get("numCIGroups", 1);
+		if (numCIGroups == 0) { UERROR("Number of control-intervention groups can not be zero (argument 'numCIGroups')."); }
+		for (size_t i = 0; i < numCIGroups; ++i) { _CIGroupNames.add("Group_" + coretools::str::toString(i+1)); }
+		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'numCIGroups').");
+	}
 }
 
 std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
