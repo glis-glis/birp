@@ -478,6 +478,8 @@ void TBirpCore::_fillLocationsFromCommandLine() {
 }
 
 void TBirpCore::_fillCIGroupsFromCommandLine() {
+	size_t numCIGroups = parameters().get("numCIGroups", 1);
+
 	if (parameters().exists("BACI")) { // get info on CI groups from BACI file
 		auto name = parameters().get<std::string>("BACI");
 		coretools::TInputMaybeRcppFile file(name, coretools::FileType::NoHeader);
@@ -486,7 +488,6 @@ void TBirpCore::_fillCIGroupsFromCommandLine() {
 		}
 		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'BACI').");
 	} else {
-		size_t numCIGroups = parameters().get("numCIGroups", 1);
 		if (numCIGroups == 0) { UERROR("Number of control-intervention groups can not be zero (argument 'numCIGroups')."); }
 		for (size_t i = 0; i < numCIGroups; ++i) { _CIGroupNames.add("Group_" + coretools::str::toString(i+1)); }
 		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'numCIGroups').");
