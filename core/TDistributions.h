@@ -32,7 +32,8 @@ public:
 	                                         const std::vector<double> &p, size_t index_in_counts,
 	                                         size_t ix_linNumMethLoc, size_t ix_method) const = 0;
 
-	virtual void simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n, bool SimulateCovariates) = 0;
+	virtual void simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n) = 0;
+	virtual void simulateConditioned(TData &Data, const TModelBase &Model)                = 0;
 };
 
 //---------------------------------------
@@ -52,7 +53,8 @@ public:
 	                                 size_t ix_method) const override;
 
 	// simulation
-	void simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n, bool SimulateCovariates) override;
+	void simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n) override;
+	void simulateConditioned(TData &Data, const TModelBase &Model) override;
 };
 
 //--------------------------------
@@ -97,8 +99,9 @@ public:
 	                                 const std::vector<double> &p, size_t index_in_counts, size_t ix_linNumMethLoc,
 	                                 size_t ix_method) const override;
 
-	// simulate
-	void simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n, bool SimulateCovariates) override;
+	// simulation
+	void simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n) override;
+	void simulateConditioned(TData &Data, const TModelBase &Model) override;
 };
 
 #endif // BIRP_TDISTRIBUTIONS_H

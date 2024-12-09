@@ -37,18 +37,14 @@ void TBirpCore::_checkIfAllCountsZero() {
 	if (sumNonZero == 0) { UERROR("All counts are zero! Can not infer trends."); }
 }
 
-void TBirpCore::_readData(std::string_view Input, bool hasCounts) {
-	std::vector<std::string> filenames = _getAllFilenames(Input);
+void TBirpCore::_readData() {
+	// get all input filenames (one per method)
+	std::string input                  = parameters().get("data");
+	std::vector<std::string> filenames = _getAllFilenames(input);
 
 	// read files (one per method)
-	for (const auto &name : filenames) { _readFile(name, hasCounts); }
+	for (const auto &name : filenames) { _readFile(name); }
 	if (_data.size() == 0) { UERROR("No method passes filters!"); }
-}
-
-void TBirpCore::_readForInference(bool hasCounts) {
-	// get all input filenames (one per method)
-	std::string input = parameters().get("data");
-	_readData(input, hasCounts);
 
 	// check if all counts are zero
 	_checkIfAllCountsZero();
@@ -125,7 +121,7 @@ std::vector<std::string> TBirpCore::_getAllFilenames(std::string_view Input) {
 
 std::vector<std::string> getHeader() { return {"location", "timepoint"}; }
 
-void checkHeader(const coretools::TInputMaybeRcppFile &Infile, bool hasCounts, const std::vector<size_t> &countIndices,
+void checkHeader(const coretools::TInputMaybeRcppFile &Infile, const std::vector<size_t> &countIndices,
                  const std::vector<size_t> &CovEffortIndices) {
 	std::vector<std::string> headerVec = getHeader();
 
@@ -141,7 +137,7 @@ void checkHeader(const coretools::TInputMaybeRcppFile &Infile, bool hasCounts, c
 		UERROR("Error in header of file ", Infile.name(),
 		       ": Need at least one column starting with 'covEffort' or 'effort'.");
 	}
-	if (hasCounts && countIndices.empty()) {
+	if (countIndices.empty()) {
 		UERROR("Error in header of file ", Infile.name(), ": Need at least one column starting with 'counts'.");
 	}
 }
@@ -181,7 +177,7 @@ std::string getMethodName(const std::string &Filename) {
 	return methodName;
 }
 
-auto getIndicesMethodFile(const coretools::TInputMaybeRcppFile &Infile, bool hasCounts) {
+auto getIndicesMethodFile(const coretools::TInputMaybeRcppFile &Infile) {
 	// get position of columns that contain counts: might be an empty vector in case the file has no counts
 	std::vector<size_t> countIndices = getColumnIndex(Infile, "count");
 
@@ -193,7 +189,7 @@ auto getIndicesMethodFile(const coretools::TInputMaybeRcppFile &Infile, bool has
 	std::vector<size_t> covDetectionIndices = getColumnIndex(Infile, "covDetection");
 	if (covDetectionIndices.empty()) { covDetectionIndices = getColumnIndex(Infile, "detection"); }
 
-	checkHeader(Infile, hasCounts, countIndices, covEffortIndices);
+	checkHeader(Infile, countIndices, covEffortIndices);
 
 	auto methodName = getMethodName(Infile.name());
 	return std::make_tuple(countIndices, covEffortIndices, covDetectionIndices, methodName);
@@ -205,10 +201,10 @@ bool allEffortsAreZero(coretools::TInputMaybeRcppFile &InputFile, const std::vec
 	return covEffort.size() == 1 && *covEffort.begin() == 0.0; // returns true if all covariates of effort are zero
 }
 
-auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) const {
+auto TBirpCore::_keepLocations(const std::string &Filename) const {
 	// open file and get relevant column indices
 	coretools::TInputMaybeRcppFile file(Filename, coretools::FileType::Header, getDelim(Filename));
-	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = getIndicesMethodFile(file, hasCounts);
+	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = getIndicesMethodFile(file);
 
 	// map: per location, how many timepoints with non-zero effort and non-zero counts are there?
 	std::map<std::string, std::pair<size_t, size_t>> numTimePointsAndCountsPerLocation;
@@ -227,10 +223,8 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 
 		// sum counts across all species
 		size_t sumCounts = 0;
-		if (hasCounts) {
-			for (size_t c = 0; c < countIndices.size(); c++) {
-				sumCounts += coretools::str::fromStringCheck<TypeCounts>(file.front()[countIndices[c]]);
-			}
+		for (size_t c = 0; c < countIndices.size(); c++) {
+			sumCounts += coretools::str::fromStringCheck<TypeCounts>(file.front()[countIndices[c]]);
 		}
 
 		auto it = numTimePointsAndCountsPerLocation.find(location);
@@ -251,7 +245,7 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 			logfile().warning("Method ", methodName, ": Ignoring location ", loc.first,
 			                  " because it only has a single timepoint with non-zero effort.");
 			keepLocations[loc.first] = false;
-		} else if (hasCounts && loc.second.second == 0) {
+		} else if (loc.second.second == 0) {
 			logfile().warning("Method ", methodName, ": Ignoring location ", loc.first,
 			                  " because it only has zero counts across all timepoints.");
 			keepLocations[loc.first] = false;
@@ -269,25 +263,20 @@ auto TBirpCore::_keepLocations(const std::string &Filename, bool hasCounts) cons
 	return std::pair(keepMethod, keepLocations);
 }
 
-void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
+void TBirpCore::_readFile(const std::string &Filename) {
 	logfile().listFlushDots("Parsing ", Filename);
 	// check which locations should be kept
-	auto [keepMethod, keepLocations] = _keepLocations(Filename, hasCounts);
+	auto [keepMethod, keepLocations] = _keepLocations(Filename);
 	if (!keepMethod) { return; } // chasch gd hei gah
 
 	// open file and get relevant column indices
 	coretools::TInputMaybeRcppFile file(Filename, coretools::FileType::Header, getDelim(Filename));
-	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = getIndicesMethodFile(file, hasCounts);
+	auto [countIndices, covEffortIndices, covDetectionIndices, methodName] = getIndicesMethodFile(file);
 
 	// assemble species names and id's
-	std::vector<size_t> species_ids = {};
-	if (hasCounts) {
-		std::vector<std::string> speciesNames = getSpeciesOrCovariateNames(file, countIndices);
-		for (const auto &name : speciesNames) { species_ids.push_back(_speciesNames.add(name)); }
-	} else {
-		species_ids.resize(_speciesNames.size());
-		std::iota(species_ids.begin(), species_ids.end(), 0);
-	}
+	std::vector<size_t> species_ids       = {};
+	std::vector<std::string> speciesNames = getSpeciesOrCovariateNames(file, countIndices);
+	for (const auto &name : speciesNames) { species_ids.push_back(_speciesNames.add(name)); }
 
 	// get covariate effort names and store in unique container
 	std::vector<size_t> covariateEffort_ids    = fillCovNames(file, covEffortIndices, _covariateEffortNames);
@@ -318,10 +307,8 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		std::vector<TypeCounts> countVec(species_ids.size(), 0);
 		std::vector<TypeCovariateEffort> covEffortVec(covEffortIndices.size());
 		std::vector<TypeCovariateDetection> covDetectionVec(covDetectionIndices.size());
-		if (hasCounts) {
-			for (size_t c = 0; c < countVec.size(); c++) {
-				countVec[c] = coretools::str::fromStringCheck<TypeCounts>(row[countIndices[c]]);
-			}
+		for (size_t c = 0; c < countVec.size(); c++) {
+			countVec[c] = coretools::str::fromStringCheck<TypeCounts>(row[countIndices[c]]);
 		}
 		for (size_t c = 0; c < covEffortVec.size(); c++) {
 			covEffortVec[c] = coretools::str::fromStringCheck<TypeCovariateEffort>(row[covEffortIndices[c]]);
@@ -373,8 +360,7 @@ std::map<std::string, std::string> TBirpCore::_runMCMC(bool Stochastic,
 }
 
 void TBirpCore::infer() {
-	// read data
-	_readForInference(true);
+	_readData();
 
 	std::map<std::string, std::string> initVals;
 	if (parameters().exists("stochastic")) {
@@ -537,12 +523,9 @@ std::vector<size_t> TBirpCore::_simulateCovDetectionNames() {
 void TBirpCore::simulate() {
 	stattools::instances::dagBuilder().clear();
 
-	// read incomplete counts file (if provided)
-	if (parameters().exists("simulationFile")) {
-		std::string filename = parameters().get("simulationFile");
-		logfile().list("Will use simulation file '", filename, "' to simulate counts (argument 'simulationFile').");
-		_simulateSpeciesNames();
-		_readData(filename, false);
+	if (parameters().exists("data")) {
+		// read data file and simulate counts for that setup
+		_readData();
 	} else {
 		// else read main dimensions from command line
 		_fillTimepointsFromCommandLine();
@@ -550,8 +533,7 @@ void TBirpCore::simulate() {
 		_fillCIGroupsFromCommandLine();
 		size_t numMethods = parameters().get("numMethods", 1);
 		logfile().list("Number of methods: ", numMethods, " (argument 'numMethods').");
-		// create vector of speciesnames species_1, species_2 ... as many as there are. currently only supports one
-		// species
+
 		auto species_ids            = _simulateSpeciesNames();
 		auto covariateEffort_ids    = _simulateCovEffortNames();
 		auto covariateDetection_ids = _simulateCovDetectionNames();
@@ -562,8 +544,9 @@ void TBirpCore::simulate() {
 			_data.addMethod(method);
 		}
 		for (auto &m : _data) { m.fillIDVectors(_speciesNames.size()); }
+
+		_data.fillMethLocIndices(_speciesNames.size(), _locations, _CIGroupNames);
 	}
-	_data.fillMethLocIndices(_speciesNames.size(), _locations, _CIGroupNames);
 
 	// create model
 	const bool stochastic = parameters().exists("stochastic");

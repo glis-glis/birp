@@ -45,6 +45,7 @@ TypeEffort TTimepoints::effort() const { return _effort; }
 size_t TTimepoints::timepoint_id() const { return _timepoint_id; }
 
 void TTimepoints::setTimepoint(size_t timepointToAdd) { _timepoint_id = timepointToAdd; }
+void TTimepoints::setCounts(size_t species_id, TypeCounts counts) { _counts_per_species[species_id] = counts; }
 
 void TTimepoints::setCovariateEffort(size_t c, TypeCovariateEffort Covariate) { _covariatesEffort[c] = Covariate; }
 void TTimepoints::setCovariateDetection(size_t c, TypeCovariateDetection Covariate) {
@@ -304,9 +305,49 @@ void TLocations::simulatePoisson(double N, const TModelBase &Model) {
 	}
 }
 
+void TLocations::simulateMultinomial(const TModelBase &Model) {
+	// get p_ijk
+	std::vector<double> p(_timepoints.size());
+	for (size_t k = 0; k < _timepoints.size(); ++k) { // phi * effort
+		p[k] = Model.phi(location_id(), _timepoints[k].timepoint_id(), group_id()) * _timepoints[k].effort();
+	}
+	coretools::normalize(p);
+
+	// simulate multinomial
+	for (size_t i = 0; i < _nu.size(); i++) { // per species
+		std::vector<size_t> counts(_timepoints.size());
+		randomGenerator().fillMultinomialRandomRawProbabilities(_nu[i], p, counts);
+
+		// fill timepoints
+		for (size_t k = 0; k < _timepoints.size(); ++k) { _timepoints[k].setCounts(i, counts[k]); }
+	}
+}
+
 void TLocations::simulateNB(const TModelBase &Model, double a, double N) {
 	for (auto &timepoint : _timepoints) {
 		timepoint.simulateNB(Model.phi(location_id(), timepoint.timepoint_id(), group_id()), a, N);
+	}
+}
+
+void TLocations::simulateDirichletMultinomial(const TModelBase &Model, double mu, double b) {
+	// get alpha
+	std::vector<double> alpha(_timepoints.size());
+	for (size_t k = 0; k < _timepoints.size(); ++k) { // phi * effort
+		alpha[k] =
+		    mu / b * Model.phi(location_id(), _timepoints[k].timepoint_id(), group_id()) * _timepoints[k].effort();
+	}
+
+	// simulate dirichlet-multinomial
+	for (size_t i = 0; i < _nu.size(); i++) { // per species
+		// Dirichlet
+		std::vector<double> p(_timepoints.size());
+		randomGenerator().fillDirichletRandom(alpha, p);
+		// Multinomial
+		std::vector<size_t> counts(_timepoints.size());
+		randomGenerator().fillMultinomialRandomRawProbabilities(_nu[i], p, counts);
+
+		// fill timepoints
+		for (size_t k = 0; k < _timepoints.size(); ++k) { _timepoints[k].setCounts(i, counts[k]); }
 	}
 }
 
@@ -768,12 +809,12 @@ double TMethods::_calculateU_i(double n_i_bar, const TModelBase &Model) {
 	return u_i;
 }
 
-void TMethods::simulatePoisson(bool use_n_bar, double n, const TModelBase &Model, bool SimulateCovariates) {
-	// simulate covariates, if necessary
+void TMethods::simulatePoisson(bool use_n_bar, double n, const TModelBase &Model) {
+	// simulate covariates
 	_alpha->normalize(_alpha->getFull());
 	_setValuesForSingleCovariate();
 
-	if (SimulateCovariates) { _simulateCovariates(); }
+	_simulateCovariates();
 
 	// calculate scaling factor
 	double N = n;
@@ -784,12 +825,18 @@ void TMethods::simulatePoisson(bool use_n_bar, double n, const TModelBase &Model
 	}
 }
 
-double TMethods::simulateNB(bool use_n_bar, double n, const TModelBase &Model, double a, bool SimulateCovariates) {
+void TMethods::simulateMultinomial(const TModelBase &Model) {
+	for (size_t j = 0; j < size(); j++) { // loop over all locations
+		_locations[j].simulateMultinomial(Model);
+	}
+}
+
+double TMethods::simulateNB(bool use_n_bar, double n, const TModelBase &Model, double a) {
 	// simulate covariates, if necessary
 	_alpha->normalize(_alpha->getFull());
 	_setValuesForSingleCovariate();
 
-	if (SimulateCovariates) { _simulateCovariates(); }
+	_simulateCovariates();
 
 	// calculate scaling factor (only if n_bar was provided)
 	double N = n;
@@ -800,6 +847,12 @@ double TMethods::simulateNB(bool use_n_bar, double n, const TModelBase &Model, d
 	}
 
 	return N;
+}
+
+void TMethods::simulateDirichletMultinomial(const TModelBase &Model, const std::vector<double> &Mu, double B) {
+	for (size_t j = 0; j < size(); j++) { // loop over all locations
+		_locations[j].simulateDirichletMultinomial(Model, Mu[j], B);
+	}
 }
 
 void TMethods::write(coretools::TOutputMaybeRcppFile &File, const TUniqueContainer<std::string> &Locations,

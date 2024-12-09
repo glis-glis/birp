@@ -89,22 +89,24 @@ void TBirpPrior::writeSummaryGammaPosterior(const std::string &Prefix) {
 //------------------------------------
 // Simulations
 
-void TBirpPrior::_simulateUnderPrior(Storage *) { // this function gets called when simulated
+void TBirpPrior::_simulateUnderPrior(Storage *) {
 	// first calculate effort
 	for (auto &method : _data) { method.initializeEffort(); }
 
-	// do we need to simulate covariates?
-	bool simulateCovariates = !parameters().exists("simulationFile");
+	// do we simulate counts conditioned on nu_ij (all the rest is given by data file)?
+	if (parameters().exists("data")) {
+		for (size_t i = 0; i < _numSpecies; ++i) { _models[i]->simulateConditioned(_data); }
+	} else {
+		// read N_0 or n_bar
+		bool use_n_bar = true;
+		double n       = parameters().get("n_bar", 1000.0);
+		if (parameters().exists("N_0")) {
+			n         = parameters().get<double>("N_0");
+			use_n_bar = false;
+		}
 
-	// read N_0 or n_bar
-	bool use_n_bar = true;
-	double n       = parameters().get("n_bar", 1000.0);
-	if (parameters().exists("N_0")) {
-		n         = parameters().get<double>("N_0");
-		use_n_bar = false;
+		for (size_t i = 0; i < _numSpecies; ++i) { _models[i]->simulate(_data, use_n_bar, n); }
 	}
-
-	for (size_t i = 0; i < _numSpecies; ++i) { _models[i]->simulate(_data, use_n_bar, n, simulateCovariates); }
 }
 
 //------------------------------------

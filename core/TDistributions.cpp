@@ -27,12 +27,17 @@ double TPoissonDistribution::calculateLL(const std::vector<double> & /*sigma*/, 
 	return LL;
 }
 
-void TPoissonDistribution::simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n,
-                                    bool SimulateCovariates) {
-
+void TPoissonDistribution::simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n) {
 	for (size_t i = 0; i < Data.size(); ++i) {
 		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
-		Data[i].simulatePoisson(use_n_bar, n, Model, SimulateCovariates);
+		Data[i].simulatePoisson(use_n_bar, n, Model);
+	}
+}
+
+void TPoissonDistribution::simulateConditioned(TData &Data, const TModelBase &Model) {
+	for (size_t i = 0; i < Data.size(); ++i) {
+		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
+		Data[i].simulateMultinomial(Model);
 	}
 }
 
@@ -303,8 +308,7 @@ std::vector<double> TNegBinDistribution::_readAFromCommandLine(const TData &Data
 	return a;
 }
 
-void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n,
-                                   bool SimulateCovariates) {
+void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model, bool use_n_bar, double n) {
 	// read a that should be used for simulation
 	auto a = _readAFromCommandLine(Data);
 
@@ -312,7 +316,7 @@ void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model, bool us
 		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
 
 		// simulate counts
-		const double u_i = Data[i].simulateNB(use_n_bar, n, Model, a[i], SimulateCovariates);
+		const double u_i = Data[i].simulateNB(use_n_bar, n, Model, a[i]);
 
 		// set b accordingly: b_i = a_i / (J * u_i)
 		const double b_i = a[i] / ((double)Data[i].size() * u_i);
@@ -329,5 +333,35 @@ void TNegBinDistribution::simulate(TData &Data, const TModelBase &Model, bool us
 	// set N: 1 / J (all locations contribute equally)
 	if (!_isMu) {
 		for (size_t j = 0; j < _muOrN->size(); ++j) { _muOrN->set(j, (TypeMuOrN)(1.0 / (double)_muOrN->size())); }
+	}
+}
+
+void TNegBinDistribution::simulateConditioned(TData &Data, const TModelBase &Model) {
+	for (size_t i = 0; i < Data.size(); ++i) {
+		if (!Data[i].hasDataForSpeciesID(_speciesIDinUniqueContainer)) { return; }
+
+		// get mu_i for one method
+		std::vector<double> mu_i(Data[i].size());
+		if (_isMu) {
+			if (parameters().exists("mu")) { // initial value is provided
+				for (size_t j = 0; j < Data[i].size(); ++j) {
+					mu_i[j] = _muOrN->value(Data.i_j_to_linear(_speciesIDinUniqueContainer, i, j));
+				}
+			} else { // use 1/J for all mu
+				std::fill(mu_i.begin(), mu_i.end(), 1.0 / (double)Data[i].size());
+			}
+		} else {
+			if (parameters().exists("N")) { // initial value is provided
+				for (size_t j = 0; j < Data[i].size(); ++j) { mu_i[j] = _muOrN->value(j); }
+			} else {
+				std::fill(mu_i.begin(), mu_i.end(), 1.0 / (double)Data[i].size());
+			}
+		}
+
+		// get b_i
+		double b_i = _b->value(i);
+		if (!parameters().exists("b")) { b_i = 1.0; }
+
+		Data[i].simulateDirichletMultinomial(Model, mu_i, b_i);
 	}
 }

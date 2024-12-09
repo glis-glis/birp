@@ -32,10 +32,11 @@ void TModelBase::_estimateInitialParameters(const TData &Data) { _distr->estimat
 
 void TModelBase::_updateDistributionParameters(const TData &Data) { _distr->update(Data, *this); }
 
-void TModelBase::_simulateDistributionParameters(TData &Data, bool use_n_bar, double n,
-                                                 bool SimulateCovariates) {
-	_distr->simulate(Data, *this, use_n_bar, n, SimulateCovariates);
+void TModelBase::_simulateDistributionParameters(TData &Data, bool use_n_bar, double n) {
+	_distr->simulate(Data, *this, use_n_bar, n);
 }
+
+void TModelBase::_simulateConditionedDistributionParameters(TData &Data) { _distr->simulateConditioned(Data, *this); }
 
 std::vector<double> TModelBase::calculateSigma(const TLocations &loc) const {
 	std::vector<double> sigma(loc.size());
@@ -332,10 +333,19 @@ void TDeterministic::update(const TData &Data) {
 	_gamma.updateSummaryGammaPosterior();
 }
 
-void TDeterministic::simulate(TData &Data, bool use_n_bar, double n, bool SimulateCovariates) {
+void TDeterministic::_simulate() {
 	_gamma.setSimulatedGammaToZero();
 	for (size_t i = 0; i < _gamma.numCIGroups(); ++i) { _fillPhi(i); }
-	_simulateDistributionParameters(Data, use_n_bar, n, SimulateCovariates);
+}
+
+void TDeterministic::simulate(TData &Data, bool use_n_bar, double n) {
+	_simulate();
+	_simulateDistributionParameters(Data, use_n_bar, n);
+}
+
+void TDeterministic::simulateConditioned(TData &Data) {
+	_simulate();
+	_simulateConditionedDistributionParameters(Data);
 }
 
 // write posterior summaries of gamma's
@@ -561,8 +571,7 @@ void TStochastic::update(const TData &Data) {
 	if (_logSigma->isUpdated()) { _updateLogSigma(Data); }
 }
 
-void TStochastic::simulate(TData &Data, bool use_n_bar, double n, bool SimulateCovariates) {
-
+void TStochastic::_simulate(TData &Data) {
 	// simulate gamma
 	_prior.setSimulatedGammaToZero();
 	// set logSigma to something small (only if it has not been specified by the user)
@@ -580,8 +589,16 @@ void TStochastic::simulate(TData &Data, bool use_n_bar, double n, bool SimulateC
 			_logPhi->set(ix, _prior.sampleFromTransitionProbability(j, k, CI_index));
 		}
 	}
+}
 
-	_simulateDistributionParameters(Data, use_n_bar, n, SimulateCovariates);
+void TStochastic::simulate(TData &Data, bool use_n_bar, double n) {
+	_simulate(Data);
+	_simulateDistributionParameters(Data, use_n_bar, n);
+}
+
+void TStochastic::simulateConditioned(TData &Data) {
+	_simulate(Data);
+	_simulateConditionedDistributionParameters(Data);
 }
 
 coretools::StrictlyPositive TStochastic::phi(size_t j, size_t k, size_t /*CI_index*/) const {

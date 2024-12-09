@@ -26,17 +26,16 @@ protected:
 	TUniqueContainer<std::string> _CIGroupNames;
 
 	// open files
-	void _readData(std::string_view Input, bool hasCounts);
+	void _readData();
 	static std::vector<std::string> _getAllFilenames(std::string_view Input);
 
 	// read input files
-	auto _keepLocations(const std::string &Filename, bool hasCounts) const;
-	void _readFile(const std::string &Filename, bool hasCounts);
+	auto _keepLocations(const std::string &Filename) const;
+	void _readFile(const std::string &Filename);
 	void _checkIfAllCountsZero();
 
 	void _sortTimepoints();
 
-	void _readForInference(bool hasCounts);
 	std::map<std::string, std::string> _runMCMC(bool Stochastic, const std::map<std::string, std::string> &InitVals);
 
 	// simulate
