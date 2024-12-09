@@ -26,7 +26,8 @@ protected:
 	TUniqueContainer<std::string> _CIGroupNames;
 
 	// open files
-	static std::vector<std::string> _getAllFilenames();
+	void _readData(std::string_view Input, bool hasCounts);
+	static std::vector<std::string> _getAllFilenames(std::string_view Input);
 
 	// read input files
 	auto _keepLocations(const std::string &Filename, bool hasCounts) const;

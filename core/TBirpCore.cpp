@@ -37,14 +37,18 @@ void TBirpCore::_checkIfAllCountsZero() {
 	if (sumNonZero == 0) { UERROR("All counts are zero! Can not infer trends."); }
 }
 
-void TBirpCore::_readForInference(bool hasCounts) {
-	// get all input filenames (one per method)
-	std::vector<std::string> filenames = _getAllFilenames();
+void TBirpCore::_readData(std::string_view Input, bool hasCounts) {
+	std::vector<std::string> filenames = _getAllFilenames(Input);
 
 	// read files (one per method)
 	for (const auto &name : filenames) { _readFile(name, hasCounts); }
-
 	if (_data.size() == 0) { UERROR("No method passes filters!"); }
+}
+
+void TBirpCore::_readForInference(bool hasCounts) {
+	// get all input filenames (one per method)
+	std::string input = parameters().get("data");
+	_readData(input, hasCounts);
 
 	// check if all counts are zero
 	_checkIfAllCountsZero();
@@ -97,19 +101,18 @@ std::vector<std::string> readFilenamesFromFile(std::string_view Filename) {
 	return filenames;
 }
 
-std::vector<std::string> TBirpCore::_getAllFilenames() {
+std::vector<std::string> TBirpCore::_getAllFilenames(std::string_view Input) {
 	// read --data -> this can be:
 	// 1) the file containing the counts for a single method
 	// 2) a file containing all filenames for multiple methods
 	// 3) a comma-separated list of filenames for multiple methods
-	std::string input = parameters().get("data");
-	logfile().startIndent("Will read input data from ", input, " (argument 'data').");
+	logfile().startIndent("Will read input data from ", Input, " (argument 'data').");
 
 	std::vector<std::string> filenames;
-	if (std::filesystem::exists(input)) { // is a file
-		filenames = readFilenamesFromFile(input);
+	if (std::filesystem::exists(Input)) { // is a file
+		filenames = readFilenamesFromFile(Input);
 	} else {
-		coretools::str::fillContainerFromString(input, filenames, ',');
+		coretools::str::fillContainerFromString(Input, filenames, ',');
 	}
 
 	if (filenames.empty()) { UERROR("Provided filenames are empty (argument 'data')."); }
@@ -282,7 +285,8 @@ void TBirpCore::_readFile(const std::string &Filename, bool hasCounts) {
 		std::vector<std::string> speciesNames = getSpeciesOrCovariateNames(file, countIndices);
 		for (const auto &name : speciesNames) { species_ids.push_back(_speciesNames.add(name)); }
 	} else {
-		species_ids = _simulateSpeciesNames();
+		species_ids.resize(_speciesNames.size());
+		std::iota(species_ids.begin(), species_ids.end(), 0);
 	}
 
 	// get covariate effort names and store in unique container
@@ -419,7 +423,7 @@ std::vector<std::string> TBirpCore::_getMethodspecificHeader(const TMethods &met
 
 void TBirpCore::_writeFile(const std::string &Name) {
 	// make second file that stores names of all methodFiles generated during the simulation
-	coretools::TOutputMaybeRcppFile fileList(_outname + "_" + Name + "_allFilesGenerated");
+	coretools::TOutputMaybeRcppFile fileList(_outname + "_" + Name + "_allFilesGenerated.txt");
 	// write file line by line
 	for (auto &method : _data) {
 		// get filename here.
@@ -434,7 +438,7 @@ void TBirpCore::_writeFile(const std::string &Name) {
 	}
 }
 
-void TBirpCore::_writeInference(){
+void TBirpCore::_writeInference() {
 	_writeFile("filtered");
 	_writeTimePoints();
 	_writeCIGroups();
@@ -474,7 +478,7 @@ void TBirpCore::_fillTimepointsFromCommandLine() {
 void TBirpCore::_fillLocationsFromCommandLine() {
 	size_t numLocations = parameters().get("numLocations", 2);
 	logfile().list("Number of locations: ", numLocations, " (argument 'numLocations').");
-	for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l+1)); }
+	for (size_t l = 0; l < numLocations; ++l) { _locations.add("Location_" + coretools::str::toString(l + 1)); }
 }
 
 void TBirpCore::_fillCIGroupsFromCommandLine() {
@@ -488,8 +492,10 @@ void TBirpCore::_fillCIGroupsFromCommandLine() {
 		}
 		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'BACI').");
 	} else {
-		if (numCIGroups == 0) { UERROR("Number of control-intervention groups can not be zero (argument 'numCIGroups')."); }
-		for (size_t i = 0; i < numCIGroups; ++i) { _CIGroupNames.add("Group_" + coretools::str::toString(i+1)); }
+		if (numCIGroups == 0) {
+			UERROR("Number of control-intervention groups can not be zero (argument 'numCIGroups').");
+		}
+		for (size_t i = 0; i < numCIGroups; ++i) { _CIGroupNames.add("Group_" + coretools::str::toString(i + 1)); }
 		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'numCIGroups').");
 	}
 }
@@ -535,7 +541,8 @@ void TBirpCore::simulate() {
 	if (parameters().exists("simulationFile")) {
 		std::string filename = parameters().get("simulationFile");
 		logfile().list("Will use simulation file '", filename, "' to simulate counts (argument 'simulationFile').");
-		_readFile(filename, false);
+		_simulateSpeciesNames();
+		_readData(filename, false);
 	} else {
 		// else read main dimensions from command line
 		_fillTimepointsFromCommandLine();
