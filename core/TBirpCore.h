@@ -52,6 +52,7 @@ protected:
 	void _writeTimePoints();
 	void _writeCIGroups();
 	void _writeInference();
+	void _writeMeanParametersState();
 
 	void _clear();
 

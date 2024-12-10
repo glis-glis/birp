@@ -424,10 +424,22 @@ void TBirpCore::_writeFile(const std::string &Name) {
 	}
 }
 
+void TBirpCore::_writeMeanParametersState() {
+	coretools::TOutputMaybeRcppFile file(_outname + "_state.txt", {"0", "value", "jumpSize"});
+
+	for (auto param : stattools::instances::dagBuilder().getAllParameters()) {
+		file << param->name();
+		param->writeValsOneString(file);     // write values as comma-seperated string if array
+		param->writeJumpSizeOneString(file); // write jumpSizes as comma-seperated string if array
+		file.endln();
+	}
+}
+
 void TBirpCore::_writeInference() {
 	_writeFile("filtered");
 	_writeTimePoints();
 	_writeCIGroups();
+	_writeMeanParametersState();
 }
 
 void TBirpCore::_writeTimePoints() {
