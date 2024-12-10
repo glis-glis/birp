@@ -546,7 +546,7 @@ void TStochastic::_updateLogSigma(const TData &Data) {
 		}
 	}
 
-	const double logH = LLRatio + _logSigma->getLogRatio();
+	const double logH = LLRatio + _logSigma->getLogDensityRatio();
 	if (_logSigma->acceptOrReject(logH, range)) {
 		// accepted: update all transition probabilities
 		_prior.swapTryCur();

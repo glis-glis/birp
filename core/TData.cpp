@@ -887,7 +887,7 @@ void TMethods::_updateAlpha(size_t c1, size_t c2, const TData &Data,
 		                           c2);
 	}
 	// calculate Hastings ratio
-	double logRatio = _alpha->getLogRatio(c1) + _alpha->getLogRatio(c2);
+	double logRatio = _alpha->getLogDensityRatio(c1) + _alpha->getLogDensityRatio(c2);
 	for (const auto &Model : Models) { // loop over species
 		logRatio += Model->calculateLLRatio_perMethod(_i, Data);
 	}
@@ -925,7 +925,7 @@ void TMethods::_updateBeta(size_t d, const TData &Data, const std::vector<std::u
 	for (auto &location : _locations) { location.updateBetaEffort(_beta0, _beta); }
 
 	// calculate Hastings ratio
-	double logRatio = Beta->getLogRatio(d);
+	double logRatio = Beta->getLogDensityRatio(d);
 	for (const auto &Model : Models) { // loop over species
 		logRatio += Model->calculateLLRatio_perMethod(_i, Data);
 	}

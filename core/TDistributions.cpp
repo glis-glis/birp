@@ -143,7 +143,7 @@ void TNegBinDistribution::_updateMu(const TData &Data, TModelBase &Model) {
 			const auto newLL2      = calculateLL(sigma2, loc2, {}, index_in_counts, linear2, i);
 
 			const double LLRatio = newLL1 + newLL2 - Model.curLL(linear1) - Model.curLL(linear2); // in log
-			const double logH    = LLRatio + _muOrN->getLogRatio(linear1) + _muOrN->getLogRatio(linear2);
+			const double logH    = LLRatio + _muOrN->getLogDensityRatio(linear1) + _muOrN->getLogDensityRatio(linear2);
 
 			if (_muOrN->acceptOrReject(logH, range, coretools::TRange(range.begin))) { // first of range was proposed
 				// accepted -> update LL
@@ -192,7 +192,7 @@ void TNegBinDistribution::_updateN(const TData &Data, TModelBase &Model) {
 		const auto [LLRatio_2, newLL_2] = _calcHastingsRatioN(ij_2, Data, Model);
 
 		const double logH =
-		    LLRatio_1 + LLRatio_2 + _muOrN->getLogRatio(location_id_1) + _muOrN->getLogRatio(location_id_2);
+		    LLRatio_1 + LLRatio_2 + _muOrN->getLogDensityRatio(location_id_1) + _muOrN->getLogDensityRatio(location_id_2);
 		if (_muOrN->acceptOrReject(logH, range, coretools::TRange(range.begin))) { // first of range was proposed
 			// accepted -> update LL
 			for (size_t a = 0; a < ij_1.size(); ++a) { Model.setCurLL(ij_1[a], newLL_1[a]); }
@@ -216,7 +216,7 @@ void TNegBinDistribution::_updateB(const TData &Data, TModelBase &Model) {
 			newLL[j]                     = calculateLL(sigma, loc, {}, index_in_counts, ij, i);
 		}
 		const double LLRatio = coretools::containerSum(newLL) - Model.curLLPerMethod(i, Data);
-		const double logH    = LLRatio + _b->getLogRatio(i);
+		const double logH    = LLRatio + _b->getLogDensityRatio(i);
 		if (_b->acceptOrReject(logH, range)) {
 			// accepted -> update LL
 			Model.setCurLLPerMethod(newLL, i, Data);

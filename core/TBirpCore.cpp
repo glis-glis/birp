@@ -429,6 +429,8 @@ void TBirpCore::_writeMeanParametersState() {
 
 	for (auto param : stattools::instances::dagBuilder().getAllParameters()) {
 		file << param->name();
+
+		// values (comma-separated)
 		param->writeValsOneString(file);     // write values as comma-seperated string if array
 		param->writeJumpSizeOneString(file); // write jumpSizes as comma-seperated string if array
 		file.endln();
