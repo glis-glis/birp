@@ -431,7 +431,7 @@ void TBirpCore::_writeMeanParametersState() {
 		file << param->name();
 
 		// values (comma-separated)
-		param->writeValsOneString(file);     // write values as comma-seperated string if array
+		file << param->getPosteriorMeans();  // write values as comma-seperated string if array
 		param->writeJumpSizeOneString(file); // write jumpSizes as comma-seperated string if array
 		file.endln();
 	}
