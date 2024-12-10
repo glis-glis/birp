@@ -35,7 +35,7 @@ FetchContent_MakeAvailable(genometools)
 include(FetchContent)
 FetchContent_Declare(stattools
         GIT_REPOSITORY    https://bitbucket.org/wegmannlab/stattools.git
-        GIT_TAG           3be992d
+        GIT_TAG           5330d26
         SOURCE_DIR        "${CMAKE_SOURCE_DIR}/stattools"
         )
 FetchContent_MakeAvailable(stattools)
