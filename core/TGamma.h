@@ -34,9 +34,10 @@ private:
 	auto _loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
 	                         size_t i, size_t j_in_method, size_t e, size_t L, std::vector<double> &y_ix,
 	                         std::vector<TypeTime> &t_ix, std::vector<size_t> &dataSeriesIndex) const;
-	size_t _getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
-	                                 const std::vector<std::vector<double>> &y,
-	                                 const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts) const;
+	auto _getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
+	                               const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+	                               const std::vector<std::vector<size_t>> &dataSeriesIndex,
+	                               const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts) const;
 	auto _get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID) const;
 	static arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
 	                        const std::vector<size_t> &DataSeriesIndex, size_t L);
@@ -74,11 +75,9 @@ private:
 	                                   const std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                                   const std::vector<std::vector<TypeTime>> &t, size_t CI_index, size_t epoch,
 	                                   size_t l, size_t curGamma, size_t otherGamma, TypeTime EpochBorder);
-	static bool _gammaIsIdentifiable(size_t L, const std::vector<size_t> &dataSeriesIndex,
-	                                 const std::vector<bool> &AllDataPointsAreZero);
-	static bool _gammaIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<size_t> &dataSeriesIndex,
-	                                                       const std::vector<size_t> &numDataPointsWithZeroCounts);
-	static double _getScore(size_t numDataPoints_zero, size_t numDataPoints_non_zero);
+	static auto _getScore(size_t l, const std::vector<size_t> &dataSeriesIndex,
+	                      const std::vector<size_t> &numDataPointsWithZeroCounts);
+	static size_t _getNumNonZeroDataPointsInRange(size_t l, const std::vector<size_t> &dataSeriesIndex);
 
 public:
 	TOLSGamma(size_t NumGamma, size_t NumEpochs, const std::vector<TypeTime> &EpochStarts,

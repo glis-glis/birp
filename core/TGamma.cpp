@@ -277,63 +277,61 @@ void TOLSGamma::_augmentYWithOLSEstimatesEnd_All(
 	}
 }
 
-bool TOLSGamma::_gammaIsIdentifiable(size_t L, const std::vector<size_t> &dataSeriesIndex,
-                                     const std::vector<bool> &AllDataPointsAreZero) {
-	for (size_t l = 0; l < L; ++l) { // loop over all possible group-epoch-i-j combinations
-		// count the number of occurrences of that particular l for the current gamma
-		size_t counter_l = 0;
-		for (auto r : dataSeriesIndex) {
-			if (r == l) { ++counter_l; }
-		}
-		if (counter_l >= 2 && !AllDataPointsAreZero[l]) { return true; }
+size_t TOLSGamma::_getNumNonZeroDataPointsInRange(size_t l, const std::vector<size_t> &dataSeriesIndex) {
+	size_t counter = 0;
+	for (auto r : dataSeriesIndex) {
+		if (r == l) { ++counter; }
 	}
-	return false;
+	return counter;
 }
 
-bool TOLSGamma::_gammaIsNotIdentifiableBecauseOfZeroCounts(size_t L, const std::vector<size_t> &dataSeriesIndex,
-                                                           const std::vector<size_t> &numDataPointsWithZeroCounts) {
-	if (numDataPointsWithZeroCounts.empty()) { return false; } // no data points at all!
+auto TOLSGamma::_getScore(size_t l, const std::vector<size_t> &dataSeriesIndex,
+                          const std::vector<size_t> &numDataPointsWithZeroCounts) {
+	if (numDataPointsWithZeroCounts.empty()) { std::make_tuple(0, 0, 0); } // no data points at all
 
-	for (size_t l = 0; l < L; ++l) { // loop over all possible group-epoch-i-j combinations
-		// count the number of occurrences of that l for the current gamma
-		size_t counter_l = 0;
-		for (auto r : dataSeriesIndex) {
-			if (r == l) { ++counter_l; }
-		}
-		// add the number of data points that have zero counts for that particular data series
-		counter_l += numDataPointsWithZeroCounts[l];
-		if (counter_l >= 2) { return true; } // together with zero counts, we would have enough data!
-	}
-	return false; // we still don't have enough data
+	// count the number of occurrences of that l for the current gamma (non-zero data points)
+	size_t numNonZeroDataPointsInRange = _getNumNonZeroDataPointsInRange(l, dataSeriesIndex);
+
+	// count the total number of data points in range (including zero-valued data points)
+	size_t numDataPointsInRange = numNonZeroDataPointsInRange + numDataPointsWithZeroCounts[l];
+
+	// calculate score: zero-valued data points are valued 0.5
+	double score = (double)numNonZeroDataPointsInRange + 0.5 * (double)numDataPointsWithZeroCounts[l];
+
+	return std::make_tuple(numNonZeroDataPointsInRange, numDataPointsInRange, score);
 }
 
-double TOLSGamma::_getScore(size_t numDataPoints_zero, size_t numDataPoints_non_zero) {
-	if (numDataPoints_zero == 1 && numDataPoints_non_zero == 0) { // a single zero
-		return -1.0;
-	}
-	if (numDataPoints_zero == 0 && numDataPoints_non_zero == 1) { // a single non-zero
-		return 0.0;
-	}
-	return 0.5 * (double)numDataPoints_zero + 1.0 * (double)numDataPoints_non_zero;
-}
-
-size_t TOLSGamma::_getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
-                                            const std::vector<std::vector<double>> &y,
-                                            const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts) const {
+auto TOLSGamma::_getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
+                                          const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
+                                          const std::vector<std::vector<size_t>> &dataSeriesIndex,
+                                          const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts) const {
 	// find gamma that contains the most data points per degree of freedom (= number of parameters = L + 1)
-	size_t curGamma = 0;
-	double max      = std::numeric_limits<double>::lowest();
+	size_t max_gamma_ix   = 0;
+	double max_score      = std::numeric_limits<double>::lowest();
+	bool max_ols_possible = false;
 	for (size_t ix = 0; ix < _numGamma; ++ix) {
-		const size_t numDataPoints_non_zero = y[ix].size();
-		const size_t numDataPoints_zero     = coretools::containerSum(numDataPointsWithZeroCounts[ix]);
+		double score      = 0;
+		bool ols_possible = false;
+		for (size_t l = 0; l < l_to_ij[ix].size(); ++l) { // loop over all possible ranges
+			// calculate scores
+			const auto [numNonZeroDataPointsInRange, numDataPointsInRange, score_l] =
+			    _getScore(l, dataSeriesIndex[ix], numDataPointsWithZeroCounts[ix]);
+			if (numDataPointsInRange >= 2) { score += score_l; }
+			if (numNonZeroDataPointsInRange >= 2) { ols_possible = true; }
+		}
 
-		double score = _getScore(numDataPoints_zero, numDataPoints_non_zero);
-		if (!GammaInitialized[ix] && score > max) {
-			curGamma = ix;
-			max      = score;
+		if (!GammaInitialized[ix] && score > max_score) {
+			max_gamma_ix     = ix;
+			max_score        = score;
+			max_ols_possible = ols_possible;
 		}
 	}
-	return curGamma;
+
+	if (max_score == 0) {
+		UERROR("Need at least one range with two or more timepoints for estimating gamma [", max_gamma_ix + 1, "]!");
+	}
+
+	return std::make_tuple(max_gamma_ix, max_ols_possible);
 }
 
 std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints,
@@ -356,12 +354,14 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 	std::vector<bool> gammaInitialized(_numGamma, false);
 	while (std::accumulate(gammaInitialized.begin(), gammaInitialized.end(), 0U) < _numGamma) {
 		// 1) find gamma that has the highest score
-		size_t curGamma = _getNextGammaToInitialize(gammaInitialized, y, numDataPointsWithZeroCounts);
+		const auto [curGamma, ols_possible] =
+		    _getNextGammaToInitialize(gammaInitialized, l_to_ij, dataSeriesIndex, numDataPointsWithZeroCounts);
+
 		logfile().listFlush("Gamma ", GammaNames[curGamma], ":");
 
 		// 2) we need at least one group-epoch-i-j combination with at least 2 timepoints
 		const size_t L = l_to_ij[curGamma].size();
-		if (_gammaIsIdentifiable(L, dataSeriesIndex[curGamma], allDataPointsAreZero[curGamma])) {
+		if (ols_possible) {
 			// 3) estimate intercept and gamma with OLS
 			auto beta        = _doOLS(y[curGamma], t[curGamma], dataSeriesIndex[curGamma], L);
 			_gamma[curGamma] = beta(L);
@@ -373,22 +373,15 @@ std::vector<double> TOLSGamma::estimateInitialGamma(const TData &Data, const TUn
 			_augmentYWithOLSEstimatesStart_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch, false);
 			_augmentYWithOLSEstimatesEnd_All(curGamma, beta, y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch, false);
 		} else {
-			// check if gamma would be identifiable but isn't because we excluded counts = 0 for OLS
-			if (_gammaIsNotIdentifiableBecauseOfZeroCounts(L, dataSeriesIndex[curGamma],
-			                                               numDataPointsWithZeroCounts[curGamma])) {
-				// set gamma to zero: identifiable for MCMC, but not for OLS
-				_gamma[curGamma] = 0.0;
+			// gamma would be identifiable but isn't because we excluded counts = 0 for OLS
+			// set gamma to zero: identifiable for MCMC, but not for OLS
+			_gamma[curGamma] = 0.0;
 
-				// augment with zero
-				_augmentYWithOLSEstimatesStart_All(curGamma, arma::vec(), y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
-				                                   true);
-				_augmentYWithOLSEstimatesEnd_All(curGamma, arma::vec(), y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
-				                                 true);
-			} else {
-				UERROR(
-				    "Need at least one method-location combination with two or more timepoints for estimating gamma [",
-				    curGamma + 1, "]!");
-			}
+			// augment with zero
+			_augmentYWithOLSEstimatesStart_All(curGamma, arma::vec(), y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
+			                                   true);
+			_augmentYWithOLSEstimatesEnd_All(curGamma, arma::vec(), y, t, dataSeriesIndex, l_to_ij, l_to_CI_epoch,
+			                                 true);
 		}
 
 		gammaInitialized[curGamma] = true;
