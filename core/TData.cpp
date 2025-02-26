@@ -386,7 +386,8 @@ TMethods::TMethods(std::string methodName, size_t locationSize, size_t Timepoint
 				group_id = i;
 			} else {
 				// draw CI group randomly
-				group_id = randomGenerator().getRand(0UL, NumCIGroups);
+				size_t zero = 0; // just to be really sure about compiler error on windows
+				group_id = randomGenerator().getRand<size_t>(zero, NumCIGroups);
 			}
 		} else { // else match CI group of location of previous method
 			group_id = Data[Data.size() - 1][i].group_id();
