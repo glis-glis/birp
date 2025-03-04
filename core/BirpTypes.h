@@ -47,6 +47,6 @@ using TypeCovariateDetection = coretools::Unbounded;
 using TypeNu                 = coretools::UnsignedInt64;
 using TypeEffort             = coretools::Positive;
 using TypePhi                = coretools::StrictlyPositive;
-using TypeTime               = coretools::Positive;
+using TypeTime               = coretools::Unbounded;
 
 #endif // BIRPTYPES_H
