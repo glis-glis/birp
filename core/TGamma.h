@@ -1,15 +1,16 @@
 #ifndef BIRP_TGAMMA_H
 #define BIRP_TGAMMA_H
 
-#include "BirpDAG.h"
-#include "BirpTypes.h"
-#include "TUniqueContainer.h"
-#include "coretools/Math/TMatrix.h"
 #ifdef USE_RCPP
 #include <RcppArmadillo.h>
 #else
 #include <armadillo>
 #endif
+
+#include "BirpDAG.h"
+#include "BirpTypes.h"
+#include "TUniqueContainer.h"
+#include "coretools/Math/TMatrix.h"
 #include <vector>
 
 class TModelBase;
