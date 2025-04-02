@@ -1,8 +1,12 @@
 #ifndef BIRP_TDISTRIBUTIONS_H
 #define BIRP_TDISTRIBUTIONS_H
 
+#include "BirpTypes.h"
 #include "TData.h"
+#include "coretools/Math/TMatrix.h"
+#include "stattools/ParametersObservations/TObservation.h"
 #include "stattools/ParametersObservations/TParameter.h"
+#include <armadillo>
 #include <vector>
 
 // forward declarations

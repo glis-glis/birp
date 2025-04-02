@@ -1,18 +1,14 @@
 #ifndef BIRP_TMODELS_H
 #define BIRP_TMODELS_H
 
-#ifdef USE_RCPP
-#include <RcppArmadillo.h>
-#else
-#include <armadillo>
-#endif
-
 #include "BirpDAG.h"
 #include "BirpTypes.h"
 #include "TBirpConfiguration.h"
 #include "TData.h"
 #include "TDistributions.h"
 #include "TGamma.h"
+#include "coretools/Math/TMatrix.h"
+#include <armadillo>
 #include <vector>
 
 class TGamma;
