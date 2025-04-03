@@ -19,24 +19,27 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FetchContent)
 FetchContent_Declare(coretools
         GIT_REPOSITORY    https://bitbucket.org/wegmannlab/coretools.git
-        GIT_TAG           b61ee8a
+        GIT_TAG           5e6af14
         SOURCE_DIR        "${CMAKE_SOURCE_DIR}/coretools"
+        GIT_SHALLOW       TRUE
         )
 FetchContent_MakeAvailable(coretools)
 
 include(FetchContent)
 FetchContent_Declare(genometools
         GIT_REPOSITORY    https://bitbucket.org/wegmannlab/genometools.git
-        GIT_TAG           431e1f0
+        GIT_TAG           287c548
         SOURCE_DIR        "${CMAKE_SOURCE_DIR}/genometools"
+        GIT_SHALLOW       TRUE
 )
 FetchContent_MakeAvailable(genometools)
 
 include(FetchContent)
 FetchContent_Declare(stattools
         GIT_REPOSITORY    https://bitbucket.org/wegmannlab/stattools.git
-        GIT_TAG           5330d26
+        GIT_TAG           38b15df
         SOURCE_DIR        "${CMAKE_SOURCE_DIR}/stattools"
+        GIT_SHALLOW       TRUE
         )
 FetchContent_MakeAvailable(stattools)
 
