@@ -19,25 +19,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FetchContent)
 FetchContent_Declare(coretools
         GIT_REPOSITORY    https://bitbucket.org/wegmannlab/coretools.git
-        GIT_TAG           a264573
+        GIT_TAG           d03682f
         SOURCE_DIR        "${CMAKE_SOURCE_DIR}/coretools"
         GIT_SHALLOW       TRUE
         )
 FetchContent_MakeAvailable(coretools)
 
-include(FetchContent)
-FetchContent_Declare(genometools
-        GIT_REPOSITORY    https://bitbucket.org/wegmannlab/genometools.git
-        GIT_TAG           1dcfe89
-        SOURCE_DIR        "${CMAKE_SOURCE_DIR}/genometools"
-        GIT_SHALLOW       TRUE
-)
-FetchContent_MakeAvailable(genometools)
-
-include(FetchContent)
 FetchContent_Declare(stattools
         GIT_REPOSITORY    https://bitbucket.org/wegmannlab/stattools.git
-        GIT_TAG           02e9d8b
+        GIT_TAG           cbc5242
         SOURCE_DIR        "${CMAKE_SOURCE_DIR}/stattools"
         GIT_SHALLOW       TRUE
         )
@@ -55,7 +45,7 @@ add_library(coreLib STATIC ${CORE_SOURCES})
 
 target_sources(coreLib PRIVATE ${CORE_SOURCES})
 target_include_directories(coreLib PRIVATE core SYSTEM INTERFACE core)
-target_link_libraries(coreLib PUBLIC coretools stattools genometools)
+target_link_libraries(coreLib PUBLIC coretools stattools)
 target_compile_features(coreLib PUBLIC cxx_std_17)
 set_target_properties(coreLib PROPERTIES CXX_EXTENSIONS OFF)
 target_compile_options(coreLib PRIVATE -Wall -Wextra)
