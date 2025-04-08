@@ -18,20 +18,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Download coretools and stattools
 include(FetchContent)
 FetchContent_Declare(coretools
-        GIT_REPOSITORY    https://bitbucket.org/wegmannlab/coretools.git
-        GIT_TAG           750311a
-        SOURCE_DIR        "${CMAKE_SOURCE_DIR}/coretools"
-        GIT_SHALLOW       TRUE
-        )
-FetchContent_MakeAvailable(coretools)
+        URL https://bitbucket.org/wegmannlab/coretools/get/3342c2750ba51a9f79715fca1ddc5ab15700c76b.zip
+        SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/coretools"
+)
 
 FetchContent_Declare(stattools
-        GIT_REPOSITORY    https://bitbucket.org/wegmannlab/stattools.git
-        GIT_TAG           cbc5242
-        SOURCE_DIR        "${CMAKE_SOURCE_DIR}/stattools"
-        GIT_SHALLOW       TRUE
-        )
-FetchContent_MakeAvailable(stattools)
+        URL https://bitbucket.org/wegmannlab/stattools/get/cbc52420b89dc65a8687f5fa8331d8f008327220.zip
+        SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/stattools"
+)
+FetchContent_MakeAvailable(coretools stattools)
 
 #######################
 # Create core library
