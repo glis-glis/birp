@@ -4,6 +4,7 @@
 #include "BirpTypes.h"
 #include <algorithm>
 #include <vector>
+#include "coretools/Main/TLog.h"
 
 template<typename T> class TUniqueContainer {
 	// class that stores a vector of unique elements
@@ -31,7 +32,7 @@ public:
 	size_t size() const { return _names.size(); }
 	void resize(size_t size) { _names.resize(size); }
 
-	void print() const { std::cout << coretools::str::toString(_names) << std::endl; }
+	void print() const { coretools::cout << coretools::str::toString(_names) << std::endl; }
 
 	const T &operator[](size_t Index) const { return _names[Index]; }
 
