@@ -37,7 +37,6 @@ protected:
 	void _simulateUnderPrior(Storage *Data) override;
 
 public:
-	TBirpPrior() = default;
 	TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locations,
 	           const TUniqueContainer<std::string> &CIGroupNames, const TUniqueContainer<TypeTime> &TimePoints,
 	           const TUniqueContainer<std::string> &CovariateEffortNames,
