@@ -4,10 +4,14 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-
+# Policies (for properly setting the timestamps of extracted contents)
 if (POLICY CMP0048)
     cmake_policy(SET CMP0048 NEW)
 endif (POLICY CMP0048)
+
+if (POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif (POLICY CMP0135)
 
 # Project
 project(birp LANGUAGES CXX)
@@ -18,7 +22,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Download coretools and stattools
 include(FetchContent)
 FetchContent_Declare(coretools
-        URL https://bitbucket.org/wegmannlab/coretools/get/c96505f642dcd84e2716a0c91329c9405366cb57.tar.gz
+        URL https://bitbucket.org/wegmannlab/coretools/get/0b2e15e079a6fa43674f0f79c2adef95a72c3457.tar.gz
         SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/coretools"
 )
 
