@@ -13,6 +13,9 @@ if (POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif (POLICY CMP0135)
 
+# To avoid warnings when compaling on MacOS on CRAN
+set(CMAKE_OSX_DEPLOYMENT_TARGET "13.7" CACHE STRING "Minimum OS X deployment version")
+
 # Project
 project(birp LANGUAGES CXX)
 
@@ -22,7 +25,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Download coretools and stattools
 include(FetchContent)
 FetchContent_Declare(coretools
-        URL https://bitbucket.org/wegmannlab/coretools/get/af133ca8611bffa106e9ddf8c893bdc90131f6b8.tar.gz
+        URL https://bitbucket.org/wegmannlab/coretools/get/cf43887947b5e5449ffbb8dff5b2ddb48015e7f9.tar.gz
         SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/coretools"
 )
 
