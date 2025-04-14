@@ -25,7 +25,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Download coretools and stattools
 include(FetchContent)
 FetchContent_Declare(coretools
-        URL https://bitbucket.org/wegmannlab/coretools/get/be89dc454725f9c66f279130a71dc69fdf559f78.tar.gz
+        URL https://bitbucket.org/wegmannlab/coretools/get/8cee35ed5537a332b6730c19c845926e3e36cce9.tar.gz
         SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/coretools"
 )
 
