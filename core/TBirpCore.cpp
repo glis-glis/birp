@@ -15,6 +15,8 @@ using namespace stattools::prior;
 //--------------------------------------
 
 TBirpCore::TBirpCore() {
+	coretools::str::impl::force_fmt_linking();
+
 	using namespace coretools::instances;
 	if (parameters().exists("out")) {
 		_outname = parameters().get<std::string>("out");
