@@ -14,6 +14,11 @@ using namespace stattools::prior;
 // TBirpCore
 //--------------------------------------
 
+namespace coretools::str::impl {
+	void force_fmt_linking();
+	int _ = (force_fmt_linking(), 0);  // forces call at load time
+}
+
 TBirpCore::TBirpCore() {
 	coretools::str::impl::force_fmt_linking();
 
