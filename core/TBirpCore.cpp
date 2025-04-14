@@ -15,7 +15,9 @@ using namespace stattools::prior;
 //--------------------------------------
 
 TBirpCore::TBirpCore() {
-	coretools::str::impl::force_fmt_linking();
+	// Somewhere in your R-callable code:
+	const int i = 123;
+	std::cout <<  fmt::vformat("{}", fmt::make_format_args(i)) << std::endl;
 
 	using namespace coretools::instances;
 	if (parameters().exists("out")) {
