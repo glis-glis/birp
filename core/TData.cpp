@@ -4,7 +4,6 @@
 #include "coretools/Distributions/TGammaDistr.h"
 #include "coretools/Distributions/TNormalDistr.h"
 #include "coretools/Distributions/TUniformDistr.h"
-#include "coretools/devtools.h"
 #include "stattools/Updates/TPairIndexSampler.h"
 #include <set>
 #include <utility>

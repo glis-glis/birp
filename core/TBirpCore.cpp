@@ -1,7 +1,6 @@
 #include "TBirpCore.h"
 #include "TData.h"
 #include "coretools/Types/strongTypes.h"
-#include "coretools/devtools.h"
 #include "stattools/MCMC/TMCMC.h"
 #include "stattools/Priors/TPriorNormal.h"
 #include <set>
