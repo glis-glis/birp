@@ -6,8 +6,6 @@
 #include "stattools/Priors/TPriorNormal.h"
 #include <set>
 
-#include <fmt/format-inl.h>
-
 using namespace coretools::instances;
 using namespace stattools;
 using namespace stattools::prior;
@@ -17,11 +15,6 @@ using namespace stattools::prior;
 //--------------------------------------
 
 TBirpCore::TBirpCore() {
-	// Somewhere in your R-callable code:
-	const int i = 123;
-	std::cout <<  fmt::format("{}", i) << std::endl;
-	std::cout <<  fmt::vformat("{}", fmt::make_format_args(i)) << std::endl;
-
 	using namespace coretools::instances;
 	if (parameters().exists("out")) {
 		_outname = parameters().get<std::string>("out");
