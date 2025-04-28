@@ -117,7 +117,10 @@ arma::vec TOLSGamma::_doOLS(const std::vector<double> &Y_ix, const std::vector<T
 
 	// do OLS
 	const arma::vec arma_y(Y_ix);
-	auto beta = arma::solve(X, arma_y);
+	arma::mat beta;
+	bool valid = arma::solve(beta, X, arma_y);
+	if (!valid) { DEVERROR("Failed to solve system of linear equations when initializing gamma."); }
+
 	return beta.as_col(); // matrix -> vector
 }
 
