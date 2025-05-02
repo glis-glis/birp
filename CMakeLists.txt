@@ -30,7 +30,7 @@ FetchContent_Declare(coretools
 )
 
 FetchContent_Declare(stattools
-        URL https://bitbucket.org/wegmannlab/stattools/get/8387d3b134e60bcd999969a1f4f37228d05cd3f4.tar.gz
+        URL https://bitbucket.org/wegmannlab/stattools/get/4984b2330b9bd40e570856e2c6cac9c3099c3668.tar.gz
         SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/stattools"
 )
 FetchContent_MakeAvailable(coretools stattools)
