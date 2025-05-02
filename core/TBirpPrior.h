@@ -1,10 +1,10 @@
 #ifndef TBIRPPRIOR_H
 #define TBIRPPRIOR_H
 
+#include "TModels.h" // note: needs to be included first to avoid include issues with Rcpp and RcppArmadillo
 #include "BirpTypes.h"
 #include "TBirpConfiguration.h"
 #include "TData.h"
-#include "TModels.h"
 #include "coretools/Files/TOutputFile.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {

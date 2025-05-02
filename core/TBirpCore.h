@@ -1,8 +1,8 @@
 #ifndef TEXAMPLETASK_H_
 #define TEXAMPLETASK_H_
 
+#include "TBirpPrior.h" // note: needs to be included first to avoid include issues with Rcpp and RcppArmadillo
 #include "BirpTypes.h"
-#include "TBirpPrior.h"
 #include "TData.h"
 #include "coretools/Main/TParameters.h"
 #include "coretools/Main/TTask.h"
