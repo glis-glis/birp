@@ -5,7 +5,7 @@
 #include "BirpTypes.h"
 #include "TUniqueContainer.h"
 #include "coretools/Math/TMatrix.h"
-#include <armadillo>
+#include "coretools/arma_include.h"
 #include <vector>
 
 class TModelBase;

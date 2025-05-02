@@ -6,7 +6,7 @@
 #include "coretools/Math/TMatrix.h"
 #include "stattools/ParametersObservations/TObservation.h"
 #include "stattools/ParametersObservations/TParameter.h"
-#include <armadillo>
+#include "coretools/arma_include.h"
 #include <vector>
 
 // forward declarations
