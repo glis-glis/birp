@@ -1,5 +1,5 @@
+#include "TBirpPrior.h" // note: needs to be included first to avoid include issues with Rcpp and RcppArmadillo
 #include "TBirpConfiguration.h"
-#include "TBirpPrior.h"
 #include "TData.h"
 #include "coretools/Strings/repeatString.h"
 #include "coretools/Types/strongTypes.h"

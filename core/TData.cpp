@@ -1,6 +1,5 @@
-
+#include "TModels.h" // note: needs to be included first to avoid include issues with Rcpp and RcppArmadillo
 #include "TData.h"
-#include "TModels.h"
 #include "coretools/Distributions/TGammaDistr.h"
 #include "coretools/Distributions/TNormalDistr.h"
 #include "coretools/Distributions/TUniformDistr.h"

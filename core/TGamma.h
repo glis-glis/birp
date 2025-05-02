@@ -2,7 +2,7 @@
 #define BIRP_TGAMMA_H
 
 #include <vector>
-#include "coretools/arma_include.h"
+#include "coretools/arma_include.h" // note: needs to be included first to avoid include issues with Rcpp and RcppArmadillo
 #include "coretools/Math/TMatrix.h"
 
 #include "BirpDAG.h"
