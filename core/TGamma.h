@@ -1,12 +1,14 @@
 #ifndef BIRP_TGAMMA_H
 #define BIRP_TGAMMA_H
 
+#include <vector>
+#include "coretools/arma_include.h"
+#include "coretools/Math/TMatrix.h"
+
 #include "BirpDAG.h"
 #include "BirpTypes.h"
 #include "TUniqueContainer.h"
-#include "coretools/Math/TMatrix.h"
-#include "coretools/arma_include.h"
-#include <vector>
+
 
 class TModelBase;
 class TData;

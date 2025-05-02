@@ -1,13 +1,15 @@
 #ifndef BIRP_TDISTRIBUTIONS_H
 #define BIRP_TDISTRIBUTIONS_H
 
-#include "BirpTypes.h"
-#include "TData.h"
+#include <vector>
+#include "coretools/arma_include.h"
 #include "coretools/Math/TMatrix.h"
+
 #include "stattools/ParametersObservations/TObservation.h"
 #include "stattools/ParametersObservations/TParameter.h"
-#include "coretools/arma_include.h"
-#include <vector>
+
+#include "BirpTypes.h"
+#include "TData.h"
 
 // forward declarations
 class TModelBase;
