@@ -134,6 +134,7 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 	} else {
 		logfile().list("Will use a Poisson distribution to model counts (use argument 'negativeBinomial' to change).");
 	}
+	coretools::instances::logfile().list("TBirpConfiguration 1");
 
 	// do stochastic?
 	if (Stochastic) {
@@ -150,12 +151,14 @@ TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locatio
 		// create stochastic add-on
 		_stochasticAddOn = std::make_unique<TBirpStochasticAddOn>(Filename);
 	}
+	coretools::instances::logfile().list("TBirpConfiguration 2");
 
 	// create birp prior (Poisson or Negative Binomial)
 	_birpPrior = std::make_shared<TBirpPrior>(Data, Locations, CIGroupNames, TimePoints, CovariateEffortNames,
 	                                          CovariateDetectionNames, SpeciesNames.size(), _commonModel,
 	                                          _negBinomAddOn, _stochasticAddOn, Filename);
 
+	coretools::instances::logfile().list("TBirpConfiguration 3");
 	// add updater for joint logPhi update
 	if (Stochastic) { stattools::instances::dagBuilder().addExtraUpdater(_birpPrior->getPtrToJointUpdater()); }
 

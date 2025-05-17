@@ -403,7 +403,9 @@ TGamma::TGamma(TypeParamGamma *Gamma, const TUniqueContainer<TypeTime> &Timepoin
                const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID, std::string_view Prefix)
     : _gamma(Gamma), _species_id(SpeciesID), _numCIGroups(CIGroupNames.size()) {
 	// find out how many epochs there are and how many CI groups
+	coretools::instances::logfile().list("TGamma 1");
 	_readGammaGrouping(Timepoints, CIGroupNames, Prefix);
+	coretools::instances::logfile().list("TGamma 2");
 
 	// calculate Jeffrey's prior?
 	_noJP = parameters().exists("noJP");
@@ -422,7 +424,9 @@ void TGamma::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior
 void TGamma::_readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints,
                                 const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix) {
 	if (parameters().exists("timesOfChange")) {
+		coretools::instances::logfile().list("TGamma 3");
 		_fillTimesOfChange(Timepoints, Prefix);
+		coretools::instances::logfile().list("TGamma 4");
 	} else {
 		logfile().list("Will assume a single epoch without any times of change (use argument "
 		               "'timesOfChange' to change).");
@@ -550,18 +554,28 @@ void TGamma::_fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGrou
 }
 
 void TGamma::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, std::string_view Prefix) {
+	coretools::instances::logfile().list("TGamma 5");
+	coretools::instances::logfile().list("Prefix: ", Prefix);
+	for (const auto & t : Timepoints) {
+		coretools::instances::logfile().list("Timepoint ", t);
+	}
 	// check if times of change, as provided by the user, are valid and adjust them if necessary
 	assert(!Timepoints.empty());
 
 	// read command-line argument
 	std::vector<TypeTime> vec;
+	coretools::instances::logfile().list("TGamma 6");
 	parameters().fill("timesOfChange", vec);
+	coretools::instances::logfile().list("TGamma 7");
+	coretools::instances::logfile().list("TGamma 7: ", vec);
 
 	// get first and last timepoint
 	TypeTime minTime = *std::min_element(Timepoints.cbegin(), Timepoints.cend());
 	TypeTime maxTime = *std::max_element(Timepoints.cbegin(), Timepoints.cend());
 
+	coretools::instances::logfile().list("TGamma 8");
 	for (auto toc : vec) {
+		coretools::instances::logfile().list("TGamma 9: ", toc);
 		if (toc <= minTime) {
 			logfile().warning("Time of change ", toc, " pre-dates or equals the first time point ", minTime,
 			                  ". Will ignore this time of change.");
@@ -576,12 +590,17 @@ void TGamma::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, st
 		}
 	}
 
+	coretools::instances::logfile().list("TGamma 10");
+
 	// count number of epochs
 	_numEpochs = _timesOfChange.size() + 1;
 
 	// write to file
+	coretools::instances::logfile().list("TGamma 11");
 	coretools::TOutputMaybeRcppFile file((std::string)Prefix + "_timesOfChange.txt");
+	coretools::instances::logfile().list("TGamma 12");
 	file.writeln(_timesOfChange);
+	coretools::instances::logfile().list("TGamma 13");
 
 	// report
 	logfile().list("Times of change = ", _timesOfChange, " (argument 'timesOfChange').");
