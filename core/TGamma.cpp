@@ -555,10 +555,6 @@ void TGamma::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, st
 
 	// read command-line argument
 	std::vector<TypeTime> vec;
-	auto p = parameters().get("timesOfChange");
-	logfile().list("p=", p, ".");
-	logfile().list(p.size());
-
 	parameters().fill("timesOfChange", vec);
 
 	// get first and last timepoint
