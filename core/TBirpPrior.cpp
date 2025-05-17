@@ -17,7 +17,6 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
       _covariateEffortNames(CovariateEffortNames), _covariateDetectionNames(CovariateDetectionNames),
       _numSpecies(numSpecies), _out(std::move(Prefix)) {
 
-	coretools::instances::logfile().list("TBirpPrior 1");
 	// stattools: tell which ones are prior parameters
 	addPriorParameter(&CommonModel.gamma);
 	for (auto &a : CommonModel.alpha) { addPriorParameter(a.get()); }
@@ -27,7 +26,6 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 	if (NegBinomAddOn) { addPriorParameter({&NegBinomAddOn->muOrN, &NegBinomAddOn->b}); }
 	if (StochasticAddOn) { addPriorParameter({&StochasticAddOn->logPhi, &StochasticAddOn->logSigma}); }
 
-	coretools::instances::logfile().list("TBirpPrior 2");
 	// create models
 	size_t speciesID = 0;
 	if (StochasticAddOn) {
@@ -35,10 +33,8 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 		    speciesID, Data, Locations.size(), TimePoints.size(), NegBinomAddOn, &CommonModel.gamma,
 		    &StochasticAddOn->logPhi, &StochasticAddOn->logSigma, _timepoints, _CIGroupNames, _out));
 	} else {
-		coretools::instances::logfile().list("TBirpPrior 3");
 		_models.emplace_back(std::make_unique<TDeterministic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
 		                                                      _timepoints, _CIGroupNames, _out));
-		coretools::instances::logfile().list("TBirpPrior 4");
 	}
 
 	for (size_t i = 0; i < Data.size(); ++i) {

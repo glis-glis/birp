@@ -270,9 +270,7 @@ TDeterministic::TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &D
                                const TUniqueContainer<TypeTime> &Timepoints,
                                const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix)
     : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn),
-      _gamma(Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix) {
-	coretools::instances::logfile().list("TDeterministic 1");
-}
+      _gamma(Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix) {}
 
 void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
                                 const TUniqueContainer<TypeTime> &TimePoints, TBirpPrior *BirpPrior) {
