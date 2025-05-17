@@ -556,8 +556,8 @@ void TGamma::_fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGrou
 void TGamma::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, std::string_view Prefix) {
 	coretools::instances::logfile().list("TGamma 5");
 	coretools::instances::logfile().list("Prefix: ", Prefix);
-	for (const auto & t : Timepoints) {
-		coretools::instances::logfile().list("Timepoint ", t);
+	for (size_t i = 0; i < Timepoints.size(); ++i){
+		coretools::instances::logfile().list("Timepoint ", Timepoints[i]);
 	}
 	// check if times of change, as provided by the user, are valid and adjust them if necessary
 	assert(!Timepoints.empty());
