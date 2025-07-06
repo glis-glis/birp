@@ -33,7 +33,7 @@ void TBirpCore::_checkIfAllCountsZero() {
 			}
 		}
 	}
-	if (sumNonZero == 0) { UERROR("All counts are zero! Can not infer trends."); }
+	if (sumNonZero == 0) { throw coretools::TUserError("All counts are zero! Can not infer trends."); }
 }
 
 void TBirpCore::_readData() {
@@ -43,7 +43,7 @@ void TBirpCore::_readData() {
 
 	// read files (one per method)
 	for (const auto &name : filenames) { _readFile(name); }
-	if (_data.size() == 0) { UERROR("No method passes filters!"); }
+	if (_data.size() == 0) { throw coretools::TUserError("No method passes filters!"); }
 
 	// check if all counts are zero
 	_checkIfAllCountsZero();
@@ -110,7 +110,7 @@ std::vector<std::string> TBirpCore::_getAllFilenames(std::string_view Input) {
 		coretools::str::fillContainerFromString(Input, filenames, ',');
 	}
 
-	if (filenames.empty()) { UERROR("Provided filenames are empty (argument 'data')."); }
+	if (filenames.empty()) { throw coretools::TUserError("Provided filenames are empty (argument 'data')."); }
 
 	return filenames;
 }
@@ -127,17 +127,17 @@ void checkHeader(const coretools::TInputMaybeRcppFile &Infile, const std::vector
 	// make sure location and timepoint are included in header
 	for (const auto &colName : getHeader()) {
 		if (std::find(Infile.header().begin(), Infile.header().end(), colName) == Infile.header().end()) {
-			UERROR("Error in header of file ", Infile.name(), ": Mandatory column '", colName, "' is missing.");
+			throw coretools::TUserError("Error in header of file ", Infile.name(), ": Mandatory column '", colName, "' is missing.");
 		}
 	}
 
 	// make sure there is at least one column starting with "covEffort" and counts
 	if (CovEffortIndices.empty()) {
-		UERROR("Error in header of file ", Infile.name(),
+		throw coretools::TUserError("Error in header of file ", Infile.name(),
 		       ": Need at least one column starting with 'covEffort' or 'effort'.");
 	}
 	if (countIndices.empty()) {
-		UERROR("Error in header of file ", Infile.name(), ": Need at least one column starting with 'counts'.");
+		throw coretools::TUserError("Error in header of file ", Infile.name(), ": Need at least one column starting with 'counts'.");
 	}
 }
 
@@ -461,10 +461,10 @@ void TBirpCore::_fillTimepointsFromCommandLine() {
 		if (coretools::str::stringIsProbablyANumber(timepointName)) {
 			auto timepointNumber = coretools::str::fromString<size_t>(timepointName);
 			for (size_t i = 1; i <= timepointNumber; i++) { timepoints.emplace_back((double)i); }
-			if (timepoints.size() == 1) { UERROR("Please provide more than one timepoint"); }
+			if (timepoints.size() == 1) { throw coretools::TUserError("Please provide more than one timepoint"); }
 		} else {
 			parameters().fill("timepoints", timepoints);
-			if (timepoints.size() == 1) { UERROR("Please provide more than one timepoint"); }
+			if (timepoints.size() == 1) { throw coretools::TUserError("Please provide more than one timepoint"); }
 		}
 	} else {
 		timepoints = timepointsDefault;
@@ -492,7 +492,7 @@ void TBirpCore::_fillCIGroupsFromCommandLine() {
 		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'BACI').");
 	} else {
 		if (numCIGroups == 0) {
-			UERROR("Number of control-intervention groups can not be zero (argument 'numCIGroups').");
+			throw coretools::TUserError("Number of control-intervention groups can not be zero (argument 'numCIGroups').");
 		}
 		for (size_t i = 0; i < numCIGroups; ++i) { _CIGroupNames.add("Group_" + coretools::str::toString(i + 1)); }
 		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'numCIGroups').");
@@ -511,7 +511,7 @@ std::vector<size_t> TBirpCore::_simulateSpeciesNames() {
 
 std::vector<size_t> TBirpCore::_simulateCovEffortNames() {
 	size_t numCovs = parameters().get("numCovariatesEffort", 1);
-	if (numCovs == 0) { UERROR("Argument 'numCovariatesEffort' must be at least 1!"); }
+	if (numCovs == 0) { throw coretools::TUserError("Argument 'numCovariatesEffort' must be at least 1!"); }
 	logfile().list("Number of effort covariates: ", numCovs, " (argument 'numCovariatesEffort').");
 
 	// fill names and ids

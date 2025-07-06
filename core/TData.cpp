@@ -19,7 +19,7 @@ TTimepoints::TTimepoints(const std::vector<TypeCounts> &Counts, const std::vecto
       _timepoint_id(Timepoint_id) {
 
 	// we (temporarily) only allow a single speces
-	if (_counts_per_species.size() > 1) { UERROR("Currently only supports single species!"); }
+	if (_counts_per_species.size() > 1) { throw coretools::TUserError("Currently only supports single species!"); }
 }
 
 TTimepoints::TTimepoints(size_t timepoint_id, size_t numSpecies, size_t numCovariatesEffort,
@@ -228,7 +228,7 @@ const TTimepoints &TLocations::operator[](size_t index) const { return _timepoin
 void TLocations::add(const TTimepoints &pt) {
 	for (auto &t : _timepoints) {
 		if (t.timepoint_id() == pt.timepoint_id()) {
-			UERROR("Make sure your input file does not contain multiple rows with identical location and timepoints");
+			throw coretools::TUserError("Make sure your input file does not contain multiple rows with identical location and timepoints");
 		}
 	}
 	// when we are here: timpoint is unique -> push it back
@@ -378,7 +378,7 @@ TMethods::TMethods(std::string methodName, size_t locationSize, size_t Timepoint
 		if (Data.size() == 0) { // first method: location does not yet exist
 			if (parameters().exists("CI_group_per_location")) {
 				if (i >= NumCIGroups) {
-					UERROR("More locations (", locationSize, ") than CI groups (", NumCIGroups,
+					throw coretools::TUserError("More locations (", locationSize, ") than CI groups (", NumCIGroups,
 					       ") (argument 'CI_group_per_location').");
 				}
 				group_id = i;
@@ -434,7 +434,7 @@ void TMethods::add(const TTimepoints &pt, size_t location_id, size_t group_id,
 	for (auto &loc : _locations) {
 		if (loc.location_id() == location_id) {
 			if (loc.group_id() != group_id) {
-				UERROR("Location '", LocationNames[location_id],
+				throw coretools::TUserError("Location '", LocationNames[location_id],
 				       "' has been surveyed at multiple timepoints, but has a different control-intervention group (",
 				       CIGroupNames[group_id], " vs ", CIGroupNames[loc.group_id()], " depending on the timepoint.");
 			}
@@ -465,7 +465,7 @@ auto TMethods::_getMeanVarDetectionCovariates() {
 	// check if a covariate is the same across all locations and timepoints
 	for (const auto &d : uniqueValues_perCovariate) {
 		if (d.size() == 1) {
-			UERROR("All detection covariates are equal (", *d.begin(),
+			throw coretools::TUserError("All detection covariates are equal (", *d.begin(),
 			       "). Please exclude this covariate or provide non-equal values.");
 		}
 	}
@@ -495,7 +495,7 @@ void TMethods::standardizeCovariates() {
 		               "transform to logit and not standardized (argument 'assumeTrueDetectionProbability').");
 		// user has provided true detection probabilities -> transform to logit and do not standardize!
 		if (_covariateDetectionIDsinUniqueContainer.size() > 1) {
-			UERROR("Argument 'assumeTrueDetectionProbability' can only be used if a single detection probability is "
+			throw coretools::TUserError("Argument 'assumeTrueDetectionProbability' can only be used if a single detection probability is "
 			       "provided");
 		}
 		// check if all detection are proper probabilities
@@ -503,7 +503,7 @@ void TMethods::standardizeCovariates() {
 			for (auto &timepoint : loc) {
 				for (auto detection : timepoint.covariatesDetection()) {
 					if (detection < 0.0 || detection > 1.0) {
-						UERROR("Detection probability must be between [0,1] if argument "
+						throw coretools::TUserError("Detection probability must be between [0,1] if argument "
 						       "'assumeTrueDetectionProbability' is used (found ",
 						       detection, ").");
 					}
@@ -662,7 +662,7 @@ void TMethods::_simulateOneCovariateEffort(size_t c, const std::string &Cov) {
 		} else if (distr == "uniform") {
 			_simulateCovariateFromDistribution<coretools::probdist::TUniformDistr, true>(c, params);
 		} else {
-			UERROR("Unknown distribution '", distr,
+			throw coretools::TUserError("Unknown distribution '", distr,
 			       "' (argument 'covariatesEffort'). Supported distributions are: gamma and uniform.");
 		}
 	}
@@ -686,7 +686,7 @@ void TMethods::_simulateCovariatesEffort() {
 		// cases 2 and 4: comma-separated string of numbers (case 2) or distributions (case 4) or both
 		std::vector<std::string> vec = splitVecWithDistributions(effortString);
 		if (vec.size() != numCovariatesEffort()) {
-			UERROR("The size of covariates provided with argument 'covariatesEffort' (", vec.size(),
+			throw coretools::TUserError("The size of covariates provided with argument 'covariatesEffort' (", vec.size(),
 			       ") does not match the number of covariates (", numCovariatesEffort(), ").");
 		}
 		for (size_t c = 0; c < vec.size(); ++c) { _simulateOneCovariateEffort(c, vec[c]); }
@@ -711,7 +711,7 @@ void TMethods::_simulateOneCovariateDetection(size_t c, const std::string &Cov) 
 		} else if (distr == "uniform") {
 			_simulateCovariateFromDistribution<coretools::probdist::TUniformDistr, false>(c, params);
 		} else {
-			UERROR("Unknown distribution '", distr,
+			throw coretools::TUserError("Unknown distribution '", distr,
 			       "' (argument 'covariatesDetection'). Supported distributions are: normal and uniform.");
 		}
 	}
@@ -735,7 +735,7 @@ void TMethods::_simulateCovariatesDetection() {
 		// cases 2 and 4: comma-separated string of numbers (case 2) or distributions (case 4) or both
 		std::vector<std::string> vec = splitVecWithDistributions(effortString);
 		if (vec.size() != numCovariatesDetection()) {
-			UERROR("The size of covariates provided with argument 'covariatesDetection' (", vec.size(),
+			throw coretools::TUserError("The size of covariates provided with argument 'covariatesDetection' (", vec.size(),
 			       ") does not match the number of covariates (", numCovariatesDetection(), ").");
 		}
 		for (size_t c = 0; c < vec.size(); ++c) { _simulateOneCovariateDetection(c, vec[c]); }
@@ -983,7 +983,7 @@ std::pair<size_t, size_t> TData::_getMethAndLocIndex(size_t ij_index, size_t spe
 		}
 		counter += _methods[i].size();
 	}
-	DEVERROR("Did not find method and location index for species - this should not happen.");
+	throw coretools::TDevError("Did not find method and location index for species - this should not happen.");
 }
 
 void TData::_fillLinearToIJ() {
@@ -1008,7 +1008,7 @@ void TData::_fillIJToLinear() {
 				auto it =
 				    std::find(_linear_to_i_j[species].begin(), _linear_to_i_j[species].end(), std::make_pair(i, j));
 				if (it == _linear_to_i_j[species].end()) {
-					DEVERROR("Something went wrong - could not find ", i, ", ", j, " in _linear_to_i_j!");
+					throw coretools::TDevError("Something went wrong - could not find ", i, ", ", j, " in _linear_to_i_j!");
 				}
 				_i_j_to_linear[species][i][j] = std::distance(_linear_to_i_j[species].begin(), it);
 			}
@@ -1063,7 +1063,7 @@ void TData::_fillLocationIDPerCI(const TUniqueContainer<std::string> &Locations,
 					first                                          = false;
 				} else if (_methods[i][j].group_id() != _CI_index_per_locationId[species][location_id]) {
 					// another method has the same location -> check if group matches
-					UERROR(
+					throw coretools::TUserError(
 					    "Location '", Locations[location_id],
 					    "' has been surveyed using multiple methods but with different control-intervention groups (",
 					    CIGroupNames[_methods[i][j].group_id()], " vs ",

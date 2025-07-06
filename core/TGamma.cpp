@@ -119,7 +119,7 @@ arma::vec TOLSGamma::_doOLS(const std::vector<double> &Y_ix, const std::vector<T
 	const arma::vec arma_y(Y_ix);
 	arma::mat beta;
 	bool valid = arma::solve(beta, X, arma_y);
-	if (!valid) { DEVERROR("Failed to solve system of linear equations when initializing gamma."); }
+	if (!valid) { throw coretools::TDevError("Failed to solve system of linear equations when initializing gamma."); }
 
 	return beta.as_col(); // matrix -> vector
 }
@@ -330,7 +330,7 @@ auto TOLSGamma::_getNextGammaToInitialize(const std::vector<bool> &GammaInitiali
 	}
 
 	if (max_score == 0) {
-		UERROR("Need at least one range with two or more timepoints for estimating gamma [", max_gamma_ix + 1, "]!");
+		throw coretools::TUserError("Need at least one range with two or more timepoints for estimating gamma [", max_gamma_ix + 1, "]!");
 	}
 
 	return std::make_tuple(max_gamma_ix, max_ols_possible);
@@ -484,7 +484,7 @@ void TGamma::_fillGammaIndicatorBA(const TUniqueContainer<TypeTime> &Timepoints)
 void TGamma::_fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGroupNames) {
 	// open file
 	if (!parameters().exists("BACI")) {
-		UERROR("The argument 'BACI' is required when analysing ", _numCIGroups, " control-intervention groups and ",
+		throw coretools::TUserError("The argument 'BACI' is required when analysing ", _numCIGroups, " control-intervention groups and ",
 		       _numEpochs, " epochs.");
 	}
 	auto name = parameters().get<std::string>("BACI");
@@ -494,7 +494,7 @@ void TGamma::_fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGrou
 	// number of columns = number of epochs in total -> check if this matches timesOfChange!
 	int numEpochs = (int)file.numCols() - 1;
 	if (numEpochs != (int)_numEpochs) {
-		UERROR("The number of epochs provided in BACI-file (", numEpochs,
+		throw coretools::TUserError("The number of epochs provided in BACI-file (", numEpochs,
 		       ") does not match the number of epochs provided through the argument 'timesOfChange' (", _numEpochs,
 		       ").");
 	}
@@ -508,7 +508,7 @@ void TGamma::_fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGrou
 		// new line = new group (control / intervention)
 		auto group_name = file.get<std::string>(0); // first column = CI group name
 		if (!CIGroupNames.exists(group_name)) {
-			UERROR("CI group name '", group_name,
+			throw coretools::TUserError("CI group name '", group_name,
 			       "' from BACI file does not match any of the CI groups provided in the counts files (column "
 			       "'CI_group')!");
 		}
@@ -531,7 +531,7 @@ void TGamma::_fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGrou
 			} else if (ix == _CI_indices_per_gamma.size()) { // new gamma index (+1 of previous) -> append new index
 				_CI_indices_per_gamma.push_back({group_id});
 			} else {
-				DEVERROR("Gamma index ", ix, " is larger than size of _CI_indices_per_gamma ",
+				throw coretools::TDevError("Gamma index ", ix, " is larger than size of _CI_indices_per_gamma ",
 				         _CI_indices_per_gamma.size(), ", this should never happen.");
 			}
 		}
@@ -540,7 +540,7 @@ void TGamma::_fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGrou
 	// check if all CI groups were parsed
 	for (size_t i = 0; i < _numCIGroups; ++i) {
 		if (!found_CI_group[i]) {
-			UERROR("CI group with name ", CIGroupNames[i],
+			throw coretools::TUserError("CI group with name ", CIGroupNames[i],
 			       " from counts file (column 'CI_group') was not found in BACI file.");
 		}
 	}
@@ -569,7 +569,7 @@ void TGamma::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, st
 			logfile().warning("Time of change ", toc, " post-dates or equals the last time point ", maxTime,
 			                  ". Will ignore this time of change.");
 		} else if (!_timesOfChange.empty() && toc <= _timesOfChange.back()) { // check if it is sorted
-			UERROR("Time of change ", toc, " pre-dates or equals the previous time of change ", _timesOfChange.back(),
+			throw coretools::TUserError("Time of change ", toc, " pre-dates or equals the previous time of change ", _timesOfChange.back(),
 			       ". Please provide times of change in increasing order.");
 		} else {
 			_timesOfChange.push_back(toc);

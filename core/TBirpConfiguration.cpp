@@ -18,11 +18,11 @@ std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretool
 		alphas.push_back(Default);
 	}
 
-	if (alphas.empty()) { UERROR("Invalid argument '", ArgName, "': is empty!"); }
+	if (alphas.empty()) { throw coretools::TUserError("Invalid argument '", ArgName, "': is empty!"); }
 	if (alphas.size() == 1) { return coretools::str::repeat(alphas[0], Size); }
 	if (alphas.size() == Size) { return coretools::str::concatenateString(alphas, ","); }
 
-	UERROR("Size of argument '", ArgName, "' (", alphas.size(), ") does not match expected size (", Size, ").");
+	throw coretools::TUserError("Size of argument '", ArgName, "' (", alphas.size(), ") does not match expected size (", Size, ").");
 }
 
 //------------------------------------------

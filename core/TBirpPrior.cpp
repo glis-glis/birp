@@ -22,7 +22,7 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 	for (auto &a : CommonModel.alpha) { addPriorParameter(a.get()); }
 	for (auto &b : CommonModel.beta0) { addPriorParameter(b.get()); }
 	for (auto &b : CommonModel.beta) { addPriorParameter(b.get()); }
-	if (_numSpecies > 1) { UERROR("Birp only supports single species at the moment.."); }
+	if (_numSpecies > 1) { throw coretools::TUserError("Birp only supports single species at the moment.."); }
 	if (NegBinomAddOn) { addPriorParameter({&NegBinomAddOn->muOrN, &NegBinomAddOn->b}); }
 	if (StochasticAddOn) { addPriorParameter({&StochasticAddOn->logPhi, &StochasticAddOn->logSigma}); }
 

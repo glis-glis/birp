@@ -26,7 +26,7 @@ public:
 	size_t getIndex(const T &Value) const {
 		auto it = std::find(_names.begin(), _names.end(), Value);
 		if (it != _names.end()) { return it - _names.begin(); }
-		DEVERROR("Value ", Value, " not found in vector. This should not happen.");
+		throw coretools::TDevError("Value ", Value, " not found in vector. This should not happen.");
 	}
 
 	size_t size() const { return _names.size(); }
