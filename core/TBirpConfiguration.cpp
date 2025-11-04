@@ -54,13 +54,15 @@ void TBirpCommonModel::_createBeta(size_t i, TData &Data, const std::string &Fil
 	beta[i] = std::make_shared<stattools::TParameter<SpecBeta, BirpBox>>(name, &_boxOnBeta, def);
 }
 
+
 TBirpCommonModel::TBirpCommonModel(TData &Data, const std::string &Filename)
-    : _boxOnGamma(), _boxOnAlpha(), _boxOnBeta(), _boxOnBeta0(), gamma("gamma", &_boxOnGamma, {Filename}) {
+    : _boxOnGamma(), _boxOnAlpha(), _boxOnBeta(), _boxOnBeta0(), gamma("gamma", &_boxOnGamma, {Filename}),delta("delta", &_boxOnDelta, {Filename}) {
 
-	// don't update gamma and TOC via DAG
+	// don't update gamma, delta and TOC via DAG
 	gamma.getDefinition().excludeFromDAGUpdates(true);
-
 	gamma.getDefinition().setJumpSizeForAll(false);
+	delta.getDefinition().excludeFromDAGUpdates(true);
+	delta.getDefinition().setJumpSizeForAll(false);
 
 	// create alpha and beta
 	const size_t numMethods = Data.size();

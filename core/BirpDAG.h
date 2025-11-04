@@ -13,6 +13,12 @@
 using BoxOnGamma = stattools::prior::TFlatFixed<stattools::TParameterBase, TypeGamma, NumDimGamma>;
 using SpecGamma  = stattools::ParamSpec<TypeGamma, stattools::Hash<coretools::toHash("gamma")>, BoxOnGamma,
                                         stattools::NumDim<NumDimGamma>>;
+
+// delta (step-change)
+using BoxOnDelta = stattools::prior::TFlatFixed<stattools::TParameterBase, TypeDelta, NumDimDelta>;
+using SpecDelta  = stattools::ParamSpec<TypeDelta, stattools::Hash<coretools::toHash("delta")>, BoxOnDelta,
+                                        stattools::NumDim<NumDimDelta>>;
+
 // alpha
 using BoxOnAlpha = stattools::prior::TDirichletFixed<stattools::TParameterBase, TypeAlpha, NumDimAlpha>;
 using SpecAlpha  = stattools::ParamSpec<TypeAlpha, stattools::Hash<coretools::toHash("alpha")>, BoxOnAlpha,
@@ -48,6 +54,7 @@ using BirpBox = TBirpPrior;
 
 // Parameters
 using TypeParamGamma    = stattools::TParameter<SpecGamma, BirpBox>;
+using TypeParamDelta    = stattools::TParameter<SpecDelta, BirpBox>;
 using TypeParamAlpha    = stattools::TParameter<SpecAlpha, BirpBox>;
 using TypeParamBeta     = stattools::TParameter<SpecBeta, BirpBox>;
 using TypeParamMuOrN    = stattools::TParameter<SpecMuOrN, BirpBox>;
