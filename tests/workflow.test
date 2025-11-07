@@ -1,0 +1,11 @@
+#! /bin/bash
+
+. $(dirname $0)/find_birp
+
+out="simulate"
+$birp simulate \
+	--fixedSeed 0 --out $out --logFile $out.out 2> $out.eout
+
+out="infer"
+$birp infer --data simulate_Method_1_simulated_counts.txt \
+	--fixedSeed 1 --out $out --logFile $out.out 2> $out.eout

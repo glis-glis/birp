@@ -1,0 +1,83 @@
+#! /bin/bash
+
+compare() {
+	echo "- Comparing reference birp-files to new ones"
+	local differs=""
+	for a_ref in ${1}_ref/*; do
+		[[ $a_ref == *.bai ]] && continue
+		[[ $a_ref == *.out ]] && continue
+		[[ $a_ref == *.eout ]]  && continue
+		a_new=${1}_new/$(basename $a_ref)
+		if [[ $a_ref == *.vcf.gz ]]; then
+			if ! diff -q <(gunzip -c $a_ref | grep -v "fileDate") <(gunzip -c  $a_new | grep -v "fileDate") > /dev/null; then
+				echo "Files $a_ref and $a_new differ"
+				differs=true
+			fi
+		elif [[ $a_ref == *.gz ]]; then
+			if ! diff -q <(gunzip -c $a_ref) <(gunzip -c  $a_new) > /dev/null; then
+				echo "Files $a_ref and $a_new differ"
+				differs=true
+			fi
+		else
+			! diff -q $a_ref $a_new &&  differs=true
+		fi
+	done
+	[[ $differs ]] && return 1
+	echo "- All files are identical"
+}
+
+cd "$(dirname "$0")" || exit 1
+
+cnt=0
+fail=0
+shs="*.test"
+if [[ $1 ]]; then
+	shs="${1%.test}.test"
+fi
+
+tBegin=$(date +%s)
+for f in $(eval echo $shs); do
+	fo=${f%.test}
+	((cnt++))
+	tstep=$(date +%s)
+	echo "$cnt) Regression Test: $fo"
+	if [[ ! -d ${fo}_ref ]]; then
+		echo "- Creating reference birp-files in folder ${fo}_ref"
+		mkdir ${fo}_ref
+		cd ${fo}_ref
+		bash ../$f > /dev/null
+		cat *.eout >> all.eout
+		[[ -s all.eout ]] && echo "Reference run of $fo ended with errors:"; head all.eout
+		cd ..
+	else
+		echo "- Found reference birp-files in folder ${fo}_ref"
+		[[ -s ${fo}_ref/all.eout ]] && echo "Reference run of $fo ended with errors:"; head ${fo}_ref/all.eout
+		if [[ ! -d ${fo}_new ]]; then
+			echo "- Creating new birp-files in folder ${fo}_new"
+			mkdir ${fo}_new
+			cd ${fo}_new
+			bash ../$f > /dev/null
+			cat *.eout >> all.eout
+			[[ -s all.eout ]] && echo "New run of $fo ended with errors:"; head all.eout
+		else
+			echo "- Found new birp-files in folder ${fo}_new"
+			[[ -s ${fo}_new/all.eout ]] && echo "New run of $fo ended with errors:"; head ${fo}_new/all.eout
+			cd ${fo}_new
+		fi
+
+		cd ..
+		! compare $fo && fails="$fails, $fo" && ((fail++))
+	fi
+	echo "- Elapsed time: $(($(date +%s) - $tstep)) seconds"
+	echo "------------------------------------------------------------"
+done
+echo "Total elapsed time: $(($(date +%s) - $tBegin)) seconds"
+
+if [[ $fail > 0 ]]; then
+	echo "$fail of $cnt tests failed:"
+	echo ${fails#", "}
+	exit 1
+else
+	echo "All $cnt tests passed"
+	exit 0
+fi

@@ -1,0 +1,6 @@
+#! /bin/bash
+
+root=`git rev-parse --show-toplevel`
+birp=$root/build/birp
+[[ -e $birp ]] || birp=`find $root -type f -name atlas | tail -n 1`
+echo "Using $birp"
