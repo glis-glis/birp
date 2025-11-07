@@ -405,10 +405,6 @@ TGamma::TGamma(TypeParamGamma *Gamma, const TUniqueContainer<TypeTime> &Timepoin
 	// find out how many epochs there are and how many CI groups
 	_readGammaGrouping(Timepoints, CIGroupNames, Prefix);
 
-	// initialize zeta
-	_zeta.resize(_numEpochs, 1.0); // one value per epoch
-
-
 	// calculate Jeffrey's prior?
 	_noJP = parameters().exists("noJP");
 	if (_noJP) { logfile().list("Will not use Jeffrey's prior on gamma (argument 'noJP')."); }
@@ -627,7 +623,6 @@ std::vector<TypeTime> TGamma::getEpochStarts(const TUniqueContainer<TypeTime> &T
 void TGamma::_fillRho(const TUniqueContainer<TypeTime> &Timepoints) {
 	std::vector<TypeTime> epochStarts = getEpochStarts(Timepoints);
 	_rho.zeros((int)Timepoints.size(), (int)_numEpochs);
-	_deltaIndicator.zeros((int)Timepoints.size(), (int)_numEpochs);
 
 	for (size_t t = 0; t < Timepoints.size(); ++t) {
 		for (size_t e = 1; e < epochStarts.size(); ++e) {
@@ -637,13 +632,6 @@ void TGamma::_fillRho(const TUniqueContainer<TypeTime> &Timepoints) {
 				_rho(t, e - 1) = Timepoints[t] - epochStarts[e - 1];
 			} else {
 				_rho(t, e - 1) = epochStarts[e] - epochStarts[e - 1];
-			}
-
-			// Calculate indicator for delta
-			if (Timepoints[t] < epochStarts[e]) {
-				_deltaIndicator(t, e-1) = 0.0;
-			} else {
-				_deltaIndicator(t, e-1) = 1.0;
 			}
 		}
 	}
@@ -727,14 +715,6 @@ TypeGamma TGamma::gamma(size_t epoch, size_t CI_ix) const {
 	return _gamma->value(ix);
 }
 
-TypeDelta TGamma::delta(size_t epoch, size_t CI_ix) const {
-	assert(epoch < _numEpochs);
-	assert(CI_ix < _numCIGroups);
-
-	auto ix = _gamma_ix_per_CIgroup_and_epoch[CI_ix][epoch];
-	return _delta->value(ix);
-}
-
 double TGamma::rho(size_t row, size_t col) const { return _rho(row, col); }
 
 bool TGamma::gammaIsUpdated() const { return _gamma->isUpdated(); }
@@ -743,10 +723,7 @@ bool TGamma::gammaIsUpdated() const { return _gamma->isUpdated(); }
 	std::vector<TypePhi> phi(numTimepoints());
 	for (size_t k = 0; k < numTimepoints(); ++k) {
 		double logPhi = 0.0;
-		for (size_t m = 0; m < _numEpochs; m++) {
-			logPhi += _rho(k, m) * gamma(m, CI_ix);
-			logPhi += _deltaIndicator(k, m) * delta(m, CI_ix);
-		}
+		for (size_t m = 0; m < _numEpochs; m++) { logPhi += _rho(k, m) * gamma(m, CI_ix); }
 		phi[k] = exp(logPhi); // make logPhi to phi
 	}
 	return phi;
@@ -858,21 +835,10 @@ coretools::probdist::TNormalDistr TStochasticPrior::_getMeanSdTransitionProbabil
 	const auto sigma2               = sigma * sigma;
 	const auto sumRhoGamma          = _newSumRhoGamma[CI_index][k];
 	const auto log_phi_j_previous_k = _logPhi->value(_logPhi->getIndex({j, k - 1}));
-
-	// delta contribution to mean
-	double deltaContribution = 0.0;
-	for (size_t m = 0; m < _gamma.numEpochs(); ++m) {
-		deltaContribution += _gamma.delta(m, CI_index) * _gamma.deltaIndicator(k, m);
-	}
-
-	const auto mean	= log_phi_j_previous_k + sumRhoGamma + deltaContribution - sigma2 / 2.0 * deltaTime;
+	const auto mean                 = log_phi_j_previous_k + sumRhoGamma - sigma2 / 2.0 * deltaTime;
 
 	// calculate sd of normal distribution
-	double scaledDelta = 0.0;
-	for (size_t m = 0; m < _gamma.numTimepoints(); ++m) {
-		scaledDelta += _gamma.deltaIndicator(k, m) * _gamma.zeta(m);
-	}
-	const double sd = sqrt(sigma2 * (deltaTime + scaledDelta));
+	const double sd = sqrt(sigma2 * deltaTime);
 
 	coretools::probdist::TNormalDistr distr(mean, sd);
 	return distr;
@@ -1032,12 +998,6 @@ size_t TStochasticPrior::numEpochs() const { return _gamma.numEpochs(); }
 size_t TStochasticPrior::numCIGroups() const { return _gamma.numCIGroups(); }
 size_t TStochasticPrior::size() const { return _gamma.size(); }
 const std::vector<size_t> &TStochasticPrior::getCIGroups(size_t gamma_ix) const { return _gamma.getCIGroups(gamma_ix); }
-
-
-TypeDelta TStochasticPrior::delta(size_t m, size_t CI_ix) const {
-	return _gamma.delta(m, CI_ix); // delegate to TGamma
-}
-
 
 void TStochasticPrior::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPosterior(); }
 

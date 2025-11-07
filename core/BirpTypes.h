@@ -13,11 +13,6 @@
 using TypeGamma                     = coretools::Unbounded;
 constexpr static size_t NumDimGamma = 1;
 
-// delta
-using TypeDelta = coretools::Unbounded;
-constexpr static size_t NumDimDelta = 1;
-
-
 // alpha
 using TypeAlpha                     = coretools::StrictlyPositiveWithMax<0>;
 constexpr static size_t NumDimAlpha = 1;

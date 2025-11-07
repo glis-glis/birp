@@ -98,7 +98,6 @@ class TGamma {
 protected:
 	// stattools parameters
 	TypeParamGamma *_gamma = nullptr;
-	TypeParamDelta *_delta = nullptr;
 
 	// species id
 	size_t _species_id = 0;
@@ -109,10 +108,6 @@ protected:
 
 	// rho
 	coretools::TMatrix<double> _rho;
-	coretools::TMatrix<double>_deltaIndicator;
-
-	// zeta (step change variance)
-	std::vector<double> _zeta;
 
 	// Jeffrey's prior
 	bool _noJP = false;
@@ -167,15 +162,9 @@ public:
 	size_t species_id() const;
 	const std::vector<size_t> &getCIGroups(size_t gamma_ix) const;
 	TypeGamma gamma(size_t m, size_t CI_ix) const;
-	TypeDelta delta(size_t m, size_t CI_ix) const;
 	double rho(size_t row, size_t col) const;
 	std::vector<TypePhi> phi(size_t CI_ix) const;
 	bool gammaIsUpdated() const;
-
-	// access _deltaIndicator and zeta
-	double deltaIndicator(size_t k, size_t m) const { return _deltaIndicator(k, m); }
-	double zeta(size_t m) const { return _zeta[m]; }
-
 };
 
 //------------------------------------------
@@ -211,6 +200,7 @@ protected:
 	void _fillStochasticRho(const TUniqueContainer<TypeTime> &Timepoints);
 	void _initializeSumRhoGamma(size_t CI_index);
 	void _initializeTransitionProbabilities(const TData &Data);
+
 	// transition probabilities
 	double _calculateLogTransitionProbability(size_t j, size_t k, size_t CI_index) const;
 	coretools::probdist::TNormalDistr _getMeanSdTransitionProbability(size_t j, size_t k, size_t CI_index) const;
@@ -256,8 +246,6 @@ public:
 	size_t numCIGroups() const;
 	size_t size() const;
 	const std::vector<size_t> &getCIGroups(size_t gamma_ix) const;
-
-	TypeDelta delta(size_t m, size_t CI_ix) const;
 };
 
 #endif // BIRP_TGAMMA_H

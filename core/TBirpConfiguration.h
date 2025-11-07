@@ -22,12 +22,10 @@ private:
 	BoxOnAlpha _boxOnAlpha;
 	BoxOnBeta _boxOnBeta;
 	BoxOnBeta _boxOnBeta0;
-	BoxOnDelta _boxOnDelta;
 
 public:
 	// all parameters of model (including prior parameters)
 	TypeParamGamma gamma;
-	TypeParamDelta delta;
 
 	// covariates: regression coefficients
 	std::vector<std::shared_ptr<TypeParamAlpha>> alpha;
