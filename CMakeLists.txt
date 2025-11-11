@@ -25,8 +25,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Download coretools and stattools
 include(FetchContent)
 FetchContent_Declare(coretools
-        URL https://bitbucket.org/wegmannlab/coretools/get/3f83fa5fc22fb790f43977a581622cac99bc5108.tar.gz
-        SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/coretools"
+        URL https://bitbucket.org/wegmannlab/coretools/get/460b96f5f7706cd36966bffc97412dabd7f29b65.tar.gz
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/coretools"
 )
 
 FetchContent_Declare(stattools
@@ -34,14 +34,6 @@ FetchContent_Declare(stattools
         SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/stattools"
 )
 FetchContent_MakeAvailable(coretools stattools)
-
-# Debugging: List all files in stattools
-file(GLOB_RECURSE STATTOOLS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/stattools/*")
-message(STATUS "stattools files:")
-foreach(f ${STATTOOLS_FILES})
-    message(STATUS "  ${f}")
-endforeach()
-message(STATUS ">>> FETCHCONTENT_FULLY_DISCONNECTED:" ${FETCHCONTENT_FULLY_DISCONNECTED})
 
 #######################
 # Create core library

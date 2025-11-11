@@ -1004,3 +1004,4 @@ void TStochasticPrior::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPo
 void TStochasticPrior::writeSummaryGammaPosterior(const std::string &Prefix) {
 	_gamma.writeSummaryGammaPosterior(Prefix);
 }
+
