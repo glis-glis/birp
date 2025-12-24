@@ -55,33 +55,58 @@ std::vector<double> TModelBase::calculateSigmaFromDeterministicPhi(const TLocati
 	return sigma;
 }
 
-arma::mat TModelBase::_calcFisherInfo(const TGamma &Gamma, const std::vector<double> &p,
-                                      const std::vector<double> &sigma, TypeNu nu, const TLocations &loc) {
-	// size of p and sigma = number of timepoints of current location
-	arma::mat R(p.size(), Gamma.numEpochs());
-	arma::mat RtP(Gamma.numEpochs(), p.size());
-	for (size_t k = 0; k < p.size(); k++) {
-		for (size_t m = 0; m < Gamma.numEpochs(); m++) {
-			double denom       = 0.0;
-			double rhoSumSigma = 0.0;
-			for (size_t l = 0; l < p.size(); l++) {
-				denom += sigma[l];
-				const auto diffRho = Gamma.rho(loc[k].timepoint_id(), m) - Gamma.rho(loc[l].timepoint_id(), m);
-				rhoSumSigma += diffRho * sigma[l];
+template<bool IsGamma>
+size_t _add_to_Fisher(size_t u, size_t k, size_t CI_ix, const TPhi &phi, const TLocations &loc,
+                    const std::vector<double> &sigma, double sum_sigma, double sum_sigma_sq, arma::mat &R,
+                    arma::mat &RtP) {
+	const size_t K = sigma.size();
+
+	for (size_t ix = 0; ix < phi.size<IsGamma>(); ++ix, ++u) { // loop over all gamma/delta indices
+		double rhoSumSigma = 0.0;
+		for (const auto m : phi.getEpochsForIndex<IsGamma>(ix, CI_ix)) {
+			for (size_t l = 0; l < K; l++) {
+				// loop over k'
+				double diff;
+				if constexpr (IsGamma) {
+					diff = phi.rho(loc[k].timepoint_id(), m) - phi.rho(loc[l].timepoint_id(), m);
+				} else {
+					diff = phi.indDelta(loc[k].timepoint_id(), m) - phi.indDelta(loc[l].timepoint_id(), m);
+				}
+				rhoSumSigma += diff * sigma[l];
 			}
-			denom     = denom * denom;
-			R(k, m)   = sigma[k] * rhoSumSigma / denom;
-			RtP(m, k) = R(k, m) * 1.0 / p[k];
 		}
+		R(k, u)   = sigma[k] / sum_sigma_sq * rhoSumSigma;
+		RtP(u, k) = R(k, u) * sum_sigma / sigma[k]; // = 1 / p[k] = 1 / (sigma[k] / sum_sigma)
 	}
+	return u;
+}
+
+arma::mat TModelBase::_calcFisherInfo(size_t CI_ix, const TPhi &phi, double sum_sigma, const std::vector<double> &sigma,
+                                      TypeNu nu, const TLocations &loc) {
+	// size of sigma = number of timepoints of current location
+	const size_t K = sigma.size();
+	const size_t U = phi.numGamma() + phi.numDelta();
+	arma::mat R(K, U);
+	arma::mat RtP(U, K);
+	const double sum_sigma_sq = sum_sigma * sum_sigma;
+	for (size_t k = 0; k < K; k++) { // loop over all timepoints (= rows of R)
+		// gamma first
+		size_t u = 0;
+		u = _add_to_Fisher<true>(u, k, CI_ix, phi, loc, sigma, sum_sigma, sum_sigma_sq, R, RtP);
+		// now delta
+		_add_to_Fisher<false>(u, k, CI_ix, phi, loc, sigma, sum_sigma, sum_sigma_sq, R, RtP);
+	}
+
 	// real actual matrix multiplication
 	auto tmp = RtP * R;
 	return (double)nu * tmp;
 }
 
-double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma, size_t CI_index) const {
+double TModelBase::calculateJeffreyPrior(const TData &Data, const TPhi &Phi, size_t CI_index) const {
 	// used in update of gamma of deterministic and stochastic model
-	arma::mat fisherInfo(Gamma.numEpochs(), Gamma.numEpochs(), arma::fill::zeros);
+	// TODO: check - per CI group???
+	const size_t U = Phi.numGamma() + Phi.numDelta();
+	arma::mat fisherInfo(U, U, arma::fill::zeros);
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
 		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
@@ -91,12 +116,10 @@ double TModelBase::calculateJeffreyPrior(const TData &Data, const TGamma &Gamma,
 		// loop over locations with that CI group
 		for (const auto j_in_method : method.getLocationIndicesForCIGroup(CI_index)) {
 			std::vector sigma     = calculateSigmaFromDeterministicPhi(method[j_in_method]);
-			std::vector<double> p = sigma;
-			// now normalize by row sum!
-			coretools::normalize(p);
+			// calculate row sum
+			const auto sum_sigma = coretools::containerSum(sigma);
 			// add to JP
-			fisherInfo +=
-			    _calcFisherInfo(Gamma, p, sigma, method[j_in_method].nu(index_in_counts), method[j_in_method]);
+			fisherInfo += _calcFisherInfo(CI_index, Phi, sum_sigma, sigma, method[j_in_method].nu(index_in_counts), method[j_in_method]);
 		}
 	}
 	const auto det = arma::det(fisherInfo);
@@ -267,33 +290,33 @@ void TModelBase::setCurLLPerMethod(const std::vector<double> &Values, size_t i, 
 
 TDeterministic::TDeterministic(size_t SpeciesIDinUniqueContainer, const TData &Data,
                                const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma,
-                               const TUniqueContainer<TypeTime> &Timepoints,
+                               TypeParamDelta *Delta, const TUniqueContainer<TypeTime> &Timepoints,
                                const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix)
     : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn),
-      _gamma(Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix) {}
+      _phi(Gamma, Delta, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix) {}
 
 void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
                                 const TUniqueContainer<TypeTime> &TimePoints, TBirpPrior *BirpPrior) {
 	_initializeDistribution(Data, Locations, BirpPrior);
-	_gamma.initialize(TimePoints, BirpPrior);
+	_phi.initialize(TimePoints, BirpPrior);
 
-	_newPhi.resize(_gamma.numCIGroups(), std::vector<TypePhi>(_gamma.numTimepoints()));
+	_newPhi.resize(_phi.numCIGroups(), std::vector<TypePhi>(_phi.numTimepoints()));
 	_oldPhi = _newPhi;
 }
 
 void TDeterministic::estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) {
 	_estimateInitialParameters(Data);
-	_gamma.estimateInitialGamma(Data, Timepoints);
-	for (size_t i = 0; i < _gamma.numCIGroups(); ++i) { _fillPhi(i); }
+	_phi.estimateInitialGamma(Data, Timepoints);
+	for (size_t i = 0; i < _phi.numCIGroups(); ++i) { _fillPhi(i); }
 	_oldPhi = _newPhi;
 }
 
 void TDeterministic::initializeTempVariables(const TData &Data) {
-	_gamma.initializeJP(Data, *this);
+	_phi.initializeJP(Data, *this);
 	_initializeLL(Data);
 }
 
-void TDeterministic::_fillPhi(size_t CI_ix) { _newPhi[CI_ix] = _gamma.phi(CI_ix); }
+void TDeterministic::_fillPhi(size_t CI_ix) { _newPhi[CI_ix] = _phi.phi(CI_ix); }
 
 TypePhi TDeterministic::phi(size_t /*location_id*/, size_t timepoint_id, size_t CI_index) const {
 	return deterministicPhi(timepoint_id, CI_index);
@@ -307,34 +330,15 @@ void TDeterministic::update(const TData &Data) {
 	// update distribution parameters
 	_updateDistributionParameters(Data);
 
-	for (size_t ix = 0; ix < _gamma.size(); ix++) { // loop over all gamma
-		if (!_gamma.updateSpecificIndex(ix)) { continue; }
-
-		double logH = 0.0;
-		for (const auto CI_index : _gamma.getCIGroups(ix)) {
-			_oldPhi[CI_index] = _newPhi[CI_index];
-			_fillPhi(CI_index);
-			const auto LLRatio         = calculateLLRatio_perCIGroup(CI_index, Data);
-			const double logPriorRatio = _gamma.getLogPriorRatio(Data, *this, CI_index); // Jeffrey prior
-			logH += LLRatio + logPriorRatio;
-		}
-
-		if (_gamma.acceptOrReject(logH, ix)) {
-			// accepted
-			for (const auto CI_index : _gamma.getCIGroups(ix)) { swapTryCur_perCIGroup(CI_index, Data); }
-		} else {
-			// reject
-			for (const auto CI_index : _gamma.getCIGroups(ix)) { _newPhi[CI_index] = _oldPhi[CI_index]; }
-		}
-	}
-
-	// update gamma summaries
-	_gamma.updateSummaryGammaPosterior();
+	// update gamma
+	_update<true>(Data);
+	// update Delta
+	_update<false>(Data);
 }
 
 void TDeterministic::_simulate() {
-	_gamma.setSimulatedGammaToZero();
-	for (size_t i = 0; i < _gamma.numCIGroups(); ++i) { _fillPhi(i); }
+	_phi.setSimulatedGammaToZero();
+	for (size_t i = 0; i < _phi.numCIGroups(); ++i) { _fillPhi(i); }
 }
 
 void TDeterministic::simulate(TData &Data, bool use_n_bar, double n) {
@@ -348,11 +352,9 @@ void TDeterministic::simulateConditioned(TData &Data) {
 }
 
 // write posterior summaries of gamma's
-void TDeterministic::resetSummaryGammaPosterior() { _gamma.resetSummaryGammaPosterior(); }
+void TDeterministic::resetSummaryGammaPosterior() { _phi.resetSummaryGammaPosterior(); }
 
-void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) {
-	_gamma.writeSummaryGammaPosterior(Prefix);
-}
+void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) { _phi.writeSummaryGammaPosterior(Prefix); }
 
 //------------------------------------------
 // TStochastic
@@ -360,12 +362,12 @@ void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) {
 
 TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations,
                          size_t NumTimePoints, const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
-                         TypeParamGamma *Gamma, TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma,
-                         const TUniqueContainer<TypeTime> &Timepoints,
+                         TypeParamGamma *Gamma, TypeParamDelta *Delta, TypeParamLogPhi *LogPhi,
+                         TypeParamLogSigma *LogSigma, const TUniqueContainer<TypeTime> &Timepoints,
                          const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix)
     : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn),
-      _prior(LogPhi, LogSigma, Gamma, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix), _logPhi(LogPhi),
-      _logSigma(LogSigma) {
+      _prior(LogPhi, LogSigma, Gamma, Delta, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix),
+      _logPhi(LogPhi), _logSigma(LogSigma) {
 
 	_jointUpdater = std::make_unique<stattools::TUpdateUnique<TypeLogPhi, false>>(
 	    NumLocations * NumTimePoints, true, std::make_unique<stattools::TPropKernelNormal<TypeLogPhi, double>>(),

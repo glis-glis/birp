@@ -91,7 +91,7 @@ void TTimepoints::standardizeCovariates(const std::vector<coretools::TMeanVar<do
 	_standardizeCovariatesEffort(SumsPerCovariate, NumTimepoints, NumLocations);
 }
 
-double TTimepoints::_calculateEffortTerm(const std::shared_ptr<TypeParamAlpha> &Alpha) {
+double TTimepoints::_calculateEffortTerm(const std::shared_ptr<TypeParamAlpha> &Alpha) const {
 	assert(!_covariatesEffort.empty());
 	if (!inferAlpha()) { return _covariatesEffort[0]; }
 
@@ -102,7 +102,7 @@ double TTimepoints::_calculateEffortTerm(const std::shared_ptr<TypeParamAlpha> &
 }
 
 double TTimepoints::_calculateDetectionTerm(const std::shared_ptr<TypeParamBeta> &Beta0,
-                                            const std::shared_ptr<TypeParamBeta> &Beta) {
+                                            const std::shared_ptr<TypeParamBeta> &Beta) const {
 	if (_covariatesDetection.empty()) { return 1.0; }
 
 	// calculate logistic(beta_{i0} + sum_{d=1}^D * beta_{id} y_{ijkd})
@@ -174,7 +174,7 @@ void TTimepoints::write(coretools::TOutputMaybeRcppFile &File, std::string locat
 	File << coretools::endl;
 }
 
-double TTimepoints::calculatePhiEffort(double phi) {
+double TTimepoints::calculatePhiEffort(double phi) const {
 	coretools::Positive lambda = phi * _effort; // note: without N0 or mu
 	return lambda;
 }

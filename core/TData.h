@@ -41,9 +41,9 @@ private:
 	                                     bool AssumeTrueDetectionProbability);
 	void _standardizeCovariatesEffort(const std::vector<double> &SumsPerCovariate, size_t NumTimepoints,
 	                                  size_t NumLocations);
-	double _calculateEffortTerm(const std::shared_ptr<TypeParamAlpha> &Alpha);
+	double _calculateEffortTerm(const std::shared_ptr<TypeParamAlpha> &Alpha) const;
 	double _calculateDetectionTerm(const std::shared_ptr<TypeParamBeta> &Beta0,
-	                               const std::shared_ptr<TypeParamBeta> &Beta);
+	                               const std::shared_ptr<TypeParamBeta> &Beta) const;
 
 public:
 	TTimepoints() = default;
@@ -95,7 +95,7 @@ public:
 		}
 	}
 
-	double calculatePhiEffort(double phi);
+	double calculatePhiEffort(double phi) const;
 
 	// functions for simulating under Poisson model
 	void simulatePoisson(double N, double phi);

@@ -19,6 +19,7 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 
 	// stattools: tell which ones are prior parameters
 	addPriorParameter(&CommonModel.gamma);
+	addPriorParameter(&CommonModel.delta);
 	for (auto &a : CommonModel.alpha) { addPriorParameter(a.get()); }
 	for (auto &b : CommonModel.beta0) { addPriorParameter(b.get()); }
 	for (auto &b : CommonModel.beta) { addPriorParameter(b.get()); }

@@ -1,5 +1,4 @@
 #include "TBirpPrior.h" // note: needs to be included first to avoid include issues with Rcpp and RcppArmadillo
-#include "TBirpConfiguration.h"
 #include "TData.h"
 #include "coretools/Strings/repeatString.h"
 #include "coretools/Types/strongTypes.h"
@@ -22,7 +21,8 @@ std::string readAlphaDirichlet(const std::string &ArgName, size_t Size, coretool
 	if (alphas.size() == 1) { return coretools::str::repeat(alphas[0], Size); }
 	if (alphas.size() == Size) { return coretools::str::concatenateString(alphas, ","); }
 
-	throw coretools::TUserError("Size of argument '", ArgName, "' (", alphas.size(), ") does not match expected size (", Size, ").");
+	throw coretools::TUserError("Size of argument '", ArgName, "' (", alphas.size(), ") does not match expected size (",
+	                            Size, ").");
 }
 
 //------------------------------------------
@@ -55,12 +55,14 @@ void TBirpCommonModel::_createBeta(size_t i, TData &Data, const std::string &Fil
 }
 
 TBirpCommonModel::TBirpCommonModel(TData &Data, const std::string &Filename)
-    : _boxOnGamma(), _boxOnAlpha(), _boxOnBeta(), _boxOnBeta0(), gamma("gamma", &_boxOnGamma, {Filename}) {
+    : _boxOnGamma(), _boxOnAlpha(), _boxOnBeta(), _boxOnBeta0(), gamma("gamma", &_boxOnGamma, {Filename}),
+      delta("delta", &_boxOnDelta, {Filename}) {
 
-	// don't update gamma and TOC via DAG
+	// don't update gamma, delta and TOC via DAG
 	gamma.getDefinition().excludeFromDAGUpdates(true);
-
 	gamma.getDefinition().setJumpSizeForAll(false);
+	delta.getDefinition().excludeFromDAGUpdates(true);
+	delta.getDefinition().setJumpSizeForAll(false);
 
 	// create alpha and beta
 	const size_t numMethods = Data.size();
@@ -119,8 +121,8 @@ TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename)
 //------------------------------------------
 
 TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,
-                       const TUniqueContainer<std::string> &CIGroupNames, const TUniqueContainer<TypeTime> &TimePoints,
-                       const TUniqueContainer<std::string> &SpeciesNames,
+                       const TUniqueContainer<std::string> &CIGroupNames,
+                       const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
                        bool Stochastic, bool Simulate, const std::map<std::string, std::string> &InitVals)

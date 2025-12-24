@@ -1,14 +1,13 @@
 #ifndef BIRP_TGAMMA_H
 #define BIRP_TGAMMA_H
 
-#include <vector>
-#include <armadillo>
 #include "coretools/Math/TMatrix.h"
+#include <armadillo>
+#include <vector>
 
 #include "BirpDAG.h"
 #include "BirpTypes.h"
 #include "TUniqueContainer.h"
-
 
 class TModelBase;
 class TData;
@@ -31,6 +30,9 @@ private:
 	// number of epochs
 	size_t _numEpochs = 0;
 	std::vector<TypeTime> _epochStarts;
+
+	bool _epochIsIdentifiable(size_t curGamma, const std::vector<std::vector<size_t>> &dataSeriesIndex,
+	                          const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts) const;
 
 	bool _timePointIsRelevant(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t e) const;
 	auto _loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
@@ -90,14 +92,15 @@ public:
 };
 
 //------------------------------------------
-// TGamma
+// TPhi
 //------------------------------------------
 
-class TGamma {
+class TPhi {
 	// wraps parameters gamma and timesOfChange
 protected:
 	// stattools parameters
 	TypeParamGamma *_gamma = nullptr;
+	TypeParamDelta *_delta = nullptr;
 
 	// species id
 	size_t _species_id = 0;
@@ -108,6 +111,7 @@ protected:
 
 	// rho
 	coretools::TMatrix<double> _rho;
+	coretools::TMatrix<double> _ind_delta;
 
 	// Jeffrey's prior
 	bool _noJP = false;
@@ -119,6 +123,11 @@ protected:
 	std::vector<std::vector<size_t>> _gamma_ix_per_CIgroup_and_epoch;
 	TUniqueContainer<std::string> _gamma_names;
 	std::vector<std::vector<size_t>> _CI_indices_per_gamma;
+	std::vector<std::vector<size_t>> _epoch_indices_per_gamma;
+
+	std::vector<std::vector<size_t>> _delta_ix_per_CIgroup_and_epoch;
+	TUniqueContainer<std::string> _delta_names;
+	std::vector<std::vector<size_t>> _CI_indices_per_delta;
 
 	// keep track of posterior summaries of gamma's
 	std::vector<std::vector<size_t>> _summaryGammaPosterior;
@@ -127,16 +136,26 @@ protected:
 	// initialization
 	void _fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, std::string_view Prefix);
 	void _fillRho(const TUniqueContainer<TypeTime> &Timepoints);
-	void _fillGammaIndicatorCI(const TUniqueContainer<std::string> &CIGroupNames);
-	void _fillGammaIndicatorBA(const TUniqueContainer<TypeTime> &Timepoints);
-	void _fillGammaIndicatorBACI(const TUniqueContainer<std::string> &CIGroupNames);
-	void _readGammaGrouping(const TUniqueContainer<TypeTime> &Timepoints,
-	                        const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix);
+	void _fillIndicatorDelta(const TUniqueContainer<TypeTime> &Timepoints);
+	void _readGrouping(bool is_gamma, std::string_view Name, const TUniqueContainer<TypeTime> &Timepoints,
+	                   const TUniqueContainer<std::string> &CIGroupNames, size_t &numCIGroups,
+	                   std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch, TUniqueContainer<std::string> &names,
+	                   std::vector<std::vector<size_t>> &CI_indices, std::string_view Prefix) const;
+	void _fillIndicatorsBA(bool is_gamma, std::string_view Name, const TUniqueContainer<TypeTime> &Timepoints,
+	                       std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
+	                       TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices) const;
+	void _fillIndicatorsCI(std::string_view Name, const TUniqueContainer<std::string> &CIGroupNames,
+	                       std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
+	                       TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices) const;
+	void _fillIndicatorsBACI(std::string_view Filename, std::string_view Name,
+	                         const TUniqueContainer<std::string> &CIGroupNames,
+	                         std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
+	                         TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices) const;
 
 public:
-	TGamma(TypeParamGamma *Gamma, const TUniqueContainer<TypeTime> &Timepoints,
-	       const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID, std::string_view Prefix);
-	~TGamma() = default;
+	TPhi(TypeParamGamma *Gamma, TypeParamDelta *Delta, const TUniqueContainer<TypeTime> &Timepoints,
+	     const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID, std::string_view Prefix);
+	~TPhi() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);
 	void estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints);
@@ -146,8 +165,37 @@ public:
 
 	double getLogPriorRatio(const TData &Data, const TModelBase &Model, size_t CI_ix);
 
-	bool updateSpecificIndex(size_t m);
-	bool acceptOrReject(double logH, size_t m);
+	template<bool IsGamma> bool updateSpecificIndex(size_t ix) {
+		if constexpr (IsGamma) {
+			if (_gamma->isUpdated()) {
+				_gamma->propose(coretools::TRange(ix));
+				return true;
+			}
+			return false;
+		} else {
+			if (_delta->isUpdated()) {
+				_delta->propose(coretools::TRange(ix));
+				return true;
+			}
+			return false;
+		}
+	}
+
+	template<bool IsGamma> bool acceptOrReject(double logH, size_t ix) {
+		if constexpr (IsGamma) {
+			if (_gamma->acceptOrReject(logH, coretools::TRange(ix))) {
+				for (const auto CI_ix : _CI_indices_per_gamma[ix]) { _curJP[CI_ix] = _tryJP[CI_ix]; }
+				return true;
+			}
+			return false;
+		} else {
+			if (_delta->acceptOrReject(logH, coretools::TRange(ix))) {
+				for (const auto CI_ix : _CI_indices_per_delta[ix]) { _curJP[CI_ix] = _tryJP[CI_ix]; }
+				return true;
+			}
+			return false;
+		}
+	}
 
 	void updateSummaryGammaPosterior();
 	void resetSummaryGammaPosterior();
@@ -158,11 +206,22 @@ public:
 	size_t numEpochs() const;
 	size_t numCIGroups() const;
 	size_t numTimepoints() const;
-	size_t size() const;
+	size_t numGamma() const;
+	size_t numDelta() const;
 	size_t species_id() const;
-	const std::vector<size_t> &getCIGroups(size_t gamma_ix) const;
+	template<bool IsGamma> size_t size() const {
+		if constexpr (IsGamma) { return numGamma(); }
+		return numDelta();
+	}
+	template<bool IsGamma> const std::vector<size_t> &getCIGroups(size_t gamma_ix) const {
+		if constexpr (IsGamma) { return _CI_indices_per_gamma[gamma_ix]; }
+		return _CI_indices_per_delta[gamma_ix];
+	}
+
 	TypeGamma gamma(size_t m, size_t CI_ix) const;
+	TypeDelta delta(size_t epoch, size_t CI_ix) const;
 	double rho(size_t row, size_t col) const;
+	double indDelta(size_t row, size_t col) const;
 	std::vector<TypePhi> phi(size_t CI_ix) const;
 	bool gammaIsUpdated() const;
 };
@@ -206,9 +265,9 @@ protected:
 	coretools::probdist::TNormalDistr _getMeanSdTransitionProbability(size_t j, size_t k, size_t CI_index) const;
 
 public:
-	TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma,
-	                 const TUniqueContainer<TypeTime> &Timepoints, const TUniqueContainer<std::string> &CIGroupNames,
-	                 size_t SpeciesID, std::string_view Prefix);
+	TStochasticPrior(TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamGamma *Gamma, TypeParamDelta *Delta,
+	                 const TUniqueContainer<TypeTime> &Timepoints,
+	                 const TUniqueContainer<std::string> &CIGroupNamesGamma, size_t SpeciesID, std::string_view Prefix);
 	~TStochasticPrior() = default;
 
 	void initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *BirpPrior);
