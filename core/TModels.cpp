@@ -57,13 +57,16 @@ std::vector<double> TModelBase::calculateSigmaFromDeterministicPhi(const TLocati
 
 template<bool IsGamma>
 size_t _add_to_Fisher(size_t u, size_t k, size_t CI_ix, const TPhi &phi, const TLocations &loc,
-                    const std::vector<double> &sigma, double sum_sigma, double sum_sigma_sq, arma::mat &R,
-                    arma::mat &RtP) {
+                      const std::vector<double> &sigma, double sum_sigma, double sum_sigma_sq, arma::mat &R,
+                      arma::mat &RtP) {
 	const size_t K = sigma.size();
 
 	for (size_t ix = 0; ix < phi.size<IsGamma>(); ++ix, ++u) { // loop over all gamma/delta indices
 		double rhoSumSigma = 0.0;
-		for (const auto m : phi.getEpochsForIndex<IsGamma>(ix, CI_ix)) {
+		for (size_t m = 0; m < phi.numEpochs(); ++m) {
+			// check if gamma(g(j), m) corresponds to current gamma (or delta)
+			if (phi.ix_per_CI_group_and_epoch<IsGamma>(CI_ix, m) != ix){ continue; }
+
 			for (size_t l = 0; l < K; l++) {
 				// loop over k'
 				double diff;
@@ -81,8 +84,8 @@ size_t _add_to_Fisher(size_t u, size_t k, size_t CI_ix, const TPhi &phi, const T
 	return u;
 }
 
-arma::mat TModelBase::_calcFisherInfo(size_t CI_ix, const TPhi &phi, double sum_sigma, const std::vector<double> &sigma,
-                                      TypeNu nu, const TLocations &loc) {
+arma::mat TModelBase::_calcRPR(size_t CI_ix, const TPhi &phi, double sum_sigma, const std::vector<double> &sigma,
+                               TypeNu nu, const TLocations &loc) const {
 	// size of sigma = number of timepoints of current location
 	const size_t K = sigma.size();
 	const size_t U = phi.numGamma() + phi.numDelta();
@@ -92,7 +95,7 @@ arma::mat TModelBase::_calcFisherInfo(size_t CI_ix, const TPhi &phi, double sum_
 	for (size_t k = 0; k < K; k++) { // loop over all timepoints (= rows of R)
 		// gamma first
 		size_t u = 0;
-		u = _add_to_Fisher<true>(u, k, CI_ix, phi, loc, sigma, sum_sigma, sum_sigma_sq, R, RtP);
+		u        = _add_to_Fisher<true>(u, k, CI_ix, phi, loc, sigma, sum_sigma, sum_sigma_sq, R, RtP);
 		// now delta
 		_add_to_Fisher<false>(u, k, CI_ix, phi, loc, sigma, sum_sigma, sum_sigma_sq, R, RtP);
 	}
@@ -102,11 +105,12 @@ arma::mat TModelBase::_calcFisherInfo(size_t CI_ix, const TPhi &phi, double sum_
 	return (double)nu * tmp;
 }
 
-double TModelBase::calculateJeffreyPrior(const TData &Data, const TPhi &Phi, size_t CI_index) const {
-	// used in update of gamma of deterministic and stochastic model
-	// TODO: check - per CI group???
+arma::mat TModelBase::calculateRPR_JP(const TData &Data, const TPhi &Phi, size_t CI_index) const {
+	// for each CI group: loop over methods and locations of that group, calculate nu * RPR and add to sum
 	const size_t U = Phi.numGamma() + Phi.numDelta();
-	arma::mat fisherInfo(U, U, arma::fill::zeros);
+	arma::mat RPR(U, U, arma::fill::zeros);
+
+	// loop over all methods that have data for that CI group
 	for (size_t i = 0; i < Data.size(); ++i) {
 		const auto &method = Data[i];
 		if (!method.hasDataForSpeciesID(_speciesIDinUniqueContainer)) { continue; }
@@ -115,16 +119,13 @@ double TModelBase::calculateJeffreyPrior(const TData &Data, const TPhi &Phi, siz
 		size_t index_in_counts = method.getIndexInCounts(_speciesIDinUniqueContainer);
 		// loop over locations with that CI group
 		for (const auto j_in_method : method.getLocationIndicesForCIGroup(CI_index)) {
-			std::vector sigma     = calculateSigmaFromDeterministicPhi(method[j_in_method]);
-			// calculate row sum
+			std::vector sigma    = calculateSigmaFromDeterministicPhi(method[j_in_method]);
 			const auto sum_sigma = coretools::containerSum(sigma);
-			// add to JP
-			fisherInfo += _calcFisherInfo(CI_index, Phi, sum_sigma, sigma, method[j_in_method].nu(index_in_counts), method[j_in_method]);
+			RPR +=
+			    _calcRPR(CI_index, Phi, sum_sigma, sigma, method[j_in_method].nu(index_in_counts), method[j_in_method]);
 		}
 	}
-	const auto det = arma::det(fisherInfo);
-	if (det == 0.0) { return 0.0; } // can happen if all counts are zero
-	return log(det);                // sqrt drops out in hastings ratio
+	return RPR;
 }
 
 void TModelBase::_initializeLL(const TData &Data) {
@@ -306,7 +307,7 @@ void TDeterministic::initialize(const TData &Data, const TUniqueContainer<std::s
 
 void TDeterministic::estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) {
 	_estimateInitialParameters(Data);
-	_phi.estimateInitialGamma(Data, Timepoints);
+	_phi.estimateInitialValues(Data, Timepoints);
 	for (size_t i = 0; i < _phi.numCIGroups(); ++i) { _fillPhi(i); }
 	_oldPhi = _newPhi;
 }
@@ -337,7 +338,7 @@ void TDeterministic::update(const TData &Data) {
 }
 
 void TDeterministic::_simulate() {
-	_phi.setSimulatedGammaToZero();
+	_phi.setSimulatedToZero();
 	for (size_t i = 0; i < _phi.numCIGroups(); ++i) { _fillPhi(i); }
 }
 
@@ -363,11 +364,12 @@ void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) { _ph
 TStochastic::TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations,
                          size_t NumTimePoints, const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn,
                          TypeParamGamma *Gamma, TypeParamDelta *Delta, TypeParamLogPhi *LogPhi,
-                         TypeParamLogSigma *LogSigma, const TUniqueContainer<TypeTime> &Timepoints,
+                         TypeParamLogSigma *LogSigma, TypeParamLogZeta *LogZeta,
+                         const TUniqueContainer<TypeTime> &Timepoints,
                          const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix)
     : TModelBase(SpeciesIDinUniqueContainer, Data, NegBinomAddOn),
-      _prior(LogPhi, LogSigma, Gamma, Delta, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix),
-      _logPhi(LogPhi), _logSigma(LogSigma) {
+      _prior(LogPhi, LogSigma, LogZeta, Gamma, Delta, Timepoints, CIGroupNames, SpeciesIDinUniqueContainer, Prefix),
+      _logPhi(LogPhi), _logSigma(LogSigma), _logZeta(LogZeta) {
 
 	_jointUpdater = std::make_unique<stattools::TUpdateUnique<TypeLogPhi, false>>(
 	    NumLocations * NumTimePoints, true, std::make_unique<stattools::TPropKernelNormal<TypeLogPhi, double>>(),
@@ -384,10 +386,12 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 	auto locNames = std::make_shared<coretools::TNamesStrings>(Locations.vec());
 	std::vector<std::string> tmp(TimePoints.size());
 	for (size_t t = 0; t < TimePoints.size(); ++t) { tmp[t] = coretools::str::toString(TimePoints[t]); }
-	auto timeNames = std::make_shared<coretools::TNamesStrings>(tmp);
+	auto timeNames  = std::make_shared<coretools::TNamesStrings>(tmp);
+	auto deltaNames = std::make_shared<coretools::TNamesStrings>(_prior.delta_names());
 
 	_logPhi->initStorage(BirpPrior, {Locations.size(), TimePoints.size()}, {locNames, timeNames});
 	_logSigma->initStorage(BirpPrior);
+	_logZeta->initStorage(BirpPrior, {_prior.numDelta()}, {deltaNames});
 }
 
 void TStochastic::_setPhiFromDeterministic(const TData &Data) {
@@ -407,13 +411,16 @@ void TStochastic::_setPhiFromDeterministic(const TData &Data) {
 
 void TStochastic::estimateInitial(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints) {
 	_estimateInitialParameters(Data);
-	_prior.estimateInitialGamma(Data, Timepoints);
+	_prior.estimateInitialValues(Data, Timepoints);
 
 	// initialize phi based on deterministic phi
 	_setPhiFromDeterministic(Data);
 
-	// set sigma
+	// set sigma and zeta
 	_logSigma->set(0.0);
+	for (size_t i = 0; i < _logZeta->size(); ++i) {
+		_logZeta->set(i, 0.0); // logZeta = 0 -> zeta (1) -> no scaling, is just sigma
+	}
 }
 
 void TStochastic::initializeTempVariables(const TData &Data) {
@@ -436,8 +443,8 @@ void TStochastic::_updateLogPhi(size_t j, size_t k, const TData &Data) {
 	const auto LLRatio = calculateLLRatio_perLocation(j, Data);
 	const double logH  = LLRatio + logPriorRatio;
 	if (_logPhi->acceptOrReject(logH, range)) {
-		_prior.swapTryCur(j, k);
-		_prior.swapTryCur(j, k + 1);
+		_prior.swapTryCurLogPhi(j, k);
+		_prior.swapTryCurLogPhi(j, k + 1);
 		swapTryCur_perLocation(j, Data);
 	}
 }
@@ -454,13 +461,14 @@ void TStochastic::_updateLogPhi(const TData &Data) {
 void TStochastic::_jointUpdateLogPhiGamma(const TData &Data) {
 	if (!_prior.gammaIsUpdated()) { return; }
 
-	for (size_t ix = 0; ix < _prior.size(); ix++) { // loop over all gamma
+	constexpr bool IsGamma = true;
+	for (size_t ix = 0; ix < _prior.size<IsGamma>(); ix++) { // loop over all gamma
 		// propose new gamma
-		_prior.updateGamma_forLogPhiJointUpdate(ix);
+		if (!_prior.updateGamma_forLogPhiJointUpdate(ix)){ continue; }
 
 		// adjust logPhi by Delta_k, per CI group
 		double LLRatio = 0.0;
-		for (const auto CI_index : _prior.getCIGroups(ix)) {
+		for (const auto CI_index : _prior.getCIGroups<IsGamma>(ix)) {
 			const auto Delta = _prior.getDelta_forLogPhiJointUpdate(CI_index);
 			// loop over all locations j for that CI group
 			for (const auto j : Data.get_locationsIds_for_CI_index(_speciesIDinUniqueContainer, CI_index)) {
@@ -476,10 +484,10 @@ void TStochastic::_jointUpdateLogPhiGamma(const TData &Data) {
 
 		if (_prior.evaluateGamma_forLogPhiJointUpdate(ix, LLRatio, Data, *this)) {
 			// accepted: swap LL for all locations of that CI group
-			for (const auto CI_index : _prior.getCIGroups(ix)) { swapTryCur_perCIGroup(CI_index, Data); }
+			for (const auto CI_index : _prior.getCIGroups<IsGamma>(ix)) { swapTryCur_perCIGroup(CI_index, Data); }
 		} else {
 			// rejected: re-set all logPhi that were changed
-			for (const auto CI_index : _prior.getCIGroups(ix)) {
+			for (const auto CI_index : _prior.getCIGroups<IsGamma>(ix)) {
 				for (const auto j : Data.get_locationsIds_for_CI_index(_speciesIDinUniqueContainer, CI_index)) {
 					for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
 						_logPhi->reset(_logPhi->getIndex({j, k}));
@@ -518,7 +526,7 @@ void TStochastic::_jointUpdateLogPhi(size_t j, size_t k, const TData &Data) {
 	const size_t ixLast = _logPhi->getIndex({j, _logPhi->dimensions()[1] - 1});
 	coretools::TRange range(ix, ixLast + 1, 1);
 	if (_logPhi->acceptOrReject(logH, range, coretools::TRange())) { // don't count rejection
-		_prior.swapTryCur(j, k);
+		_prior.swapTryCurLogPhi(j, k);
 		swapTryCur_perLocation(j, Data);
 	} else {
 		_jointUpdater->reject(ix);
@@ -550,7 +558,38 @@ void TStochastic::_updateLogSigma(const TData &Data) {
 	const double logH = LLRatio + _logSigma->getLogDensityRatio();
 	if (_logSigma->acceptOrReject(logH, range)) {
 		// accepted: update all transition probabilities
-		_prior.swapTryCur();
+		_prior.swapTryCurSigma();
+	}
+}
+
+void TStochastic::_updateLogZeta(size_t ix_zeta, const TData &Data) {
+	constexpr bool IsGamma = false;
+	// propose a new value
+	const coretools::TRange range(ix_zeta);
+	_logZeta->propose(range);
+
+	// update sum of zeta
+	_prior.updateSumZeta(ix_zeta);
+
+	double LLRatio = 0.0;
+	// loop over all CI groups affected by current zeta
+	for (auto CI_index : _prior.getCIGroups<IsGamma>(ix_zeta)) {
+		// loop over all locations belonging to that CI group
+		for (const auto j : Data.get_locationsIds_for_CI_index(_speciesIDinUniqueContainer, CI_index)) {
+			// loop over all timepoints
+			for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) {
+				LLRatio += _prior.calculateLogPriorRatio(j, k, CI_index);
+			}
+		}
+	}
+
+	const double logH = LLRatio + _logZeta->getLogDensityRatio();
+
+	if (_logZeta->acceptOrReject(logH, range)) {
+		// accepted: update all transition probabilities affected by CI group
+		_prior.swapTryCurZeta(ix_zeta, Data);
+	} else { // rejected: reset sum of zeta
+		_prior.rejectSumZeta(ix_zeta);
 	}
 }
 
@@ -558,8 +597,9 @@ void TStochastic::update(const TData &Data) {
 	// update distribution parameters
 	_updateDistributionParameters(Data);
 
-	// update gamma
-	_prior.updateGamma(Data, *this);
+	// update gamma and delta
+	_prior.updateGammaDelta<true>(Data, *this);
+	_prior.updateGammaDelta<false>(Data, *this);
 
 	// update logPhi
 	if (_logPhi->isUpdated()) {
@@ -570,13 +610,20 @@ void TStochastic::update(const TData &Data) {
 
 	// update logSigma
 	if (_logSigma->isUpdated()) { _updateLogSigma(Data); }
+
+	// update logZeta
+	if (_logZeta->isUpdated()) {
+		for (size_t i = 0; i < _logZeta->size(); ++i) { _updateLogZeta(i, Data); }
+	}
 }
 
 void TStochastic::_simulate(TData &Data) {
-	// simulate gamma
-	_prior.setSimulatedGammaToZero();
+	// simulate gamma and delta
+	_prior.setSimulatedToZero();
 	// set logSigma to something small (only if it has not been specified by the user)
 	_logSigma->set(-1.0);
+	// set logZeta to 0 -> zeta = 1 -> no scaling of sigma
+	for (size_t i = 0; i < _logZeta->size(); ++i) { _logZeta->set(i, 0.0); }
 
 	_prior.initializeTempVariables(Data, *this, false);
 

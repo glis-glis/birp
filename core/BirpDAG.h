@@ -48,6 +48,11 @@ using BoxOnLogSigma = stattools::prior::TUniformFixed<stattools::TParameterBase,
 using SpecLogSigma  = stattools::ParamSpec<TypeLogSigma, stattools::Hash<coretools::toHash("logSigma")>, BoxOnLogSigma,
                                            stattools::NumDim<NumDimLogSigma>>;
 
+// logZeta
+using BoxOnLogZeta = stattools::prior::TUniformFixed<stattools::TParameterBase, TypeLogZeta, NumDimLogZeta>;
+using SpecLogZeta  = stattools::ParamSpec<TypeLogZeta, stattools::Hash<coretools::toHash("logZeta")>, BoxOnLogZeta,
+                                          stattools::NumDim<NumDimLogZeta>>;
+
 // Birp prior
 class TBirpPrior; // forward declaration
 using BirpBox = TBirpPrior;
@@ -61,5 +66,6 @@ using TypeParamMuOrN    = stattools::TParameter<SpecMuOrN, BirpBox>;
 using TypeParamB        = stattools::TParameter<SpecB, BirpBox>;
 using TypeParamLogPhi   = stattools::TParameter<SpecLogPhi, BirpBox>;
 using TypeParamLogSigma = stattools::TParameter<SpecLogSigma, BirpBox>;
+using TypeParamLogZeta  = stattools::TParameter<SpecLogZeta, BirpBox>;
 
 #endif // BIRP_BIRPDAG_H

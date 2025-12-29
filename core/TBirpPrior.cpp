@@ -25,17 +25,20 @@ TBirpPrior::TBirpPrior(TData &Data, const TUniqueContainer<std::string> &Locatio
 	for (auto &b : CommonModel.beta) { addPriorParameter(b.get()); }
 	if (_numSpecies > 1) { throw coretools::TUserError("Birp only supports single species at the moment.."); }
 	if (NegBinomAddOn) { addPriorParameter({&NegBinomAddOn->muOrN, &NegBinomAddOn->b}); }
-	if (StochasticAddOn) { addPriorParameter({&StochasticAddOn->logPhi, &StochasticAddOn->logSigma}); }
+	if (StochasticAddOn) {
+		addPriorParameter({&StochasticAddOn->logPhi, &StochasticAddOn->logSigma, &StochasticAddOn->logZeta});
+	}
 
 	// create models
 	size_t speciesID = 0;
 	if (StochasticAddOn) {
 		_models.emplace_back(std::make_unique<TStochastic>(
-		    speciesID, Data, Locations.size(), TimePoints.size(), NegBinomAddOn, &CommonModel.gamma,
-		    &StochasticAddOn->logPhi, &StochasticAddOn->logSigma, _timepoints, _CIGroupNames, _out));
+		    speciesID, Data, Locations.size(), TimePoints.size(), NegBinomAddOn, &CommonModel.gamma, &CommonModel.delta,
+		    &StochasticAddOn->logPhi, &StochasticAddOn->logSigma, &StochasticAddOn->logZeta, _timepoints, _CIGroupNames,
+		    _out));
 	} else {
 		_models.emplace_back(std::make_unique<TDeterministic>(speciesID, Data, NegBinomAddOn, &CommonModel.gamma,
-		                                                      _timepoints, _CIGroupNames, _out));
+		                                                      &CommonModel.delta, _timepoints, _CIGroupNames, _out));
 	}
 
 	for (size_t i = 0; i < Data.size(); ++i) {

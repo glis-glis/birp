@@ -62,11 +62,13 @@ class TBirpStochasticAddOn {
 private:
 	BoxOnLogPhi _boxOnLogPhi;
 	BoxOnLogSigma _boxOnLogSigma;
+	BoxOnLogZeta _boxOnLogZeta;
 
 public:
 	// only relevant for stochastic model
 	TypeParamLogPhi logPhi;
 	TypeParamLogSigma logSigma;
+	TypeParamLogZeta logZeta;
 
 	TBirpStochasticAddOn(const std::string &Filename);
 };
@@ -85,7 +87,7 @@ private:
 
 	std::unique_ptr<stattools::TObservation<TypeCounts, NumDimCounts, BirpBox>> _data;
 
-	void (TBirpPrior:: *_funUpdate)();
+	void (TBirpPrior::*_funUpdate)();
 
 public:
 	TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,

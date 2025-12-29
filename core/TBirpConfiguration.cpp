@@ -103,17 +103,19 @@ TBirpNegBinomAddOn::TBirpNegBinomAddOn(bool HasDetectionCovariates, const std::s
 //------------------------------------------
 
 TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename)
-    : _boxOnLogPhi(), _boxOnLogSigma(), logPhi("logPhi", &_boxOnLogPhi, {Filename}),
-      logSigma("logSigma", &_boxOnLogSigma, {Filename}) {
+    : _boxOnLogPhi(), _boxOnLogSigma(), _boxOnLogZeta(), logPhi("logPhi", &_boxOnLogPhi, {Filename}),
+      logSigma("logSigma", &_boxOnLogSigma, {Filename}), logZeta("logZeta", &_boxOnLogZeta, {Filename}) {
 
-	// don't update muOrN and b via DAG
+	// don't update via DAG
 	logPhi.getDefinition().excludeFromDAGUpdates(true);
 	logSigma.getDefinition().excludeFromDAGUpdates(true);
+	logZeta.getDefinition().excludeFromDAGUpdates(true);
 
 	logPhi.getDefinition().setJumpSizeForAll(false);
 	logPhi.getDefinition().setUnequalNumberOfUpdates(true); // first logPhi is not updated
 
 	TypeLogSigma ::setMin(-10.); // prevent numeric issues with very small sigma: 1/sigma can result in nan
+	TypeLogZeta ::setMin(-10.);  // prevent numeric issues with very small zeta
 }
 
 //------------------------------------------
@@ -121,8 +123,8 @@ TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename)
 //------------------------------------------
 
 TBirpModel::TBirpModel(TData &Data, const TUniqueContainer<std::string> &Locations,
-                       const TUniqueContainer<std::string> &CIGroupNames,
-                       const TUniqueContainer<TypeTime> &TimePoints, const TUniqueContainer<std::string> &SpeciesNames,
+                       const TUniqueContainer<std::string> &CIGroupNames, const TUniqueContainer<TypeTime> &TimePoints,
+                       const TUniqueContainer<std::string> &SpeciesNames,
                        const TUniqueContainer<std::string> &CovariateEffortNames,
                        const TUniqueContainer<std::string> &CovariateDetectionNames, const std::string &Filename,
                        bool Stochastic, bool Simulate, const std::map<std::string, std::string> &InitVals)

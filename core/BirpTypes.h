@@ -14,9 +14,8 @@ using TypeGamma                     = coretools::Unbounded;
 constexpr static size_t NumDimGamma = 1;
 
 // delta
-using TypeDelta = coretools::Unbounded;
+using TypeDelta                     = coretools::Unbounded;
 constexpr static size_t NumDimDelta = 1;
-
 
 // alpha
 using TypeAlpha                     = coretools::StrictlyPositiveWithMax<0>;
@@ -41,6 +40,10 @@ constexpr static size_t NumDimLogPhi = 2;
 // logSigma
 using TypeLogSigma                     = coretools::MinMaxVariable<1>;
 constexpr static size_t NumDimLogSigma = 1;
+
+// logZeta
+using TypeLogZeta                     = coretools::MinMaxVariable<1>;
+constexpr static size_t NumDimLogZeta = 1;
 
 // counts
 using TypeCounts                     = coretools::UnsignedInt64;

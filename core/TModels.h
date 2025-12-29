@@ -31,8 +31,8 @@ private:
 	std::unique_ptr<TDistributionBase> _distr;
 
 	// Fisher information
-	static arma::mat _calcFisherInfo(size_t CI_ix, const TPhi &phi, double sum_sigma, const std::vector<double> &sigma,
-	                                 TypeNu nu, const TLocations &loc);
+	arma::mat _calcRPR(size_t CI_ix, const TPhi &phi, double sum_sigma, const std::vector<double> &sigma, TypeNu nu,
+	                   const TLocations &loc) const;
 
 protected:
 	size_t _speciesIDinUniqueContainer = 0;
@@ -67,6 +67,7 @@ public:
 	[[nodiscard]] virtual TypePhi phi(size_t location_id, size_t timepoint_k, size_t CI_index) const = 0;
 	[[nodiscard]] virtual TypePhi deterministicPhi(size_t timepoint_k, size_t CI_index) const        = 0;
 
+	arma::mat calculateRPR_JP(const TData &Data, const TPhi &Phi, size_t CI_index) const;
 	[[nodiscard]] double calculateJeffreyPrior(const TData &Data, const TPhi &Phi, size_t CI_index) const;
 	double calculateLLRatio(const TData &Data);
 	double calculateLLRatio_perLocation(size_t j, const TData &Data);
@@ -111,14 +112,14 @@ protected:
 		for (size_t ix = 0; ix < _phi.size<IsGamma>(); ix++) { // loop over all gamma / delta
 			if (!_phi.updateSpecificIndex<IsGamma>(ix)) { continue; }
 
-			double logH = 0.0;
+			double LLRatio = 0.0;
 			for (const auto CI_index : _phi.getCIGroups<IsGamma>(ix)) {
 				_oldPhi[CI_index] = _newPhi[CI_index];
 				_fillPhi(CI_index);
-				const auto LLRatio         = calculateLLRatio_perCIGroup(CI_index, Data);
-				const double logPriorRatio = _phi.getLogPriorRatio(Data, *this, CI_index); // Jeffrey prior
-				logH += LLRatio + logPriorRatio;
+				LLRatio += calculateLLRatio_perCIGroup(CI_index, Data);
 			}
+			const double logPriorRatio = _phi.getLogPriorRatio<IsGamma>(ix, Data, *this); // Jeffrey prior
+			const double logH          = LLRatio + logPriorRatio;
 
 			if (_phi.acceptOrReject<IsGamma>(logH, ix)) {
 				// accepted
@@ -169,6 +170,7 @@ protected:
 	// parameters: non-owning
 	TypeParamLogPhi *_logPhi     = nullptr;
 	TypeParamLogSigma *_logSigma = nullptr;
+	TypeParamLogZeta *_logZeta   = nullptr;
 
 	std::unique_ptr<stattools::TUpdateUnique<TypeLogPhi, false>> _jointUpdater;
 
@@ -187,8 +189,9 @@ protected:
 	void _jointUpdateLogPhi(size_t j, size_t k, const TData &Data);
 	void _jointUpdateLogPhi(const TData &Data);
 
-	// update logSigma
+	// update logSigma and logZeta
 	void _updateLogSigma(const TData &Data);
+	void _updateLogZeta(size_t i, const TData &Data);
 
 	// simulate
 	void _simulate(TData &Data);
@@ -196,8 +199,9 @@ protected:
 public:
 	TStochastic(size_t SpeciesIDinUniqueContainer, const TData &Data, size_t NumLocations, size_t NumTimePoint,
 	            const std::unique_ptr<TBirpNegBinomAddOn> &NegBinomAddOn, TypeParamGamma *Gamma, TypeParamDelta *Delta,
-	            TypeParamLogPhi *LogPhi, TypeParamLogSigma *Logigma, const TUniqueContainer<TypeTime> &Timepoints,
-	            const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix);
+	            TypeParamLogPhi *LogPhi, TypeParamLogSigma *LogSigma, TypeParamLogZeta *LogZeta,
+	            const TUniqueContainer<TypeTime> &Timepoints, const TUniqueContainer<std::string> &CIGroupNames,
+	            std::string_view Prefix);
 	~TStochastic() override = default;
 
 	void initialize(const TData &Data, const TUniqueContainer<std::string> &Locations,
