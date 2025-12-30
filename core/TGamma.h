@@ -90,8 +90,8 @@ private:
 	                      const std::vector<size_t> &numDataPointsWithZeroCounts);
 	static size_t _getNumNonZeroDataPointsInRange(size_t l, const std::vector<size_t> &dataSeriesIndex);
 	void _checkIfDeltaIsIdentifiable(const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
-									 const std::vector<bool> &update_delta, const TData &Data,
-									 const TUniqueContainer<TypeTime> &Timepoints) const;
+	                                 const std::vector<bool> &update_delta, const TData &Data,
+	                                 const TUniqueContainer<TypeTime> &Timepoints) const;
 
 public:
 	TOLSGamma(size_t NumGamma, size_t NumEpochs, const std::vector<TypeTime> &EpochStarts,
@@ -217,11 +217,8 @@ public:
 	}
 
 	template<bool IsGamma> bool acceptOrReject(double logH, size_t ix) {
-		if constexpr (IsGamma) {
-			_acceptOrReject(logH, ix, _gamma, _CI_indices_per_gamma, _update_gamma);
-		} else {
-			_acceptOrReject(logH, ix, _delta, _CI_indices_per_delta, _update_delta);
-		}
+		if constexpr (IsGamma) { return _acceptOrReject(logH, ix, _gamma, _CI_indices_per_gamma, _update_gamma); }
+		return _acceptOrReject(logH, ix, _delta, _CI_indices_per_delta, _update_delta);
 	}
 
 	template<bool IsGamma> double getLogPriorRatio(size_t ix, const TData &Data, const TModelBase &Model) {
