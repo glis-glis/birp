@@ -65,7 +65,7 @@ size_t _add_to_Fisher(size_t u, size_t k, size_t CI_ix, const TPhi &phi, const T
 		double rhoSumSigma = 0.0;
 		for (size_t m = 0; m < phi.numEpochs(); ++m) {
 			// check if gamma(g(j), m) corresponds to current gamma (or delta)
-			if (phi.ix_per_CI_group_and_epoch<IsGamma>(CI_ix, m) != ix){ continue; }
+			if (phi.ix_per_CI_group_and_epoch<IsGamma>(CI_ix, m) != ix) { continue; }
 
 			for (size_t l = 0; l < K; l++) {
 				// loop over k'
@@ -353,9 +353,15 @@ void TDeterministic::simulateConditioned(TData &Data) {
 }
 
 // write posterior summaries of gamma's
-void TDeterministic::resetSummaryGammaPosterior() { _phi.resetSummaryGammaPosterior(); }
+void TDeterministic::resetSummaryPosterior() {
+	_phi.resetSummaryPosterior<true>();  // gamma
+	_phi.resetSummaryPosterior<false>(); // Delta
+}
 
-void TDeterministic::writeSummaryGammaPosterior(const std::string &Prefix) { _phi.writeSummaryGammaPosterior(Prefix); }
+void TDeterministic::writeSummaryPosterior(const std::string &Prefix) {
+	_phi.writeSummaryPosterior<true>(Prefix);  // gamma
+	_phi.writeSummaryPosterior<false>(Prefix); // Delta
+}
 
 //------------------------------------------
 // TStochastic
@@ -392,6 +398,7 @@ void TStochastic::initialize(const TData &Data, const TUniqueContainer<std::stri
 	_logPhi->initStorage(BirpPrior, {Locations.size(), TimePoints.size()}, {locNames, timeNames});
 	_logSigma->initStorage(BirpPrior);
 	_logZeta->initStorage(BirpPrior, {_prior.numDelta()}, {deltaNames});
+	if (_prior.change() == Changes::only_gamma){ _logZeta->setIsUpdated(false); }
 }
 
 void TStochastic::_setPhiFromDeterministic(const TData &Data) {
@@ -464,7 +471,7 @@ void TStochastic::_jointUpdateLogPhiGamma(const TData &Data) {
 	constexpr bool IsGamma = true;
 	for (size_t ix = 0; ix < _prior.size<IsGamma>(); ix++) { // loop over all gamma
 		// propose new gamma
-		if (!_prior.updateGamma_forLogPhiJointUpdate(ix)){ continue; }
+		if (!_prior.updateGamma_forLogPhiJointUpdate(ix)) { continue; }
 
 		// adjust logPhi by Delta_k, per CI group
 		double LLRatio = 0.0;
@@ -497,7 +504,7 @@ void TStochastic::_jointUpdateLogPhiGamma(const TData &Data) {
 		}
 	}
 	// update summaries of gamma posterior after update has finished
-	_prior.updateSummaryGammaPosterior();
+	_prior.updateSummaryPosterior<IsGamma>();
 }
 
 void TStochastic::_shiftLogPhis(size_t j, size_t k, double diff) {
@@ -661,6 +668,12 @@ TypePhi TStochastic::deterministicPhi(size_t timepoint_id, size_t CI_index) cons
 }
 
 // write posterior summaries of gamma's
-void TStochastic::resetSummaryGammaPosterior() { _prior.resetSummaryGammaPosterior(); }
+void TStochastic::resetSummaryPosterior() {
+	_prior.resetSummaryGammaPosterior<true>();  // gamma
+	_prior.resetSummaryGammaPosterior<false>(); // Delta
+}
 
-void TStochastic::writeSummaryGammaPosterior(const std::string &Prefix) { _prior.writeSummaryGammaPosterior(Prefix); }
+void TStochastic::writeSummaryPosterior(const std::string &Prefix) {
+	_prior.writeSummaryGammaPosterior<true>(Prefix);  // gamma
+	_prior.writeSummaryGammaPosterior<false>(Prefix); // Delta
+}

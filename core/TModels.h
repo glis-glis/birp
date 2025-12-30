@@ -85,9 +85,9 @@ public:
 	void setCurLL(size_t ij, double Value);
 	void setCurLLPerMethod(const std::vector<double> &Values, size_t i, const TData &Data);
 
-	// write posterior summaries of gamma's
-	virtual void resetSummaryGammaPosterior()                          = 0;
-	virtual void writeSummaryGammaPosterior(const std::string &Prefix) = 0;
+	// write posterior summaries of gamma's and Delta's
+	virtual void resetSummaryPosterior()                          = 0;
+	virtual void writeSummaryPosterior(const std::string &Prefix) = 0;
 
 	virtual stattools::TUpdateBase *getPtrToJointUpdater() { return nullptr; }
 };
@@ -130,8 +130,8 @@ protected:
 			}
 		}
 
-		// update gamma summaries
-		if constexpr (IsGamma) { _phi.updateSummaryGammaPosterior(); }
+		// update gamma and Delta summaries
+		_phi.updateSummaryPosterior<IsGamma>();
 	}
 
 public:
@@ -154,8 +154,8 @@ public:
 	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k, size_t CI_index) const override;
 
 	// write posterior summaries of gamma's
-	void resetSummaryGammaPosterior() override;
-	void writeSummaryGammaPosterior(const std::string &Prefix) override;
+	void resetSummaryPosterior() override;
+	void writeSummaryPosterior(const std::string &Prefix) override;
 };
 
 //------------------------------------------
@@ -217,8 +217,8 @@ public:
 	[[nodiscard]] TypePhi deterministicPhi(size_t timepoint_k, size_t CI_index) const override;
 
 	// write posterior summaries of gamma's
-	void resetSummaryGammaPosterior() override;
-	void writeSummaryGammaPosterior(const std::string &Prefix) override;
+	void resetSummaryPosterior() override;
+	void writeSummaryPosterior(const std::string &Prefix) override;
 
 	stattools::TUpdateBase *getPtrToJointUpdater() override { return _jointUpdater.get(); }
 };

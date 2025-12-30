@@ -107,6 +107,7 @@ public:
 //------------------------------------------
 // TPhi
 //------------------------------------------
+enum class Changes { only_gamma, only_Delta, both };
 
 class TPhi {
 	// wraps parameters gamma and timesOfChange
@@ -114,6 +115,9 @@ protected:
 	// stattools parameters
 	TypeParamGamma *_gamma = nullptr;
 	TypeParamDelta *_delta = nullptr;
+
+	// which parameters to infer
+	Changes _change;
 
 	// species id
 	size_t _species_id = 0;
@@ -146,16 +150,21 @@ protected:
 	std::vector<std::vector<size_t>> _CI_indices_per_delta;
 	std::vector<bool> _update_delta;
 
-	// keep track of posterior summaries of gamma's
+	// keep track of posterior summaries of gamma's and Deltas
 	std::vector<std::vector<size_t>> _summaryGammaPosterior;
-	size_t _counter = 0;
+	std::vector<std::vector<size_t>> _summaryDeltaPosterior;
+	size_t _counterGamma = 0;
+	size_t _counterDelta = 0;
 
 	// initialization
-	void _fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, std::string_view Prefix);
+	void _read_change_to_infer();
+	void _read_BACI_change(const TUniqueContainer<TypeTime> &Timepoints,
+	                       const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix);
+	void _fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints);
 	void _fillRho(const TUniqueContainer<TypeTime> &Timepoints);
 	void _fillIndicatorDelta(const TUniqueContainer<TypeTime> &Timepoints);
-	void _readGrouping(bool is_gamma, std::string_view Name, const TUniqueContainer<TypeTime> &Timepoints,
-	                   const TUniqueContainer<std::string> &CIGroupNames,
+	void _readGrouping(bool is_gamma, std::string_view ParamName, std::string_view ArgNameDesign,
+	                   const TUniqueContainer<TypeTime> &Timepoints, const TUniqueContainer<std::string> &CIGroupNames,
 	                   std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch, TUniqueContainer<std::string> &names,
 	                   std::vector<std::vector<size_t>> &CI_indices, std::vector<bool> &update,
 	                   std::string_view Prefix) const;
@@ -165,8 +174,7 @@ protected:
 	void _fillIndicatorsCI(std::string_view Name, const TUniqueContainer<std::string> &CIGroupNames,
 	                       std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
 	                       TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices) const;
-	void _fillIndicatorsBACI(std::string_view Filename, std::string_view Name,
-	                         const TUniqueContainer<std::string> &CIGroupNames,
+	void _fillIndicatorsBACI(std::string_view Filename, const TUniqueContainer<std::string> &CIGroupNames,
 	                         std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
 	                         TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices) const;
 
@@ -191,6 +199,37 @@ protected:
 		for (const auto CI_ix : CI_indices[ix]) { _newRPR[CI_ix] = _oldRPR[CI_ix]; }
 		_newJP = _oldJP;
 		return false;
+	}
+
+	template<class T>
+	size_t _updateSummaryPosterior(size_t counter, T *Param, std::vector<std::vector<size_t>> &summaryPosterior) const {
+		for (size_t ix_1 = 0; ix_1 < Param->size(); ++ix_1) {     // rows
+			for (size_t ix_2 = 0; ix_2 < Param->size(); ++ix_2) { // column
+				if (ix_1 == ix_2) {
+					// on the diagonal: count if Param_ix_1 > 0
+					if (Param->value(ix_1) >= 0.0) { ++summaryPosterior[ix_1][ix_2]; }
+				} else {
+					// off the diagonal: count if Param_ix_1 > Param_ix_2
+					if (Param->value(ix_1) > Param->value(ix_2)) { ++summaryPosterior[ix_1][ix_2]; }
+				}
+			}
+		}
+		return counter + 1;
+	}
+
+	template<class T>
+	void _writeSummaryPosterior(const std::string &filename, const TUniqueContainer<std::string> &names, T *Param,
+	                            const std::vector<std::vector<size_t>> &summaryPosterior, size_t counter) {
+		auto header = names.vec();
+		header.insert(header.begin(), "row_bigger_than_column");
+		coretools::TOutputMaybeRcppFile file(filename, header);
+		for (size_t ix_1 = 0; ix_1 < Param->size(); ++ix_1) {
+			file << names[ix_1];
+			for (size_t ix_2 = 0; ix_2 < Param->size(); ++ix_2) {
+				file << (double)summaryPosterior[ix_1][ix_2] / (double)counter;
+			}
+			file.endln();
+		}
 	}
 
 	double _getLogPriorRatio(const std::vector<size_t> &CI_indices, const TData &Data, const TModelBase &Model,
@@ -228,12 +267,37 @@ public:
 		return _getLogPriorRatio(_CI_indices_per_delta[ix], Data, Model, _update_delta[ix]);
 	}
 
-	void updateSummaryGammaPosterior();
-	void resetSummaryGammaPosterior();
-	void writeSummaryGammaPosterior(const std::string &Prefix);
+	template<bool IsGamma> void updateSummaryPosterior() {
+		if constexpr (IsGamma) {
+			_counterGamma = _updateSummaryPosterior(_counterGamma, _gamma, _summaryGammaPosterior);
+		} else {
+			_counterDelta = _updateSummaryPosterior(_counterDelta, _delta, _summaryDeltaPosterior);
+		}
+	}
+
+	template<bool IsGamma> void resetSummaryPosterior() {
+		if constexpr (IsGamma) {
+			_counterGamma = 0;
+			for (auto &m : _summaryGammaPosterior) { std::fill(m.begin(), m.end(), 0); }
+		} else {
+			_counterDelta = 0;
+			for (auto &m : _summaryDeltaPosterior) { std::fill(m.begin(), m.end(), 0); }
+		}
+	}
+
+	template<bool IsGamma> void writeSummaryPosterior(const std::string &Prefix) {
+		if constexpr (IsGamma) {
+			_writeSummaryPosterior(Prefix + "_gammaSummaries.txt", _gamma_names, _gamma, _summaryGammaPosterior,
+			                       _counterGamma);
+		} else {
+			_writeSummaryPosterior(Prefix + "_DeltaSummaries.txt", _delta_names, _delta, _summaryDeltaPosterior,
+			                       _counterDelta);
+		}
+	}
 
 	void setSimulatedToZero();
 
+	Changes change() const;
 	size_t numEpochs() const;
 	size_t numCIGroups() const;
 	size_t numTimepoints() const;
@@ -362,10 +426,8 @@ public:
 			}
 		}
 
-		if constexpr (IsGamma) {
-			// update summaries of gamma posterior after update has finished
-			updateSummaryGammaPosterior();
-		}
+		// update summaries of gamma and Delta posterior after update has finished
+		updateSummaryPosterior<IsGamma>();
 	}
 
 	// update of zeta
@@ -384,10 +446,12 @@ public:
 	std::vector<double> getDelta_forLogPhiJointUpdate(size_t CI_index);
 	bool evaluateGamma_forLogPhiJointUpdate(size_t m, double LLRatio, const TData &Data, const TModelBase &Model);
 
-	// write posterior summaries of gamma's
-	void updateSummaryGammaPosterior();
-	void resetSummaryGammaPosterior();
-	void writeSummaryGammaPosterior(const std::string &Prefix);
+	// write posterior summaries of gamma's and Deltas
+	template<bool IsGamma> void updateSummaryPosterior() { _phi.updateSummaryPosterior<IsGamma>(); }
+	template<bool IsGamma> void resetSummaryGammaPosterior() { _phi.resetSummaryPosterior<IsGamma>(); }
+	template<bool IsGamma> void writeSummaryGammaPosterior(const std::string &Prefix) {
+		_phi.writeSummaryPosterior<IsGamma>(Prefix);
+	}
 
 	// simulations
 	void setSimulatedToZero();
@@ -401,6 +465,7 @@ public:
 	TypePhi deterministicPhi(size_t k, size_t CI_index) const;
 	std::vector<TypePhi> calculateDeterministicPhi(size_t CI_index) const;
 
+	Changes change() const;
 	bool gammaIsUpdated() const;
 	bool deltaIsUpdated() const;
 

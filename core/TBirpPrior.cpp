@@ -82,12 +82,12 @@ double TBirpPrior::getSumLogPriorDensity(const Storage &) const {
 }
 
 void TBirpPrior::burninHasFinished() {
-	for (auto &model : _models) { model->resetSummaryGammaPosterior(); }
+	for (auto &model : _models) { model->resetSummaryPosterior(); }
 }
 
 void TBirpPrior::writeSummaryGammaPosterior(const std::string &Prefix) {
 	// todo: make sure for multispecies to add name of species to Prefix!
-	for (auto &model : _models) { model->writeSummaryGammaPosterior(Prefix); }
+	for (auto &model : _models) { model->writeSummaryPosterior(Prefix); }
 }
 
 //------------------------------------

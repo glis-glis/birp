@@ -349,7 +349,7 @@ void TOLSGamma::_checkIfDeltaIsIdentifiable(const std::vector<std::vector<size_t
 				for (size_t i = 0; i < Data.size(); ++i) { // loop over methods
 					if (!Data[i].hasDataForCIGroup(CI_ix)) { continue; }
 					for (const size_t j : Data[i].getLocationIndicesForCIGroup(CI_ix)) { // loop over locations
-						for (size_t k = 0; k < Data[i][j].size(); ++k) {         // loop over timepoints
+						for (size_t k = 0; k < Data[i][j].size(); ++k) {                 // loop over timepoints
 							// skip timepoints that are not part of epoch
 							if (!_timePointIsRelevant(Timepoints, Data[i][j][k].timepoint_id(), e)) { continue; }
 
@@ -484,22 +484,26 @@ TOLSGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTi
 
 TPhi::TPhi(TypeParamGamma *Gamma, TypeParamDelta *Delta, const TUniqueContainer<TypeTime> &Timepoints,
            const TUniqueContainer<std::string> &CIGroupNames, size_t SpeciesID, std::string_view Prefix)
-    : _gamma(Gamma), _delta(Delta), _species_id(SpeciesID), _numCIGroups(CIGroupNames.size()) {
+    : _gamma(Gamma), _delta(Delta), _change(Changes::only_gamma), _species_id(SpeciesID),
+      _numCIGroups(CIGroupNames.size()) {
 
 	// find out how many epochs there are
 	if (parameters().exists("timesOfChange")) {
-		_fillTimesOfChange(Timepoints, Prefix);
+		_fillTimesOfChange(Timepoints);
 	} else {
 		logfile().list("Will assume a single epoch without any times of change (use argument "
 		               "'timesOfChange' to change).");
 		_numEpochs = 1;
 	}
+	// write to file
+	coretools::TOutputMaybeRcppFile file((std::string)Prefix + "_timesOfChange.txt");
+	if (!_timesOfChange.empty()) { file.writeln(_timesOfChange); }
+
+	// find out if we infer gamma and/or Delta
+	_read_change_to_infer();
 
 	// find out how to group gamma and delta
-	_readGrouping(true, "gamma", Timepoints, CIGroupNames, _gamma_ix_per_CIgroup_and_epoch, _gamma_names,
-	              _CI_indices_per_gamma, _update_gamma, Prefix);
-	_readGrouping(false, "delta", Timepoints, CIGroupNames, _delta_ix_per_CIgroup_and_epoch, _delta_names,
-	              _CI_indices_per_delta, _update_delta, Prefix);
+	_read_BACI_change(Timepoints, CIGroupNames, Prefix);
 
 	// calculate Jeffrey's prior?
 	_noJP = parameters().exists("noJP");
@@ -512,42 +516,95 @@ void TPhi::initialize(const TUniqueContainer<TypeTime> &Timepoints, TBirpPrior *
 	_delta->initStorage(BirpPrior, {_delta_names.size()},
 	                    {std::make_shared<coretools::TNamesStrings>(_delta_names.vec())});
 
+	if (_change == Changes::only_gamma) { _delta->setIsUpdated(false); }
+	if (_change == Changes::only_Delta) { _gamma->setIsUpdated(false); }
+
 	_summaryGammaPosterior.resize(_gamma_names.size(), std::vector<size_t>(_gamma_names.size(), 0));
+	_summaryDeltaPosterior.resize(_delta_names.size(), std::vector<size_t>(_delta_names.size(), 0));
 
 	_fillRho(Timepoints);
 	_fillIndicatorDelta(Timepoints);
 }
 
-void TPhi::_readGrouping(bool is_gamma, std::string_view Name, const TUniqueContainer<TypeTime> &Timepoints,
+void TPhi::_read_change_to_infer() {
+	// find out if we infer gamma and/or Delta
+	std::string change = parameters().get("change", "rate");
+	if (change == "rate") {
+		// only gamma (default)
+		logfile().list(
+		    "Will infer rates of change (gamma). Use argument 'change' with options 'step' or 'both' to change.");
+		_change = Changes::only_gamma;
+	} else if (change == "step") {
+		// only Delta
+		logfile().list(
+		    "Will infer step changes (Delta). Use argument 'change' with options 'rate' or 'both' to change.");
+		_change = Changes::only_Delta;
+	} else if (change == "both") {
+		// both gamma and Delta
+		logfile().list("Will infer both rates of change (gamma) and step changes (Delta). Use argument 'change' with "
+		               "options 'rate' or 'step' to change.");
+		_change = Changes::both;
+	} else {
+		throw coretools::TUserError(
+		    "Unknown option '", change,
+		    "' given for argument 'change'. Please provide either 'rate' (infer rates of change gamma), 'step' "
+		    "(infer step changes Delta) or 'both' (infer both rates and step changes).");
+	}
+}
+
+void TPhi::_read_BACI_change(const TUniqueContainer<TypeTime> &Timepoints,
+                             const TUniqueContainer<std::string> &CIGroupNames, std::string_view Prefix) {
+	// find out how to group gamma and delta
+	if (_change == Changes::only_gamma) {
+		_readGrouping(true, "gamma", "rate", Timepoints, CIGroupNames, _gamma_ix_per_CIgroup_and_epoch, _gamma_names,
+		              _CI_indices_per_gamma, _update_gamma, Prefix);
+		// check if "step_design" is given
+		if (parameters().exists("step_design")) {
+			throw coretools::TUserError(
+			    "Argument 'step_design' was provided but will not be used as only rates (gamma) are "
+			    "inferred. Omit or use argument 'change' with options 'step' or 'both' to change.");
+		}
+	} else if (_change == Changes::only_Delta) {
+		_readGrouping(false, "Delta", "step", Timepoints, CIGroupNames, _delta_ix_per_CIgroup_and_epoch, _delta_names,
+		              _CI_indices_per_delta, _update_delta, Prefix);
+		// check if "rate_design" is given
+		if (parameters().exists("rate_design")) {
+			throw coretools::TUserError(
+			    "Argument 'rate_design' was provided but will not be used as only step changes (Delta) are "
+			    "inferred. Omit or use argument 'change' with options 'rate' or 'both' to change.");
+		}
+	} else { // Changes::both
+		_readGrouping(true, "gamma", "rate", Timepoints, CIGroupNames, _gamma_ix_per_CIgroup_and_epoch, _gamma_names,
+		              _CI_indices_per_gamma, _update_gamma, Prefix);
+		_readGrouping(false, "Delta", "step", Timepoints, CIGroupNames, _delta_ix_per_CIgroup_and_epoch, _delta_names,
+		              _CI_indices_per_delta, _update_delta, Prefix);
+	}
+}
+
+void TPhi::_readGrouping(bool is_gamma, std::string_view ParamName, std::string_view Name,
+                         const TUniqueContainer<TypeTime> &Timepoints,
                          const TUniqueContainer<std::string> &CIGroupNames,
                          std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
                          TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices,
                          std::vector<bool> &update, std::string_view Prefix) const {
 	// read gamma/delta grouping BACI
 	// first check if user provides BACI layout (most flexible), then check if CI or BA, else throw
-	logfile().startIndent("Parsing BACI configuration for parameter ", Name, "...");
+	logfile().startIndent("Parsing experimental design for ", Name, " change (parameter ", ParamName, ")...");
 
-	// BACI scheme can be the same for gamma and delta (BACI) or different (BACI_gamma, BACI_delta)
-	std::string argNameCommon   = "BACI";
-	std::string argNameSpecific = "BACI_" + (std::string)Name;
-	if (parameters().exists(argNameCommon)) {
-		// if "BACI" is given: use same BACI for gamma and delta
-		auto filename = parameters().get<std::string>(argNameCommon);
-		logfile().list("Reading BACI grouping information (same for gamma and delta) from ", filename, "...");
-		_fillIndicatorsBACI(filename, Name, CIGroupNames, ix_per_CIgroup_and_epoch, names, CI_indices);
-	} else if (parameters().exists(argNameSpecific)) {
-		// if "BACI_gamma" or "BACI_delta" is given: use parameter-specific BACI layout
-		auto filename = parameters().get<std::string>(argNameSpecific);
-		logfile().list("Reading BACI grouping information for ", Name, " from ", filename, "...");
-		_fillIndicatorsBACI(filename, Name, CIGroupNames, ix_per_CIgroup_and_epoch, names, CI_indices);
+	// BACI design is provided separately for gamma (rate_design) and Delta (step_design)
+	std::string argNameDesign = (std::string)Name + "_design";
+	if (parameters().exists(argNameDesign)) {
+		// if "rate_design" or "step_design" is given: use parameter-specific BACI layout
+		auto filename = parameters().get<std::string>(argNameDesign);
+		logfile().list("Reading BACI design from ", filename, "...");
+		_fillIndicatorsBACI(filename, CIGroupNames, ix_per_CIgroup_and_epoch, names, CI_indices);
 	} else if (_numCIGroups > 1 && _numEpochs == 1) { // CI only -> no need to provide BACI
 		_fillIndicatorsCI(Name, CIGroupNames, ix_per_CIgroup_and_epoch, names, CI_indices);
 	} else if (_numCIGroups == 1) { // BA only
 		_fillIndicatorsBA(is_gamma, Name, Timepoints, ix_per_CIgroup_and_epoch, names, CI_indices);
 	} else {
-		throw coretools::TUserError("The argument '", argNameCommon, "' (same for gamma and delta) or '",
-		                            argNameSpecific, "' (specific to ", Name, ") is required when analysing ",
-		                            _numCIGroups, " control-intervention groups and ", _numEpochs, " epochs.");
+		throw coretools::TUserError("The argument '", argNameDesign, "' is required when analysing ", _numCIGroups,
+		                            " control-intervention groups and ", _numEpochs, " epochs.");
 	}
 
 	// check if any gamma / delta ix should be fixed
@@ -561,11 +618,12 @@ void TPhi::_readGrouping(bool is_gamma, std::string_view Name, const TUniqueCont
 	}
 
 	// report
-	logfile().conclude("Total number of ", Name, ": ", names.size(), ".");
-	if (!ix_to_fix.empty()) { logfile().conclude("Will force indices ", ix_to_fix, " of ", Name, " to be zero."); }
+	logfile().conclude("Total number of ", ParamName, ": ", names.size(), ".");
+	if (!ix_to_fix.empty()) { logfile().conclude("Will force indices ", ix_to_fix, " of ", ParamName, " to be zero."); }
 
 	// write to file
-	coretools::TOutputMaybeRcppFile file((std::string)Prefix + "_BACI_" + (std::string)Name + "_configuration.txt");
+	coretools::TOutputMaybeRcppFile file((std::string)Prefix + "_BACI_" + (std::string)ParamName +
+	                                     "_configuration.txt");
 	for (size_t i = 0; i < _numCIGroups; ++i) {
 		for (size_t e = 0; e < _numEpochs; ++e) { file << names[ix_per_CIgroup_and_epoch[i][e]]; }
 		file.endln();
@@ -579,8 +637,8 @@ void TPhi::_fillIndicatorsCI(std::string_view Name, const TUniqueContainer<std::
                              TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices) const {
 	// if only a single epoch and multiple groups -> we do CI -> no need to provide BACI-grouping file
 	logfile().list("Will perform control-intervention analysis (CI) without before-after grouping (provide arguments "
-	               "'timesOfChange' and 'BACI' or 'BACI_",
-	               Name, "' to switch to a BACI analysis).");
+	               "'timesOfChange' and '",
+	               Name, "_design' to switch to a BACI analysis).");
 	ix_per_CIgroup_and_epoch.resize(_numCIGroups);
 	CI_indices.resize(_numCIGroups); // there will be as many gammas/deltas as there are CI groups
 	for (size_t i = 0; i < _numCIGroups; i++) {
@@ -594,9 +652,17 @@ void TPhi::_fillIndicatorsBA(bool is_gamma, std::string_view Name, const TUnique
                              std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
                              TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices) const {
 	// if only a single group -> we do BA -> no need to provide BACI-grouping file
-	logfile().list("Will perform before-after analysis (BA) without control-intervention grouping (provide column "
-	               "'CI_group' in counts file and argument 'BACI' or 'BACI_",
-	               Name, "' to switch to a BACI analysis).");
+	if (_numEpochs == 1) {
+		logfile().list("Will infer changes for a single epoch without BACI (provide arguments 'timesOfChange' to "
+		               "switch to a BA, column "
+		               "'CI_group' in input data to switch to CI and/or argument '",
+		               Name, "_design' to switch to a BACI analysis).");
+	} else {
+		logfile().list("Will perform before-after analysis (BA) without control-intervention grouping (provide column "
+		               "'CI_group' in input data and argument '",
+		               Name, "_design' to switch to a BACI analysis).");
+	}
+
 	// a single CI group and _numEpoch epochs
 	ix_per_CIgroup_and_epoch.resize(1, std::vector<size_t>(_numEpochs, 0));
 	CI_indices.resize(_numEpochs); // there will be as many gammas/deltas as there are epochs
@@ -620,8 +686,7 @@ void TPhi::_fillIndicatorsBA(bool is_gamma, std::string_view Name, const TUnique
 	}
 }
 
-void TPhi::_fillIndicatorsBACI(std::string_view Filename, std::string_view Name,
-                               const TUniqueContainer<std::string> &CIGroupNames,
+void TPhi::_fillIndicatorsBACI(std::string_view Filename, const TUniqueContainer<std::string> &CIGroupNames,
                                std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
                                TUniqueContainer<std::string> &names,
                                std::vector<std::vector<size_t>> &CI_indices) const {
@@ -632,8 +697,9 @@ void TPhi::_fillIndicatorsBACI(std::string_view Filename, std::string_view Name,
 	int numEpochs = (int)file.numCols() - 1;
 	if (numEpochs != (int)_numEpochs) {
 		throw coretools::TUserError(
-		    "The number of epochs provided in BACI-file (", numEpochs,
-		    ") does not match the number of epochs provided through the argument 'timesOfChange' (", _numEpochs, ").");
+		    "The number of epochs provided in BACI design (", numEpochs,
+		    ") does not match the number of epochs provided through the argument 'timesOfChange' (", _numEpochs,
+		    "). Please provide one column per epoch.");
 	}
 
 	// resize ix_per_CIgroup_and_epoch: numCIGroups x numEpochs
@@ -647,7 +713,7 @@ void TPhi::_fillIndicatorsBACI(std::string_view Filename, std::string_view Name,
 		if (!CIGroupNames.exists(group_name)) {
 			throw coretools::TUserError(
 			    "CI group name '", group_name,
-			    "' from BACI file does not match any of the CI groups provided in the counts files (column "
+			    "' from BACI design does not match any of the CI groups provided in the input data (column "
 			    "'CI_group')!");
 		}
 		size_t group_id          = CIGroupNames.getIndex(group_name);
@@ -668,8 +734,8 @@ void TPhi::_fillIndicatorsBACI(std::string_view Filename, std::string_view Name,
 			} else if (ix == CI_indices.size()) { // new gamma/delta index (+1 of previous) -> append new index
 				CI_indices.push_back({group_id});
 			} else {
-				throw coretools::TDevError(Name, ": index ", ix, " is larger than size of CI_indices ",
-				                           CI_indices.size(), ", this should never happen.");
+				throw coretools::TDevError("Index ", ix, " is larger than size of CI_indices ", CI_indices.size(),
+				                           ", this should never happen.");
 			}
 		}
 	}
@@ -678,13 +744,13 @@ void TPhi::_fillIndicatorsBACI(std::string_view Filename, std::string_view Name,
 	// check if all CI groups were parsed
 	for (size_t i = 0; i < _numCIGroups; ++i) {
 		if (!found_CI_group[i]) {
-			throw coretools::TUserError("CI group with name ", CIGroupNames[i],
-			                            " from counts file (column 'CI_group') was not found in BACI file.");
+			throw coretools::TUserError("CI group with name '", CIGroupNames[i],
+			                            "' from input data (column 'CI_group') was not found in BACI design.");
 		}
 	}
 }
 
-void TPhi::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, std::string_view Prefix) {
+void TPhi::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints) {
 	// check if times of change, as provided by the user, are valid and adjust them if necessary
 	assert(!Timepoints.empty());
 
@@ -714,10 +780,6 @@ void TPhi::_fillTimesOfChange(const TUniqueContainer<TypeTime> &Timepoints, std:
 	// count number of epochs
 	_numEpochs = _timesOfChange.size() + 1;
 
-	// write to file
-	coretools::TOutputMaybeRcppFile file((std::string)Prefix + "_timesOfChange.txt");
-	file.writeln(_timesOfChange);
-
 	// report
 	logfile().list("Times of change = ", _timesOfChange, " (argument 'timesOfChange').");
 	logfile().list("Number of epochs = ", _numEpochs, ".");
@@ -731,7 +793,7 @@ void TPhi::estimateInitialValues(const TData &Data, const TUniqueContainer<TypeT
 	std::vector<TypeTime> epochStarts = getEpochStarts(Timepoints);
 	TOLSGamma ols(_gamma->size(), _numEpochs, epochStarts, _gamma_ix_per_CIgroup_and_epoch, _CI_indices_per_gamma);
 	auto gamma = ols.estimateInitialGamma(Data, Timepoints, _species_id, _gamma_names, _update_gamma,
-	                                      _CI_indices_per_delta, _update_delta);
+	                                      _delta_ix_per_CIgroup_and_epoch, _update_delta);
 	assert(gamma.size() == _gamma->size());
 	for (size_t ix = 0; ix < gamma.size(); ++ix) { _gamma->set(ix, gamma[ix]); }
 }
@@ -802,6 +864,12 @@ void TPhi::_fillIndicatorDelta(const TUniqueContainer<TypeTime> &Timepoints) {
 			_ind_delta(t, e - 1) = Timepoints[t] >= epochStarts[e];
 		}
 	}
+
+	// debugging
+	for (size_t i = 0; i < _ind_delta.rows(); ++i) {
+		for (size_t j = 0; j < _ind_delta.cols(); ++j) { std::cout << _ind_delta(i, j) << " "; }
+		std::cout << std::endl;
+	}
 }
 
 void TPhi::setSimulatedToZero() {
@@ -825,40 +893,8 @@ double TPhi::_getLogPriorRatio(const std::vector<size_t> &CI_indices, const TDat
 	return _newJP - _oldJP;
 }
 
-void TPhi::resetSummaryGammaPosterior() {
-	_counter = 0;
-	for (auto &m : _summaryGammaPosterior) { std::fill(m.begin(), m.end(), 0); }
-}
-
-void TPhi::updateSummaryGammaPosterior() {
-	++_counter;
-	for (size_t ix_1 = 0; ix_1 < _gamma->size(); ++ix_1) {     // rows
-		for (size_t ix_2 = 0; ix_2 < _gamma->size(); ++ix_2) { // column
-			if (ix_1 == ix_2) {
-				// on the diagonal: count if gamma_ix_1 > 0
-				if (_gamma->value(ix_1) >= 0.0) { ++_summaryGammaPosterior[ix_1][ix_2]; }
-			} else {
-				// off the diagonal: count if gamma_ix_1 > gamma_ix_2
-				if (_gamma->value(ix_1) > _gamma->value(ix_2)) { ++_summaryGammaPosterior[ix_1][ix_2]; }
-			}
-		}
-	}
-}
-
-void TPhi::writeSummaryGammaPosterior(const std::string &Prefix) {
-	auto header = _gamma_names.vec();
-	header.insert(header.begin(), "row_bigger_than_column");
-	coretools::TOutputMaybeRcppFile file(Prefix + "_gammaSummaries.txt", header);
-	for (size_t ix_1 = 0; ix_1 < _gamma->size(); ++ix_1) {
-		file << _gamma_names[ix_1];
-		for (size_t ix_2 = 0; ix_2 < _gamma->size(); ++ix_2) {
-			file << (double)_summaryGammaPosterior[ix_1][ix_2] / (double)_counter;
-		}
-		file.endln();
-	}
-}
-
 // getters
+Changes TPhi::change() const { return _change; }
 size_t TPhi::numEpochs() const { return _numEpochs; }
 size_t TPhi::numCIGroups() const { return _numCIGroups; }
 size_t TPhi::numTimepoints() const { return _rho.n_rows; }
@@ -867,6 +903,8 @@ size_t TPhi::numDelta() const { return _delta->size(); }
 size_t TPhi::species_id() const { return _species_id; }
 
 TypeGamma TPhi::gamma(size_t epoch, size_t CI_ix) const {
+	if (_change == Changes::only_Delta) { return 0.0; }
+
 	assert(epoch < _numEpochs);
 	assert(CI_ix < _numCIGroups);
 
@@ -875,6 +913,8 @@ TypeGamma TPhi::gamma(size_t epoch, size_t CI_ix) const {
 }
 
 TypeDelta TPhi::delta(size_t epoch, size_t CI_ix) const {
+	if (_change == Changes::only_gamma) { return 0.0; }
+
 	assert(epoch < _numEpochs);
 	assert(CI_ix < _numCIGroups);
 
@@ -1138,8 +1178,6 @@ bool TStochasticPrior::evaluateGamma_forLogPhiJointUpdate(size_t ix, double LLRa
 	return false;
 }
 
-void TStochasticPrior::updateSummaryGammaPosterior() { _phi.updateSummaryGammaPosterior(); }
-
 double TStochasticPrior::calculateLogPriorRatio(size_t j, size_t k, size_t CI_index) {
 	if (k == _phi.numTimepoints()) { return 0.0; } // last timepoint: no data on the right
 
@@ -1195,16 +1233,14 @@ size_t TStochasticPrior::numCIGroups() const { return _phi.numCIGroups(); }
 size_t TStochasticPrior::numGamma() const { return _phi.numGamma(); }
 size_t TStochasticPrior::numDelta() const { return _phi.numDelta(); }
 
-void TStochasticPrior::resetSummaryGammaPosterior() { _phi.resetSummaryGammaPosterior(); }
-void TStochasticPrior::writeSummaryGammaPosterior(const std::string &Prefix) {
-	_phi.writeSummaryGammaPosterior(Prefix);
-}
-
+Changes TStochasticPrior::change() const { return _phi.change(); }
 bool TStochasticPrior::gammaIsUpdated() const { return _phi.gammaIsUpdated(); }
 bool TStochasticPrior::deltaIsUpdated() const { return _phi.deltaIsUpdated(); }
 const std::vector<std::string> &TStochasticPrior::delta_names() const { return _phi.delta_names(); }
 
 double TStochasticPrior::zeta(size_t epoch, size_t CI_ix) const {
+	if (_phi.change() == Changes::only_gamma) { return 0.0; }
+
 	assert(epoch < _phi.numEpochs());
 	assert(CI_ix < _phi.numCIGroups());
 

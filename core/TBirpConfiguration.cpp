@@ -56,7 +56,7 @@ void TBirpCommonModel::_createBeta(size_t i, TData &Data, const std::string &Fil
 
 TBirpCommonModel::TBirpCommonModel(TData &Data, const std::string &Filename)
     : _boxOnGamma(), _boxOnAlpha(), _boxOnBeta(), _boxOnBeta0(), gamma("gamma", &_boxOnGamma, {Filename}),
-      delta("delta", &_boxOnDelta, {Filename}) {
+      delta("Delta", &_boxOnDelta, {Filename}) {
 
 	// don't update gamma, delta and TOC via DAG
 	gamma.getDefinition().excludeFromDAGUpdates(true);
