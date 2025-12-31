@@ -643,6 +643,7 @@ void TPhi::_readGrouping(bool is_gamma, std::string_view ParamName, std::string_
 	coretools::TOutputMaybeRcppFile file((std::string)Prefix + "_BACI_" + (std::string)ParamName +
 	                                     "_configuration.txt");
 	for (size_t i = 0; i < _numCIGroups; ++i) {
+		file << CIGroupNames[i];
 		for (size_t e = 0; e < _numEpochs; ++e) { file << names[ix_per_CIgroup_and_epoch[i][e]]; }
 		file.endln();
 	}
