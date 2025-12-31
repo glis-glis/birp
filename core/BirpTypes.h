@@ -42,7 +42,7 @@ using TypeLogSigma                     = coretools::MinMaxVariable<1>;
 constexpr static size_t NumDimLogSigma = 1;
 
 // logZeta
-using TypeLogZeta                     = coretools::MinMaxVariable<1>;
+using TypeLogZeta                     = coretools::MinMaxVariable<2>;
 constexpr static size_t NumDimLogZeta = 1;
 
 // counts

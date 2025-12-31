@@ -115,7 +115,8 @@ TBirpStochasticAddOn::TBirpStochasticAddOn(const std::string &Filename)
 	logPhi.getDefinition().setUnequalNumberOfUpdates(true); // first logPhi is not updated
 
 	TypeLogSigma ::setMin(-10.); // prevent numeric issues with very small sigma: 1/sigma can result in nan
-	TypeLogZeta ::setMin(-10.);  // prevent numeric issues with very small zeta
+	TypeLogZeta ::setMin(-100.);  // prevent convergence issues: at some point, exp(-large) = 0
+	TypeLogZeta ::setMax(20.);  // prevent convergence issues: at some point, exp(large) too big
 }
 
 //------------------------------------------

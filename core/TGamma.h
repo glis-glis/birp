@@ -32,15 +32,21 @@ private:
 	std::vector<TypeTime> _epochStarts;
 
 	bool _timePointIsRelevant(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t e) const;
+	bool _timePointIsRelevantDelta(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t e) const;
 	auto _loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
-	                         size_t i, size_t j_in_method, size_t e, size_t L, std::vector<double> &y_ix,
-	                         std::vector<TypeTime> &t_ix, std::vector<size_t> &dataSeriesIndex) const;
+	                         size_t i, size_t j_in_method, size_t e, size_t CI_index, size_t L,
+	                         std::vector<double> &y_ix, std::vector<TypeTime> &t_ix,
+	                         std::vector<size_t> &dataSeriesIndex,
+	                         const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
+	                         const std::vector<bool> &update_delta) const;
 	auto _getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
 	                               const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                               const std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                               const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts,
 	                               const std::vector<bool> &update_gamma) const;
-	auto _get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID) const;
+	auto _get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID,
+	               const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
+	               const std::vector<bool> &update_delta) const;
 	static arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
 	                        const std::vector<size_t> &DataSeriesIndex, size_t L);
 	void _augmentYWithOLSEstimatesStart(size_t curGamma, size_t CI_index, size_t epoch, const arma::vec &Beta,
@@ -442,9 +448,24 @@ public:
 	double calculateLogPriorRatio(size_t j, size_t k, size_t CI_index);
 
 	// joint update of gamma
-	bool updateGamma_forLogPhiJointUpdate(size_t ix);
-	std::vector<double> getDelta_forLogPhiJointUpdate(size_t CI_index);
-	bool evaluateGamma_forLogPhiJointUpdate(size_t m, double LLRatio, const TData &Data, const TModelBase &Model);
+	template<bool IsGamma> bool update_forLogPhiJointUpdate(size_t ix) { return _phi.updateSpecificIndex<IsGamma>(ix); }
+	std::vector<double> getDiff_forLogPhiJointUpdate(size_t CI_index);
+	template<bool IsGamma>
+	bool evaluate_forLogPhiJointUpdate(size_t ix, double LLRatio, const TData &Data, const TModelBase &Model) {
+		double logH = LLRatio + _phi.getLogPriorRatio<IsGamma>(ix, Data, Model);
+
+		if (_phi.acceptOrReject<IsGamma>(logH, ix)) { // already swaps JP (if necessary)
+			// no need to swap transition probabilities: these didn't change!
+			return true;
+		}
+		// rejected
+		for (auto CI_index : _phi.getCIGroups<IsGamma>(ix)) {
+			_newSumRhoGammaDelta[CI_index] = _oldSumRhoGammaDelta[CI_index];
+			_newDeterministicPhi[CI_index] = _oldDeterministicPhi[CI_index];
+		}
+
+		return false;
+	}
 
 	// write posterior summaries of gamma's and Deltas
 	template<bool IsGamma> void updateSummaryPosterior() { _phi.updateSummaryPosterior<IsGamma>(); }
@@ -466,8 +487,13 @@ public:
 	std::vector<TypePhi> calculateDeterministicPhi(size_t CI_index) const;
 
 	Changes change() const;
-	bool gammaIsUpdated() const;
-	bool deltaIsUpdated() const;
+	template<bool IsGamma> bool isUpdated() const {
+		if constexpr (IsGamma) {
+			return _phi.gammaIsUpdated();
+		} else {
+			return _phi.deltaIsUpdated();
+		}
+	}
 
 	size_t numGamma() const;
 	size_t numDelta() const;

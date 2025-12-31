@@ -465,48 +465,6 @@ void TStochastic::_updateLogPhi(const TData &Data) {
 	}
 }
 
-void TStochastic::_jointUpdateLogPhiGamma(const TData &Data) {
-	if (!_prior.gammaIsUpdated()) { return; }
-
-	constexpr bool IsGamma = true;
-	for (size_t ix = 0; ix < _prior.size<IsGamma>(); ix++) { // loop over all gamma
-		// propose new gamma
-		if (!_prior.updateGamma_forLogPhiJointUpdate(ix)) { continue; }
-
-		// adjust logPhi by Delta_k, per CI group
-		double LLRatio = 0.0;
-		for (const auto CI_index : _prior.getCIGroups<IsGamma>(ix)) {
-			const auto Delta = _prior.getDelta_forLogPhiJointUpdate(CI_index);
-			// loop over all locations j for that CI group
-			for (const auto j : Data.get_locationsIds_for_CI_index(_speciesIDinUniqueContainer, CI_index)) {
-				for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
-					const size_t linear     = _logPhi->getIndex({j, k});
-					const double logPhi_new = _logPhi->value(linear) + Delta[k];
-					_logPhi->set(linear, logPhi_new);
-				}
-			}
-			// add to LLRatio: no need to add prior on phi (= transition probabilities), since they didn't change!
-			LLRatio += calculateLLRatio_perCIGroup(CI_index, Data);
-		}
-
-		if (_prior.evaluateGamma_forLogPhiJointUpdate(ix, LLRatio, Data, *this)) {
-			// accepted: swap LL for all locations of that CI group
-			for (const auto CI_index : _prior.getCIGroups<IsGamma>(ix)) { swapTryCur_perCIGroup(CI_index, Data); }
-		} else {
-			// rejected: re-set all logPhi that were changed
-			for (const auto CI_index : _prior.getCIGroups<IsGamma>(ix)) {
-				for (const auto j : Data.get_locationsIds_for_CI_index(_speciesIDinUniqueContainer, CI_index)) {
-					for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
-						_logPhi->reset(_logPhi->getIndex({j, k}));
-					}
-				}
-			}
-		}
-	}
-	// update summaries of gamma posterior after update has finished
-	_prior.updateSummaryPosterior<IsGamma>();
-}
-
 void TStochastic::_shiftLogPhis(size_t j, size_t k, double diff) {
 	for (size_t l = k; l < _logPhi->dimensions()[1]; ++l) {
 		const size_t ix = _logPhi->getIndex({j, l});
@@ -611,7 +569,8 @@ void TStochastic::update(const TData &Data) {
 	// update logPhi
 	if (_logPhi->isUpdated()) {
 		_updateLogPhi(Data);
-		_jointUpdateLogPhiGamma(Data);
+		_jointUpdateLogPhiGammaDelta<true>(Data); // jointly with gamma
+		_jointUpdateLogPhiGammaDelta<false>(Data); // jointly with Delta
 		_jointUpdateLogPhi(Data);
 	}
 

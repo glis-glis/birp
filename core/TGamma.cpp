@@ -24,9 +24,18 @@ bool TOLSGamma::_timePointIsRelevant(const TUniqueContainer<TypeTime> &Timepoint
 	return Timepoints[t] >= _epochStarts[e] && Timepoints[t] <= _epochStarts[e + 1];
 }
 
+bool TOLSGamma::_timePointIsRelevantDelta(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t e) const {
+	// returns true if a timepoint is withing an epoch (end border included)
+	if (e == 0) { return Timepoints[t] <= _epochStarts[e + 1]; }
+	return Timepoints[t] > _epochStarts[e] && Timepoints[t] <= _epochStarts[e + 1];
+}
+
 auto TOLSGamma::_loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
-                                    size_t i, size_t j_in_method, size_t e, size_t L, std::vector<double> &y_ix,
-                                    std::vector<TypeTime> &t_ix, std::vector<size_t> &dataSeriesIndex) const {
+                                    size_t i, size_t j_in_method, size_t e, size_t CI_index, size_t L,
+                                    std::vector<double> &y_ix, std::vector<TypeTime> &t_ix,
+                                    std::vector<size_t> &dataSeriesIndex,
+                                    const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
+                                    const std::vector<bool> &update_delta) const {
 	// loop over all timepoints in current datapoint (method/location)
 	bool hasTimepoint = false;
 	size_t numZero    = 0;
@@ -38,6 +47,13 @@ auto TOLSGamma::_loopOverTimepoints(const TData &Data, const TUniqueContainer<Ty
 
 		// ignore datapoints with effort zero
 		if (timepoint.effort() == 0.0) { continue; }
+
+		// if this timepoint represents a time of change and there is a Delta here: also ignore it - does not help gamma
+		const bool is_TOC = Timepoints[timepoint.timepoint_id()] == _epochStarts[e + 1];
+		if (is_TOC && !update_delta.empty()) { // check if there are any Deltas to be inferred
+			const size_t ix_delta = delta_ix_per_CIgroup_and_epoch[CI_index][e];
+			if (update_delta[ix_delta]) { continue; } // is updated -> can not use this timepoint
+		}
 
 		hasTimepoint = true;
 
@@ -61,8 +77,9 @@ auto TOLSGamma::_loopOverTimepoints(const TData &Data, const TUniqueContainer<Ty
 	return std::make_tuple(hasTimepoint, numZero, allZero);
 }
 
-auto TOLSGamma::_get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix,
-                          size_t SpeciesID) const {
+auto TOLSGamma::_get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID,
+                          const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
+                          const std::vector<bool> &update_delta) const {
 	// calculates response variable y_ix for each gamma as well as other variables needed for OLS
 	std::vector<double> y_ix;            // response variable
 	std::vector<TypeTime> t_ix;          // timepoints, same size as y_ix
@@ -82,8 +99,9 @@ auto TOLSGamma::_get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &T
 					// skip epoch if gamma_ix is not relevant
 					if (_gamma_ix_per_CIgroup_and_epoch[CI_index][e] != ix) { continue; }
 
-					const auto [hasTimepoint, numZero, allZero] = _loopOverTimepoints(
-					    Data, Timepoints, SpeciesID, i, j_in_method, e, L, y_ix, t_ix, dataSeriesIndex);
+					const auto [hasTimepoint, numZero, allZero] =
+					    _loopOverTimepoints(Data, Timepoints, SpeciesID, i, j_in_method, e, CI_index, L, y_ix, t_ix,
+					                        dataSeriesIndex, delta_ix_per_CIgroup_and_epoch, update_delta);
 
 					if (!hasTimepoint) { continue; } // no timepoint (with non-zero effort) for this group-epoch-i-j
 
@@ -172,7 +190,6 @@ bool TOLSGamma::_dontAugmentDataSeries(const std::vector<std::vector<std::pair<s
 	if (l_to_CI_epoch[curGamma][l].first != CI_index || l_to_CI_epoch[curGamma][l].second != epoch) { return true; }
 
 	// don't augment if there is a step change at the end of the epoch (previous if start, current if end)
-	// TODO: check if this works!
 	for (size_t CI_ix_delta = 0; CI_ix_delta < delta_ix_per_CIgroup_and_epoch.size(); ++CI_ix_delta) {
 		const size_t delta_ix = delta_ix_per_CIgroup_and_epoch[CI_ix_delta][epoch_ix_delta];
 		if (update_delta[delta_ix]) { return true; }
@@ -351,7 +368,7 @@ void TOLSGamma::_checkIfDeltaIsIdentifiable(const std::vector<std::vector<size_t
 					for (const size_t j : Data[i].getLocationIndicesForCIGroup(CI_ix)) { // loop over locations
 						for (size_t k = 0; k < Data[i][j].size(); ++k) {                 // loop over timepoints
 							// skip timepoints that are not part of epoch
-							if (!_timePointIsRelevant(Timepoints, Data[i][j][k].timepoint_id(), e)) { continue; }
+							if (!_timePointIsRelevantDelta(Timepoints, Data[i][j][k].timepoint_id(), e)) { continue; }
 
 							// ignore datapoints with effort zero
 							if (Data[i][j][k].effort() == 0.0) { continue; }
@@ -430,7 +447,8 @@ TOLSGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTi
 	std::vector<std::vector<bool>> allDataPointsAreZero(_numGamma);
 	for (size_t ix = 0; ix < _numGamma; ++ix) {
 		std::tie(y[ix], t[ix], dataSeriesIndex[ix], l_to_ij[ix], l_to_CI_epoch[ix], numDataPointsWithZeroCounts[ix],
-		         allDataPointsAreZero[ix]) = _get_Y_ix(Data, Timepoints, ix, SpeciesID);
+		         allDataPointsAreZero[ix]) =
+		    _get_Y_ix(Data, Timepoints, ix, SpeciesID, delta_ix_per_CIgroup_and_epoch, update_delta);
 	}
 
 	std::vector<bool> gammaInitialized(_numGamma, false);
@@ -854,7 +872,6 @@ void TPhi::_fillRho(const TUniqueContainer<TypeTime> &Timepoints) {
 }
 
 void TPhi::_fillIndicatorDelta(const TUniqueContainer<TypeTime> &Timepoints) {
-	// TODO: test if this is correctly filled!
 	std::vector<TypeTime> epochStarts = getEpochStarts(Timepoints); // first is T_0, size = _numEpochs + 1
 	_ind_delta.zeros((int)Timepoints.size(), (int)_numEpochs);
 
@@ -863,12 +880,6 @@ void TPhi::_fillIndicatorDelta(const TUniqueContainer<TypeTime> &Timepoints) {
 			// note: start at e = 1 (skip T_0), since this is the first time of change where step change can happen
 			_ind_delta(t, e - 1) = Timepoints[t] >= epochStarts[e];
 		}
-	}
-
-	// debugging
-	for (size_t i = 0; i < _ind_delta.rows(); ++i) {
-		for (size_t j = 0; j < _ind_delta.cols(); ++j) { std::cout << _ind_delta(i, j) << " "; }
-		std::cout << std::endl;
 	}
 }
 
@@ -1123,11 +1134,9 @@ double TStochasticPrior::calculateLL(const TData &Data, size_t CI_index) const {
 	return LL;
 }
 
-bool TStochasticPrior::updateGamma_forLogPhiJointUpdate(size_t ix) { return _phi.updateSpecificIndex<true>(ix); }
-
-std::vector<double> TStochasticPrior::getDelta_forLogPhiJointUpdate(size_t CI_index) {
-	std::vector<double> Delta(_phi.numTimepoints(), 0.0);
-	if (!_phi.gammaIsUpdated()) { return Delta; }
+std::vector<double> TStochasticPrior::getDiff_forLogPhiJointUpdate(size_t CI_index) {
+	// same for gamma and Delta!
+	std::vector<double> Diff(_phi.numTimepoints(), 0.0);
 
 	// remember current sum rho
 	_oldSumRhoGammaDelta[CI_index] = _newSumRhoGammaDelta[CI_index];
@@ -1137,14 +1146,14 @@ std::vector<double> TStochasticPrior::getDelta_forLogPhiJointUpdate(size_t CI_in
 	_oldDeterministicPhi[CI_index] = _newDeterministicPhi[CI_index];
 	_newDeterministicPhi[CI_index] = _phi.phi(CI_index);
 
-	// calculate Delta
+	// calculate Diff
 	for (size_t k = 0; k < _phi.numTimepoints(); ++k) {
 		for (size_t l = 0; l <= k; ++l) {
-			Delta[k] += _newSumRhoGammaDelta[CI_index][l] - _oldSumRhoGammaDelta[CI_index][l];
+			Diff[k] += _newSumRhoGammaDelta[CI_index][l] - _oldSumRhoGammaDelta[CI_index][l];
 		}
 	}
 
-	return Delta;
+	return Diff;
 }
 
 void TStochasticPrior::updateSumZeta(size_t ix_zeta) {
@@ -1158,24 +1167,6 @@ void TStochasticPrior::updateSumZeta(size_t ix_zeta) {
 void TStochasticPrior::rejectSumZeta(size_t ix_zeta) {
 	constexpr bool IsGamma = false; // CI groups of Delta apply
 	for (auto CI_index : _phi.getCIGroups<IsGamma>(ix_zeta)) { _newSumZeta[CI_index] = _oldSumZeta[CI_index]; }
-}
-
-bool TStochasticPrior::evaluateGamma_forLogPhiJointUpdate(size_t ix, double LLRatio, const TData &Data,
-                                                          const TModelBase &Model) {
-	constexpr bool IsGamma = true;
-	double logH            = LLRatio + _phi.getLogPriorRatio<IsGamma>(ix, Data, Model);
-
-	if (_phi.acceptOrReject<IsGamma>(logH, ix)) { // already swaps JP (if necessary)
-		// no need to swap transition probabilities: these didn't change!
-		return true;
-	}
-	// rejected
-	for (auto CI_index : _phi.getCIGroups<IsGamma>(ix)) {
-		_newSumRhoGammaDelta[CI_index] = _oldSumRhoGammaDelta[CI_index];
-		_newDeterministicPhi[CI_index] = _oldDeterministicPhi[CI_index];
-	}
-
-	return false;
 }
 
 double TStochasticPrior::calculateLogPriorRatio(size_t j, size_t k, size_t CI_index) {
@@ -1234,8 +1225,6 @@ size_t TStochasticPrior::numGamma() const { return _phi.numGamma(); }
 size_t TStochasticPrior::numDelta() const { return _phi.numDelta(); }
 
 Changes TStochasticPrior::change() const { return _phi.change(); }
-bool TStochasticPrior::gammaIsUpdated() const { return _phi.gammaIsUpdated(); }
-bool TStochasticPrior::deltaIsUpdated() const { return _phi.deltaIsUpdated(); }
 const std::vector<std::string> &TStochasticPrior::delta_names() const { return _phi.delta_names(); }
 
 double TStochasticPrior::zeta(size_t epoch, size_t CI_ix) const {

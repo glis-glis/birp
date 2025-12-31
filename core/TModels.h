@@ -182,7 +182,46 @@ protected:
 	void _updateLogPhi(const TData &Data);
 
 	// joint update logPhi and gamma
-	void _jointUpdateLogPhiGamma(const TData &Data);
+	template <bool IsGamma> void _jointUpdateLogPhiGammaDelta(const TData &Data) {
+		if (!_prior.isUpdated<IsGamma>()) { return; }
+
+		for (size_t ix = 0; ix < _prior.size<IsGamma>(); ix++) { // loop over all gamma / Delta
+			// propose new value
+			if (!_prior.update_forLogPhiJointUpdate<IsGamma>(ix)) { continue; }
+
+			// adjust logPhi by Diff_k, per CI group
+			double LLRatio = 0.0;
+			for (const auto CI_index : _prior.getCIGroups<IsGamma>(ix)) {
+				const auto Diff = _prior.getDiff_forLogPhiJointUpdate(CI_index);
+				// loop over all locations j for that CI group
+				for (const auto j : Data.get_locationsIds_for_CI_index(_speciesIDinUniqueContainer, CI_index)) {
+					for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
+						const size_t linear     = _logPhi->getIndex({j, k});
+						const double logPhi_new = _logPhi->value(linear) + Diff[k];
+						_logPhi->set(linear, logPhi_new);
+					}
+				}
+				// add to LLRatio: no need to add prior on phi (= transition probabilities), since they didn't change!
+				LLRatio += calculateLLRatio_perCIGroup(CI_index, Data);
+			}
+
+			if (_prior.evaluate_forLogPhiJointUpdate<IsGamma>(ix, LLRatio, Data, *this)) {
+				// accepted: swap LL for all locations of that CI group
+				for (const auto CI_index : _prior.getCIGroups<IsGamma>(ix)) { swapTryCur_perCIGroup(CI_index, Data); }
+			} else {
+				// rejected: re-set all logPhi that were changed
+				for (const auto CI_index : _prior.getCIGroups<IsGamma>(ix)) {
+					for (const auto j : Data.get_locationsIds_for_CI_index(_speciesIDinUniqueContainer, CI_index)) {
+						for (size_t k = 1; k < _logPhi->dimensions()[1]; ++k) { // loop over all timepoints
+							_logPhi->reset(_logPhi->getIndex({j, k}));
+						}
+					}
+				}
+			}
+		}
+		// update summaries of gamma/Delta posterior after update has finished
+		_prior.updateSummaryPosterior<IsGamma>();
+	}
 
 	// joint update of logPhi
 	void _shiftLogPhis(size_t j, size_t k, double diff);
