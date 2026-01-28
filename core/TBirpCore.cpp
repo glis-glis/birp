@@ -302,7 +302,7 @@ void TBirpCore::_readFile(const std::string &Filename) {
 
 		const auto &row = file.front();
 
-		// boot one vector together (stifl√§) of all species counts, and one of all covariates
+		// boot one vector together (stifl‰) of all species counts, and one of all covariates
 		std::vector<TypeCounts> countVec(species_ids.size(), 0);
 		std::vector<TypeCovariateEffort> covEffortVec(covEffortIndices.size());
 		std::vector<TypeCovariateDetection> covDetectionVec(covDetectionIndices.size());
@@ -483,13 +483,20 @@ void TBirpCore::_fillLocationsFromCommandLine() {
 void TBirpCore::_fillCIGroupsFromCommandLine() {
 	size_t numCIGroups = parameters().get("numCIGroups", 1);
 
-	if (parameters().exists("BACI")) { // get info on CI groups from BACI file
-		auto name = parameters().get<std::string>("BACI");
+	if (parameters().exists("rate_design")) { // get info on CI groups from rate_design file
+		auto name = parameters().get<std::string>("rate_design");
 		coretools::TInputMaybeRcppFile file(name, coretools::FileType::NoHeader);
 		for (; !file.empty(); file.popFront()) {
 			_CIGroupNames.add(file.get<std::string>(0)); // first column = CI group name
 		}
-		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'BACI').");
+		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'rate_design').");
+	} else if (parameters().exists("step_design")) { // get info on CI groups from step_design file
+		auto name = parameters().get<std::string>("step_design");
+		coretools::TInputMaybeRcppFile file(name, coretools::FileType::NoHeader);
+		for (; !file.empty(); file.popFront()) {
+			_CIGroupNames.add(file.get<std::string>(0)); // first column = CI group name
+		}
+		logfile().list("Number of control-intervention groups: ", _CIGroupNames.size(), " (argument 'step_design').");
 	} else {
 		if (numCIGroups == 0) {
 			throw coretools::TUserError("Number of control-intervention groups can not be zero (argument 'numCIGroups').");
