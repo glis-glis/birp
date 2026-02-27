@@ -2,7 +2,7 @@
  * main.cpp
  */
 
-#include "TBirpCore.h"
+#include "TBirpTask.h"
 #include "coretools/Main/TMain.h"
 
 //---------------------------------------------------------------------------

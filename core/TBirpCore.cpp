@@ -1,5 +1,8 @@
 #include "TBirpCore.h"
+#include "TBirpPrior.h"
+#include "TBirpConfiguration.h"
 #include "TData.h"
+
 #include "coretools/Types/strongTypes.h"
 #include "stattools/MCMC/TMCMC.h"
 #include "stattools/Priors/TPriorNormal.h"

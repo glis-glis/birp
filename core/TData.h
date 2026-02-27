@@ -1,12 +1,14 @@
 #ifndef BIRP_TDATA_H
 #define BIRP_TDATA_H
 
+#include <memory>
+#include <vector>
+
 #include "BirpDAG.h"
 #include "BirpTypes.h"
 #include "TUniqueContainer.h"
-#include "stattools/ParametersObservations/TParameter.h"
-#include <string>
-#include <vector>
+#include "coretools/Files/TOutputFile.h"
+#include "coretools/Math/TMeanVar.h"
 
 class TModelBase;
 class TData;

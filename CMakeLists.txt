@@ -1,38 +1,29 @@
 cmake_minimum_required(VERSION 3.14)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
 
 # Policies (for properly setting the timestamps of extracted contents)
 if (POLICY CMP0048)
     cmake_policy(SET CMP0048 NEW)
 endif (POLICY CMP0048)
-
 if (POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif (POLICY CMP0135)
 
-# To avoid warnings when compaling on MacOS on CRAN
+# To avoid warnings when compiling on MacOS on CRAN
 set(CMAKE_OSX_DEPLOYMENT_TARGET "13.7" CACHE STRING "Minimum OS X deployment version")
 
 # Project
 project(birp LANGUAGES CXX)
 
-# Needed for Language Server Protocol
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 # Download coretools and stattools
 include(FetchContent)
 FetchContent_Declare(coretools
-        URL https://bitbucket.org/wegmannlab/coretools/get/20e6be3add86dfc77779a4158f2fea894248aacf.tar.gz
-        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/coretools"
-)
+        URL https://bitbucket.org/wegmannlab/coretools/get/989f9303d0927cb65a9a9a0bded83ced90a49dc4.tar.gz
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/coretools")
 
 FetchContent_Declare(stattools
         URL https://bitbucket.org/wegmannlab/stattools/get/95a7c62759a02afdc44ad0361a261fb3f1347175.tar.gz
-        SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/stattools"
-)
+        SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/stattools")
 
 FetchContent_MakeAvailable(coretools stattools)
 
@@ -58,14 +49,10 @@ target_compile_options(${PROJECT_NAME}Lib PRIVATE -Wall -Wextra)
 #######################
 
 # add executable to be built
-add_executable(${PROJECT_NAME}
-        main.cpp
-        )
+add_executable(${PROJECT_NAME} main.cpp)
 
 # link libraries
-target_link_libraries(${PROJECT_NAME} PUBLIC
-        ${PROJECT_NAME}Lib
-        )
+target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}Lib)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
 
