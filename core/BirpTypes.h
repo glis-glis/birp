@@ -3,7 +3,6 @@
 
 #include "coretools/Types/commonWeakTypes.h"
 #include "coretools/Types/probability.h"
-#include <cstdint>
 
 //-------------------------------
 // type alias

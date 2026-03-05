@@ -1,16 +1,9 @@
 #ifndef TEXAMPLETASK_H_
 #define TEXAMPLETASK_H_
 
-#include "TBirpPrior.h" // note: needs to be included first to avoid include issues with Rcpp and RcppArmadillo
-#include "BirpTypes.h"
 #include "TData.h"
-#include "coretools/Main/TParameters.h"
-#include "coretools/Main/TTask.h"
-#include "stattools/DAG/TDAGBuilder.h"
-
-//--------------------------------------
-// TBirpCore
-//--------------------------------------
+#include "TUniqueContainer.h"
+#include <string>
 
 class TBirpCore {
 protected:
@@ -61,32 +54,7 @@ public:
 
 	// main tasks
 	void infer();
-
 	void simulate();
-};
-
-//--------------------------------------
-// Tasks
-//--------------------------------------
-
-class TTask_infer : public coretools::TTask {
-public:
-	TTask_infer() : coretools::TTask("Inferring rates of change in species densities from count data.") {};
-
-	void run() override {
-		TBirpCore birp;
-		birp.infer();
-	};
-};
-
-class TTask_simulate : public coretools::TTask {
-public:
-	TTask_simulate() : coretools::TTask("Simulating count data under Birp model.") {};
-
-	void run() override {
-		TBirpCore birp;
-		birp.simulate();
-	};
 };
 
 #endif /* TEXAMPLETASK_H_ */
