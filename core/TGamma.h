@@ -182,7 +182,7 @@ protected:
 	                       TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices) const;
 	void _fillIndicatorsBACI(std::string_view Filename, const TUniqueContainer<std::string> &CIGroupNames,
 	                         std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
-	                         TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices) const;
+	                         TUniqueContainer<std::string> &names, std::vector<std::vector<size_t>> &CI_indices, std::string_view Name) const;
 
 	template<class T> bool _update(size_t ix, T *Param, const std::vector<bool> &allow_update) {
 		if (Param->isUpdated() && allow_update[ix]) {

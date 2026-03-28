@@ -614,8 +614,8 @@ void TPhi::_readGrouping(bool is_gamma, std::string_view ParamName, std::string_
 	if (parameters().exists(argNameDesign)) {
 		// if "rate_design" or "step_design" is given: use parameter-specific BACI layout
 		auto filename = parameters().get<std::string>(argNameDesign);
-		logfile().list("Reading BACI design from ", filename, "...");
-		_fillIndicatorsBACI(filename, CIGroupNames, ix_per_CIgroup_and_epoch, names, CI_indices);
+		logfile().list("Reading ", Name, " design from ", filename, "...");
+		_fillIndicatorsBACI(filename, CIGroupNames, ix_per_CIgroup_and_epoch, names, CI_indices, Name);
 	} else if (_numCIGroups > 1 && _numEpochs == 1) { // CI only -> no need to provide BACI
 		_fillIndicatorsCI(Name, CIGroupNames, ix_per_CIgroup_and_epoch, names, CI_indices);
 	} else if (_numCIGroups == 1) { // BA only
@@ -708,7 +708,7 @@ void TPhi::_fillIndicatorsBA(bool is_gamma, std::string_view Name, const TUnique
 void TPhi::_fillIndicatorsBACI(std::string_view Filename, const TUniqueContainer<std::string> &CIGroupNames,
                                std::vector<std::vector<size_t>> &ix_per_CIgroup_and_epoch,
                                TUniqueContainer<std::string> &names,
-                               std::vector<std::vector<size_t>> &CI_indices) const {
+                               std::vector<std::vector<size_t>> &CI_indices, std::string_view Name) const {
 	// open file
 	coretools::TInputMaybeRcppFile file(Filename, coretools::FileType::NoHeader);
 
@@ -716,7 +716,7 @@ void TPhi::_fillIndicatorsBACI(std::string_view Filename, const TUniqueContainer
 	int numEpochs = (int)file.numCols() - 1;
 	if (numEpochs != (int)_numEpochs) {
 		throw coretools::TUserError(
-		    "The number of epochs provided in BACI design (", numEpochs,
+		    "The number of epochs provided in ", Name, " design (", numEpochs,
 		    ") does not match the number of epochs provided through the argument 'timesOfChange' (", _numEpochs,
 		    "). Please provide one column per epoch.");
 	}
@@ -732,7 +732,7 @@ void TPhi::_fillIndicatorsBACI(std::string_view Filename, const TUniqueContainer
 		if (!CIGroupNames.exists(group_name)) {
 			throw coretools::TUserError(
 			    "CI group name '", group_name,
-			    "' from BACI design does not match any of the CI groups provided in the input data (column "
+			    "' from ", Name, " design does not match any of the CI groups provided in the input data (column "
 			    "'CI_group')!");
 		}
 		size_t group_id          = CIGroupNames.getIndex(group_name);
@@ -764,7 +764,7 @@ void TPhi::_fillIndicatorsBACI(std::string_view Filename, const TUniqueContainer
 	for (size_t i = 0; i < _numCIGroups; ++i) {
 		if (!found_CI_group[i]) {
 			throw coretools::TUserError("CI group with name '", CIGroupNames[i],
-			                            "' from input data (column 'CI_group') was not found in BACI design.");
+			                            "' from input data (column 'CI_group') was not found in ", Name, " design.");
 		}
 	}
 }
