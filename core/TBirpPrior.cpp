@@ -1,8 +1,6 @@
 
 #include "TBirpPrior.h"
-#include "TBirpCore.h"
 #include "TModels.h"
-#include "coretools/Storage/TDataFile.h"
 #include <utility>
 
 using namespace coretools::instances;

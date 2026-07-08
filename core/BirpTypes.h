@@ -2,7 +2,6 @@
 #define BIRPTYPES_H
 
 #include "coretools/Types/commonWeakTypes.h"
-#include "coretools/Types/probability.h"
 
 //-------------------------------
 // type alias
@@ -25,7 +24,7 @@ using TypeBeta                     = coretools::Unbounded;
 constexpr static size_t NumDimBeta = 1;
 
 // muOrN
-using TypeMuOrN                     = coretools::Probability;
+using TypeMuOrN                     = coretools::ZeroOneClosed;
 constexpr static size_t NumDimMuOrN = 1;
 
 // b

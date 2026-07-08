@@ -3,10 +3,12 @@
 
 #include "BirpTypes.h"
 #include "coretools/Types/TStringHash.h"
-#include "stattools/Priors/TPriorDirichlet.h"
-#include "stattools/Priors/TPriorExponential.h"
+#include "stattools/ParametersObservations/TParameter.h"
+#include "stattools/ParametersObservations/spec.h"
+#include "stattools/Priors/TDirichletFixed.h"
+#include "stattools/Priors/TExponentialFixed.h"
+#include "stattools/Priors/TNormalFixed.h"
 #include "stattools/Priors/TPriorFlat.h"
-#include "stattools/Priors/TPriorNormal.h"
 #include "stattools/Priors/TPriorUniform.h"
 
 // gamma

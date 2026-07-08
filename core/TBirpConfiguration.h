@@ -1,10 +1,7 @@
 #ifndef BIRP_TBIRPCONFIGURATION_H
 #define BIRP_TBIRPCONFIGURATION_H
 
-#include "coretools/Main/TParameters.h"
-#include "stattools/DAG/TDAGBuilder.h"
 #include "stattools/ParametersObservations/TObservation.h"
-#include "stattools/ParametersObservations/TParameter.h"
 
 #include "BirpTypes.h"
 #include "TData.h"

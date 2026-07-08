@@ -1,7 +1,6 @@
 #include "TBirpPrior.h" // note: needs to be included first to avoid include issues with Rcpp and RcppArmadillo
 #include "TData.h"
 #include "coretools/Strings/repeatString.h"
-#include "coretools/Types/strongTypes.h"
 #include "stattools/MCMC/TMCMC.h"
 
 using namespace coretools::instances;

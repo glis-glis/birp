@@ -5,7 +5,7 @@
 #include "BirpTypes.h"
 #include "TBirpConfiguration.h"
 #include "TData.h"
-#include "coretools/Files/TOutputFile.h"
+#include "stattools/Priors/TBaseLikelihoodPrior.h"
 
 class TBirpPrior : public stattools::prior::TBaseLikelihoodPrior<stattools::TObservationBase, TypeCounts, 2> {
 private:

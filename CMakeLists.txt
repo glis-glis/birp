@@ -18,11 +18,11 @@ project(birp LANGUAGES CXX)
 # Download coretools and stattools
 include(FetchContent)
 FetchContent_Declare(coretools
-        URL https://bitbucket.org/wegmannlab/coretools/get/6f6c151db26263e5a2c6e670303c9eaed0b007fc.tar.gz
+        URL https://bitbucket.org/wegmannlab/coretools/get/bdb81499c14964952341da8fdefe547cb69634b6.tar.gz
         SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/coretools")
 
 FetchContent_Declare(stattools
-        URL https://bitbucket.org/wegmannlab/stattools/get/95a7c62759a02afdc44ad0361a261fb3f1347175.tar.gz
+        URL https://bitbucket.org/wegmannlab/stattools/get/2e11bbc29def51fac86d178e4cdaa4e65248615d.tar.gz
         SOURCE_DIR  "${CMAKE_CURRENT_SOURCE_DIR}/stattools")
 
 FetchContent_MakeAvailable(coretools stattools)

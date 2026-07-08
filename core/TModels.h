@@ -3,7 +3,6 @@
 
 #include <vector>
 
-#include "coretools/Math/TMatrix.h"
 #include <armadillo>
 
 #include "BirpDAG.h"

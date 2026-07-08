@@ -4,12 +4,6 @@
 #include <vector>
 #include <armadillo> // note: needs to be included first to avoid include issues with Rcpp and RcppArmadillo
 
-#include "coretools/Math/TMatrix.h"
-
-#include "stattools/ParametersObservations/TObservation.h"
-#include "stattools/ParametersObservations/TParameter.h"
-
-#include "BirpTypes.h"
 #include "TData.h"
 
 // forward declarations
