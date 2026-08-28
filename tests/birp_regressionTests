@@ -6,8 +6,9 @@ compare() {
 	for a_ref in ${1}_ref/*; do
 		[[ $a_ref == *.eout ]]  && continue
 		a_new=${1}_new/$(basename $a_ref)
-		if [[ $a_ref == *.vcf.gz ]]; then
-			if ! diff -q <(gunzip -c $a_ref | grep -v "fileDate") <(gunzip -c  $a_new | grep -v "fileDate") > /dev/null; then
+		if [[ $a_ref == *.out ]]; then
+			# do not compare version, commit nor execution speed
+			if ! diff -q <(tail -n +8 $a_ref | grep -v "second" ) <(tail -n +8 $a_new | grep -v "second" ) > /dev/null; then
 				echo "Files $a_ref and $a_new differ"
 				differs=true
 			fi
