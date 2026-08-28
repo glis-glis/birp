@@ -4,8 +4,6 @@ compare() {
 	echo "- Comparing reference birp-files to new ones"
 	local differs=""
 	for a_ref in ${1}_ref/*; do
-		[[ $a_ref == *.bai ]] && continue
-		[[ $a_ref == *.out ]] && continue
 		[[ $a_ref == *.eout ]]  && continue
 		a_new=${1}_new/$(basename $a_ref)
 		if [[ $a_ref == *.vcf.gz ]]; then
@@ -15,6 +13,11 @@ compare() {
 			fi
 		elif [[ $a_ref == *.gz ]]; then
 			if ! diff -q <(gunzip -c $a_ref) <(gunzip -c  $a_new) > /dev/null; then
+				echo "Files $a_ref and $a_new differ"
+				differs=true
+			fi
+		elif [[ $a_ref == *.parameters ]]; then
+			if ! diff -q <(grep -v "_ref" $a_ref) <(grep -v "_new" $a_new) > /dev/null; then
 				echo "Files $a_ref and $a_new differ"
 				differs=true
 			fi
