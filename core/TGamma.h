@@ -33,18 +33,20 @@ private:
 
 	bool _timePointIsRelevant(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t e) const;
 	bool _timePointIsRelevantDelta(const TUniqueContainer<TypeTime> &Timepoints, size_t t, size_t e) const;
-	auto _loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
+	std::tuple<bool, size_t, bool> _loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
 	                         size_t i, size_t j_in_method, size_t e, size_t CI_index, size_t L,
 	                         std::vector<double> &y_ix, std::vector<TypeTime> &t_ix,
 	                         std::vector<size_t> &dataSeriesIndex,
 	                         const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
 	                         const std::vector<bool> &update_delta) const;
-	auto _getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
+	std::pair<size_t, bool> _getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
 	                               const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
 	                               const std::vector<std::vector<size_t>> &dataSeriesIndex,
 	                               const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts,
 	                               const std::vector<bool> &update_gamma) const;
-	auto _get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID,
+	std::tuple<std::vector<double>, std::vector<TypeTime>, std::vector<size_t>, std::vector<std::pair<size_t, size_t>>,
+		   std::vector<std::pair<size_t, size_t>>, std::vector<size_t>, std::vector<bool>>
+	_get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID,
 	               const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
 	               const std::vector<bool> &update_delta) const;
 	static arma::vec _doOLS(const std::vector<double> &Y_m, const std::vector<TypeTime> &T_m,
@@ -92,7 +94,7 @@ private:
 	                                   size_t epoch_ix_delta,
 	                                   const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
 	                                   const std::vector<bool> &update_delta);
-	static auto _getScore(size_t l, const std::vector<size_t> &dataSeriesIndex,
+	static std::tuple<size_t, size_t, double> _getScore(size_t l, const std::vector<size_t> &dataSeriesIndex,
 	                      const std::vector<size_t> &numDataPointsWithZeroCounts);
 	static size_t _getNumNonZeroDataPointsInRange(size_t l, const std::vector<size_t> &dataSeriesIndex);
 	void _checkIfDeltaIsIdentifiable(const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,

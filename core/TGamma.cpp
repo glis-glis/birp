@@ -30,7 +30,7 @@ bool TOLSGamma::_timePointIsRelevantDelta(const TUniqueContainer<TypeTime> &Time
 	return Timepoints[t] > _epochStarts[e] && Timepoints[t] <= _epochStarts[e + 1];
 }
 
-auto TOLSGamma::_loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
+std::tuple<bool, size_t, bool> TOLSGamma::_loopOverTimepoints(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t SpeciesID,
                                     size_t i, size_t j_in_method, size_t e, size_t CI_index, size_t L,
                                     std::vector<double> &y_ix, std::vector<TypeTime> &t_ix,
                                     std::vector<size_t> &dataSeriesIndex,
@@ -77,9 +77,11 @@ auto TOLSGamma::_loopOverTimepoints(const TData &Data, const TUniqueContainer<Ty
 	return std::make_tuple(hasTimepoint, numZero, allZero);
 }
 
-auto TOLSGamma::_get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID,
-                          const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
-                          const std::vector<bool> &update_delta) const {
+std::tuple<std::vector<double>, std::vector<TypeTime>, std::vector<size_t>, std::vector<std::pair<size_t, size_t>>,
+		   std::vector<std::pair<size_t, size_t>>, std::vector<size_t>, std::vector<bool>>
+TOLSGamma::_get_Y_ix(const TData &Data, const TUniqueContainer<TypeTime> &Timepoints, size_t ix, size_t SpeciesID,
+                     const std::vector<std::vector<size_t>> &delta_ix_per_CIgroup_and_epoch,
+                     const std::vector<bool> &update_delta) const {
 	// calculates response variable y_ix for each gamma as well as other variables needed for OLS
 	std::vector<double> y_ix;            // response variable
 	std::vector<TypeTime> t_ix;          // timepoints, same size as y_ix
@@ -327,9 +329,9 @@ size_t TOLSGamma::_getNumNonZeroDataPointsInRange(size_t l, const std::vector<si
 	return counter;
 }
 
-auto TOLSGamma::_getScore(size_t l, const std::vector<size_t> &dataSeriesIndex,
+std::tuple<size_t, size_t, double> TOLSGamma::_getScore(size_t l, const std::vector<size_t> &dataSeriesIndex,
                           const std::vector<size_t> &numDataPointsWithZeroCounts) {
-	if (numDataPointsWithZeroCounts.empty()) { std::make_tuple(0, 0, 0); } // no data points at all
+	if (numDataPointsWithZeroCounts.empty()) { return std::make_tuple(0, 0, 0.); } // no data points at all
 
 	// count the number of occurrences of that l for the current gamma (non-zero data points)
 	size_t numNonZeroDataPointsInRange = _getNumNonZeroDataPointsInRange(l, dataSeriesIndex);
@@ -386,7 +388,7 @@ void TOLSGamma::_checkIfDeltaIsIdentifiable(const std::vector<std::vector<size_t
 	}
 }
 
-auto TOLSGamma::_getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
+std::pair<size_t, bool> TOLSGamma::_getNextGammaToInitialize(const std::vector<bool> &GammaInitialized,
                                           const std::vector<std::vector<std::pair<size_t, size_t>>> &l_to_ij,
                                           const std::vector<std::vector<size_t>> &dataSeriesIndex,
                                           const std::vector<std::vector<size_t>> &numDataPointsWithZeroCounts,
@@ -397,7 +399,7 @@ auto TOLSGamma::_getNextGammaToInitialize(const std::vector<bool> &GammaInitiali
 	bool max_ols_possible = false;
 	for (size_t ix = 0; ix < _numGamma; ++ix) {
 		// first check if gamma is fix: if yes, prioritize it
-		if (!update_gamma[ix] && !GammaInitialized[ix]) { return std::make_tuple(ix, false); }
+		if (!update_gamma[ix] && !GammaInitialized[ix]) { return std::make_pair(ix, false); }
 
 		double score      = 0;
 		bool ols_possible = false;
@@ -421,7 +423,7 @@ auto TOLSGamma::_getNextGammaToInitialize(const std::vector<bool> &GammaInitiali
 		                            max_gamma_ix + 1, "]!");
 	}
 
-	return std::make_tuple(max_gamma_ix, max_ols_possible);
+	return std::make_pair(max_gamma_ix, max_ols_possible);
 }
 
 std::vector<double>
@@ -457,7 +459,6 @@ TOLSGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTi
 		const auto [curGamma, ols_possible] = _getNextGammaToInitialize(gammaInitialized, l_to_ij, dataSeriesIndex,
 		                                                                numDataPointsWithZeroCounts, update_gamma);
 
-		logfile().listFlush("Gamma ", GammaNames[curGamma], ":");
 
 		const size_t L = l_to_ij[curGamma].size();
 		if (!update_gamma[curGamma] || !ols_possible) {
@@ -488,8 +489,7 @@ TOLSGamma::estimateInitialGamma(const TData &Data, const TUniqueContainer<TypeTi
 		}
 
 		gammaInitialized[curGamma] = true;
-		logfile().flush(" initial value = ", _gamma[curGamma], "!");
-		logfile().newLine();
+		logfile().list("Gamma ", GammaNames[curGamma], ": initial value = ", _gamma[curGamma], "!");
 	}
 	logfile().endIndent();
 

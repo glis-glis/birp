@@ -42,7 +42,7 @@ target_include_directories(${PROJECT_NAME}Lib PRIVATE core SYSTEM INTERFACE core
 target_link_libraries(${PROJECT_NAME}Lib PUBLIC coretools stattools)
 target_compile_features(${PROJECT_NAME}Lib PUBLIC cxx_std_17)
 set_target_properties(${PROJECT_NAME}Lib PROPERTIES CXX_EXTENSIONS OFF)
-target_compile_options(${PROJECT_NAME}Lib PRIVATE -Wall -Wextra)
+target_compile_options(${PROJECT_NAME}Lib PRIVATE -Wall -Wextra -pedantic -Winvalid-utf8 -Wunused-result)
 
 #######################
 # Executable

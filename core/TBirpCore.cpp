@@ -304,7 +304,7 @@ void TBirpCore::_readFile(const std::string &Filename) {
 
 		const auto &row = file.front();
 
-		// boot one vector together (stiflä) of all species counts, and one of all covariates
+		// boot one vector together of all species counts, and one of all covariates
 		std::vector<TypeCounts> countVec(species_ids.size(), 0);
 		std::vector<TypeCovariateEffort> covEffortVec(covEffortIndices.size());
 		std::vector<TypeCovariateDetection> covDetectionVec(covDetectionIndices.size());
