@@ -1,0 +1,38 @@
+Overall license:
+================
+
+    birp is released under MPL-2.0
+
+Details:
+========
+
+Files: *
+License: MPL-2.0
+
+Files: src/birp_cpp/*
+License: MPL-2.0
+
+Files: src/birp_cpp/coretools/*
+License: MPL-2.0
+
+Files: src/birp_cpp/stattools/*
+License: MPL-2.0
+
+Files: src/birp_cpp/coretools/arma/*
+Armadillo C++ Linear Algebra Library
+Copyright 2008-2025 Conrad Sanderson (https://conradsanderson.id.au)
+Copyright 2008-2016 National ICT Australia (NICTA)
+Copyright 2017-2025 Data61 / CSIRO
+License: Apache-2.0
+
+Files: src/birp_cpp/coretools/fast_float/*
+Copyright 2021 Daniel Lemire and João Paulo Magalhaes
+License: Apache (2.0), MIT, BOOST
+
+Files: src/birp_cpp/coretools/fmt/*
+Copyright (c) 2012 - present, Victor Zverovich and {fmt} contributors
+License: MIT
+
+Files: src/birp_cpp/coretools/FindR.cmake
+Copyright (C) 1995-2019, Rene Brun and Fons Rademakers.
+License: LGPL version 2.1

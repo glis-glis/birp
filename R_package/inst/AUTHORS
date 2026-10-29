@@ -1,0 +1,38 @@
+Madleina Caduff and Andreas Füglistaler wrote the R package 'birp'
+providing the R integration. The birp package is licensed under
+MPL-2.0.
+
+Madleina Caduff, Andreas Füglistaler, Liam Singer and Daniel Wegmann
+wrote the C++ implementation of birp at
+https://bitbucket.org/wegmannlab/birp_cpp/. birp_cpp is licensed under
+MPL-2.0.
+
+Madleina Caduff, Andreas Füglistaler, Raphael Eckel and Daniel Wegmann
+wrote the C++ libraries coretools and stattools at
+https://bitbucket.org/wegmannlab/coretools/ and
+https://bitbucket.org/wegmannlab/stattools/. The coretools and
+stattools are licensed under MPL-2.0.
+
+Liam Singer, Madleina Caduff, Thierry Aebischer, Primaël Tabiti, Aimée
+Freiberg, Jens Ingensand, Christoph Leuenberger and Daniel Wegmann
+wrote the underlying paper <doi:10.1101/2025.01.08.631844>.
+
+birp uses the armadillo library by Conrad Sanderson and Ryan Curtin
+described in https://arma.sourceforge.net/armadillo_iccae_2025.pdf and
+https://arma.sourceforge.net/armadillo_mca_2019.pdf with its code repo
+at https://arma.sourceforge.net/. The armadillo is licensed under
+Apache (2.0).
+
+birp uses the fast-float library by Daniel Lemire and João Paulo
+Magalhaes described in <arXiv:2101.11408> and <arXiv:2212.06644> with
+its code repo at https://github.com/fastfloat/fast_float. The
+fast-float library is licensed under Apache (2.0), MIT, BOOST.
+
+birp uses the {fmt} library by Victor Zverovich with its code repo at
+https://github.com/fmtlib/fmt. The {fmt} library is licensed under the
+MIT license.
+
+birp uses the FindR.cmake script by Rene Brun and Fons Rademakers with
+the original code at
+https://github.com/root-project/root/blob/master/cmake/modules/FindR.cmake.
+The script is licensed under LGPL version 2.1.

@@ -44,6 +44,8 @@ target_compile_features(${PROJECT_NAME}Lib PUBLIC cxx_std_17)
 set_target_properties(${PROJECT_NAME}Lib PROPERTIES CXX_EXTENSIONS OFF)
 target_compile_options(${PROJECT_NAME}Lib PRIVATE -Wall -Wextra -pedantic -Winvalid-utf8 -Wunused-result)
 
+
+if(NOT RCPP)
 #######################
 # Executable
 #######################
@@ -55,4 +57,5 @@ add_executable(${PROJECT_NAME} main.cpp)
 target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}Lib)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
+endif()
 

@@ -1,0 +1,89 @@
+REPONAME = birp_cpp
+# get commit number
+
+PKG_CPPFLAGS = -I$(REPONAME)/coretools/core/ \
+-I$(REPONAME)/coretools/fast_float/include/ \
+-I$(REPONAME)/coretools/arma/include/ \
+-I$(REPONAME)/stattools/core/ \
+-I$(REPONAME)/core/ \
+-DUSE_RCPP
+
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
+
+# Include ARMA_LIBS after it's generated
+-include $(REPONAME)/arma.libs
+
+PKG_LIBS    = -L$(REPONAME) -lbirpLib -lstattools -lcoretools -larmadillo -lz \
+$(ARMA_LIBS) $(FLIBS) $(SHLIB_OPENMP_CXXFLAGS)
+
+.Phony: all
+
+all: $(REPONAME) $(SHLIB)
+
+$(SHLIB): $(REPONAME) $(REPONAME)/arma.libs
+
+$(REPONAME)/arma.libs: $(REPONAME)/build/cmake.log
+
+$(REPONAME)/build/cmake.log: $(REPONAME)/build
+
+$(REPONAME)/build:
+	{ \
+	    pwd > ~/Desktop/R.out && \
+	    ls -l >> ~/Desktop/R.out && \
+	    ls -l >> ~/Desktop/R.out && \
+	    ls -l birp_cpp >> ~/Desktop/R.out && \
+	    [ -x "$${CMAKE}" ]  || CMAKE=$$(which cmake); \
+	    [ -x "$${CMAKE}" ]  || CMAKE=/usr/bin/cmake; \
+	    [ -x "$${CMAKE}" ]  || CMAKE=/usr/local/bin/cmake; \
+	    [ -x "$${CMAKE}" ]  || CMAKE=/opt/homebrew/bin/cmake; \
+	    [ -x "$${CMAKE}" ]  || CMAKE=/Applications/CMake.app/Contents/bin/cmake; \
+	    echo "$${CMAKE}" && [ -x "$${CMAKE}" ] ; \
+	} && { \
+	    RSCRIPT=$${R_HOME}/bin$${R_ARCH_BIN}/Rscript.exe; \
+	    [ -x "$${RSCRIPT}" ] || RSCRIPT=$${R_HOME}/bin/Rscript; \
+	    echo "$${RSCRIPT}" && [ -x "$${RSCRIPT}" ] ; \
+	} && { \
+	    RCPP_INCLUDE=$$($${RSCRIPT} --vanilla --slave -e "stopifnot(require('Rcpp', quietly=TRUE));cat(Rcpp:::Rcpp.system.file('include'))") && \
+	    echo "$${RCPP_INCLUDE}" && [ -d "$${RCPP_INCLUDE}" ] ; \
+	} && { \
+	    R_CC=$$($${RSCRIPT} --vanilla --slave -e "cat(system2(file.path(R.home('bin'),'R'),c('CMD','config','CC'),stdout=TRUE))")  && \
+	    echo "$${R_CC}" && \
+	    R_CXX=$$($${RSCRIPT} --vanilla --slave -e "cat(system2(file.path(R.home('bin'), 'R'), c('CMD','config','CXX'), stdout=TRUE))") && \
+	    echo "$${R_CXX}" && \
+	    R_CXXFLAGS=$$($${RSCRIPT} --vanilla --slave -e "cat(system2(file.path(R.home('bin'), 'R'), c('CMD','config','CXXFLAGS'), stdout=TRUE))") && \
+	    echo "$${R_CXXFLAGS}"; \
+	} && { \
+	    mkdir $(REPONAME)/build && cd $(REPONAME)/build && \
+		CC=$${R_CC} CXX=$${R_CXX} CXXFLAGS=$${R_CXXFLAGS} \
+	    $${CMAKE} -S .. \
+	        -G "Unix Makefiles" \
+	        -DCMAKE_BUILD_TYPE=Release \
+	        -DBUILD_SHARED_LIBS:bool=OFF \
+	        -DCMAKE_POSITION_INDEPENDENT_CODE:bool=ON \
+	        -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON \
+	        -DCMAKE_FIND_PACKAGE_NO_SYSTEM_PACKAGE_REGISTRY=ON \
+	        -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON \
+	        -DRCPP=ON \
+	        -DBUILD_SMOKE_TEST=false \
+	        -DRCPP_INCLUDE_DIRS="$${RCPP_INCLUDE}" \
+	        -DR_HOME="$(R_HOME)" > cmake.log; \
+	} && { \
+	    sed '/^#pragma/d' ../coretools/fast_float/include/fast_float/parse_number.h > tmp.h && \
+	    mv tmp.h ../coretools/fast_float/include/fast_float/parse_number.h && \
+	    echo "ARMA_LIBS = $$(grep ARMA_LIBS cmake.log | cut -d "=" -f2 | cut -d ' ' -f2- | sed 's/;/ /g')" > ../arma.libs; \
+	} && { \
+	    make birpLib; \
+	} && { \
+	    mv -v libbirpLib.* .. && \
+	    mv -v _deps/coretools-build/libcoretools.* .. && \
+	    mv -v _deps/stattools-build/libstattools.* .. && \
+	    mv -v _deps/armadillo-build/libarmadillo.* ..; \
+	} && { \
+	    cd .. && rm -rf build && \
+	    find coretools -mindepth 1 -maxdepth 1 \
+	        ! -name core ! -name arma ! -name fast_float ! -name fmt -exec rm -rv {} +; \
+	    find stattools -mindepth 1 -maxdepth 1 ! -name core -exec rm -rv {} +; \
+	    find coretools/arma -mindepth 1 -maxdepth 1 ! -name include ! -exec rm -rv {} +; \
+	    find coretools/fast_float -mindepth 1 -maxdepth 1 ! -name include -exec rm -rv {} +; \
+	    find coretools/fmt -mindepth 1 -maxdepth 1 ! -name include ! -exec rm -rv {} +; \
+	}
