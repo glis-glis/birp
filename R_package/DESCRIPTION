@@ -1,7 +1,7 @@
 Package: birp
 Type: Package
 Title: Testing for Population Trends Using Low-Cost Ecological Count Data
-Version: 0.9.0
+Version: 0.9.1
 Date: 2026-09-01
 Authors@R: c(person("Madleina", "Caduff", role = c("aut"),
                      email = "madleina.caduff@unifr.ch"),
@@ -19,8 +19,6 @@ Authors@R: c(person("Madleina", "Caduff", role = c("aut"),
                      comment = "Author of fast_float"),
 			 person("João Paulo", "Magalhaes", role = c("cph"),
                      comment = "Author of fast_float"),
-			 person("Victor", "Zverovich", role = c("cph"),
-                     comment = "Author of {fmt}"),
 			 person("Rene", "Brun", role = c("cph"),
                      comment = "Author of FindR.cmake (CERN ROOT)"),
 			 person("Fons", "Rademakers", role = c("cph"),

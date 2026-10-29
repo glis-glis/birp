@@ -4,3 +4,4 @@ rm -rf src/Makevars
 rm -rf src/birp_cpp/coretools
 rm -rf src/birp_cpp/stattools
 rm -rf src/birp_cpp/build
+rm srrc/birp_cpp/*.a

@@ -28,10 +28,6 @@ Magalhaes described in <arXiv:2101.11408> and <arXiv:2212.06644> with
 its code repo at https://github.com/fastfloat/fast_float. The
 fast-float library is licensed under Apache (2.0), MIT, BOOST.
 
-birp uses the {fmt} library by Victor Zverovich with its code repo at
-https://github.com/fmtlib/fmt. The {fmt} library is licensed under the
-MIT license.
-
 birp uses the FindR.cmake script by Rene Brun and Fons Rademakers with
 the original code at
 https://github.com/root-project/root/blob/master/cmake/modules/FindR.cmake.

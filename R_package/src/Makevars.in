@@ -81,9 +81,8 @@ $(REPONAME)/build:
 	} && { \
 	    cd .. && rm -rf build && \
 	    find coretools -mindepth 1 -maxdepth 1 \
-	        ! -name core ! -name arma ! -name fast_float ! -name fmt -exec rm -rv {} +; \
+	        ! -name core ! -name arma ! -name fast_float -exec rm -rv {} +; \
 	    find stattools -mindepth 1 -maxdepth 1 ! -name core -exec rm -rv {} +; \
 	    find coretools/arma -mindepth 1 -maxdepth 1 ! -name include ! -exec rm -rv {} +; \
 	    find coretools/fast_float -mindepth 1 -maxdepth 1 ! -name include -exec rm -rv {} +; \
-	    find coretools/fmt -mindepth 1 -maxdepth 1 ! -name include ! -exec rm -rv {} +; \
 	}
